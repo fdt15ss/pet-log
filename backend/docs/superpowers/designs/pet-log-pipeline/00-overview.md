@@ -1,0 +1,39 @@
+# 펫로그 파이프라인 개요
+
+## 기획 반영 범위
+
+| 기획 요소 | backend 파이프라인 반영 |
+| --- | --- |
+| 자연어 기반 통합 입력 | `PetLogAgentPipeline`, `RecordStructuringAgent` |
+| 음성 기반 기록 입력 | `SpeechToTextInterface`, `PetLogAgentPipeline` |
+| 자동 데이터 구조화 | `RecordStructuringAgent`, `RecordStructurerInterface` |
+| 누적 데이터 기반 분석 | `ContextAnalysisAgent` |
+| 이상 변화 감지 | `RiskDetectionAgent`, `RiskSignalPolicyInterface` |
+| 행동 가이드 제공 | `SuggestionAgent` |
+| 기록 누락 감지 | `ContextAnalysisAgent`, `MissingRecordPolicyInterface` |
+| 홈 오늘 요약/최근 변화/제안 카드 | `HomeFeedPipeline` |
+| AI 케어 질문 | `CareQuestionPipeline` |
+| 펫과 대화하는 감성 인터페이스 | `PetChatPipeline` |
+| 펫 대화 음성 출력 | `TextToSpeechInterface`, `PetChatPipeline` |
+| 건강 이상 질문 시 병원 상담 안내 | `SafetyGuardInterface`, `middleware/safety.py` |
+| 병원 제출용 요약 | `HospitalSummaryPipeline` |
+| 일정 기반 관리 | `ScheduleContextReaderInterface`, `ReminderPlannerInterface` |
+
+## Architect Agent 검토 반영
+
+권장 구조는 `hybrid`다.
+
+- 하나의 거대한 pipeline만 두면 홈/질문/펫대화의 UX 경계가 흐려진다.
+- 기능별 pipeline만 나누면 기획의 “AI Agent 중심 관리” 의도가 약해진다.
+- 따라서 `PetLogAgentPipeline`을 core owner로 두고, 내부 책임은 LLM agent 역할 단위로 분리한다.
+- surface pipeline은 core 결과를 화면 또는 대화 채널에 맞게 조립한다.
+- multi-agent planner, handoff protocol은 이번 인터페이스 설계 범위에 넣지 않는다.
+- 단일 agent 실행 공통층인 `agent_runtime`, `middleware`, `tools`는 구조만 잡고 내부 동작은 후속 단계로 미룬다.
+
+## 성공 기준
+
+- 기획의 `기록 -> 해석 -> 행동 제안` 흐름이 pipeline에 반영되어 있다.
+- 홈의 `오늘 요약`, `최근 변화`, `이상 징후`, `제안 카드`를 만들 수 있는 interface가 있다.
+- `AI 케어 질문`과 `펫 대화`가 backend에서 분리된 pipeline으로 표현된다.
+- 위험 신호는 병원 상담 권장 또는 케어 질문 연결로 제한된다.
+- 현재 단계는 폴더, interface 파일, infrastructure/runtime skeleton import까지 검증되어야 한다.

@@ -1,0 +1,382 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import { AppShell } from "@/components/app-shell";
+import { PetIcon } from "@/components/pet-icons";
+import { usePetLog } from "@/components/pet-log-provider";
+import { Card, CategoryBadge, SectionHeader } from "@/components/ui";
+import { structureRecordPreview } from "@/lib/api-client";
+import { categoryLabels } from "@/lib/mock-data";
+import { getInputModeFeedback, type RecordInputMode } from "@/lib/record-input";
+import type { RecordCategory, StructuredRecord } from "@/lib/types";
+
+const categoryOptions = [
+  { icon: "meal", label: "식사", value: "meal" },
+  { icon: "walk", label: "산책", value: "walk" },
+  { icon: "stool", label: "배변", value: "stool" },
+  { icon: "medical", label: "병원/약", value: "medical" },
+  { icon: "behavior", label: "행동", value: "behavior" },
+] as const satisfies ReadonlyArray<{ icon: "meal" | "walk" | "stool" | "medical" | "behavior"; label: string; value: RecordCategory }>;
+
+const inputModes: { label: string; value: RecordInputMode }[] = [
+  { label: "텍스트", value: "text" },
+  { label: "음성", value: "voice" },
+  { label: "사진", value: "photo" },
+];
+
+const inputPlaceholders: Record<RecordInputMode, string> = {
+  text: "예: 아침 사료 50g을 먹고 산책 20분을 했어요.",
+  voice: "음성으로 남길 내용을 확인하거나 직접 수정해주세요.",
+  photo: "사진과 함께 남길 메모를 입력해주세요.",
+};
+
+const defaultDetail = "오늘 아침에 50g 사료 먹고, 간식 조금 줬어. 낮에 산책 20분 했고 밤에 배변 1번 했어.";
+const maxLength = 500;
+
+type AiPreviewResult = {
+  detail: string;
+  category: RecordCategory;
+  structured: StructuredRecord;
+};
+
+function createPendingPreview(detail: string, category: RecordCategory): StructuredRecord {
+  const sourceText = detail.trim();
+  const firstSentence = sourceText.split(/\n|[.!?。]/)[0]?.trim() ?? sourceText;
+  return {
+    sourceText,
+    normalizedSummary: firstSentence ? (firstSentence.length > 38 ? `${firstSentence.slice(0, 38)}...` : firstSentence) : "기록 내용을 입력하면 미리보기가 생성됩니다.",
+    suggestedCategory: category,
+    confidence: 0.4,
+    measurements: [],
+    needsConfirmation: true,
+  };
+}
+
+export default function RecordPage() {
+  const { addRecord, records } = usePetLog();
+  const [detail, setDetail] = useState(defaultDetail);
+  const [category, setCategory] = useState<RecordCategory>("meal");
+  const [inputMode, setInputMode] = useState<RecordInputMode>("text");
+  const [error, setError] = useState("");
+  const [savedId, setSavedId] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [aiPreview, setAiPreview] = useState<AiPreviewResult | null>(null);
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState("");
+
+  const preview = records.slice(0, 3);
+  const trimmedDetail = detail.trim();
+  const isInvalid = trimmedDetail.length < 5 || trimmedDetail.length > maxLength;
+  const fallbackPreview = useMemo(() => createPendingPreview(trimmedDetail, category), [category, trimmedDetail]);
+  const activePreview = aiPreview?.detail === trimmedDetail && aiPreview.category === category ? aiPreview.structured : null;
+  const displayPreview = activePreview ?? fallbackPreview;
+  const showPreviewLoading = !!trimmedDetail && isPreviewLoading && !activePreview;
+  const visiblePreviewError = trimmedDetail ? previewError : "";
+  const confidencePercent = Math.round(displayPreview.confidence * 100);
+  const modeFeedback = getInputModeFeedback(inputMode);
+
+  const previewTitle = useMemo(() => {
+    if (!trimmedDetail) {
+      return "기록 내용을 입력하면 미리보기가 생성됩니다.";
+    }
+    return trimmedDetail.length > 28 ? `${trimmedDetail.slice(0, 28)}...` : trimmedDetail;
+  }, [trimmedDetail]);
+
+  useEffect(() => {
+    if (!trimmedDetail) {
+      return;
+    }
+
+    let cancelled = false;
+    const timeoutId = window.setTimeout(() => {
+      setIsPreviewLoading(true);
+      structureRecordPreview({ detail: trimmedDetail, fallbackCategory: category })
+        .then((response) => {
+          if (!cancelled) {
+            setAiPreview({ category, detail: trimmedDetail, structured: response.structured });
+            setPreviewError("");
+          }
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setAiPreview(null);
+            setPreviewError("AI 미리보기를 불러오지 못해 기본 분류로 표시합니다.");
+          }
+        })
+        .finally(() => {
+          if (!cancelled) {
+            setIsPreviewLoading(false);
+          }
+        });
+    }, 250);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [category, trimmedDetail]);
+
+  async function handleSave() {
+    if (!trimmedDetail) {
+      setError("기록 내용을 입력해주세요.");
+      setSavedId(null);
+      return;
+    }
+
+    if (trimmedDetail.length < 5) {
+      setError("기록은 5자 이상 입력해주세요.");
+      setSavedId(null);
+      return;
+    }
+
+    if (trimmedDetail.length > maxLength) {
+      setError(`기록은 ${maxLength}자 이내로 입력해주세요.`);
+      setSavedId(null);
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const record = await addRecord({ category, detail: trimmedDetail });
+      setSavedId(record.id);
+      setError("");
+      setDetail("");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  return (
+    <AppShell
+      bottomAction={
+        <button
+          className={`pet-log-pressable h-12 w-full rounded-2xl text-base font-bold text-white shadow-[0_8px_22px_rgba(22,128,75,0.25)] disabled:bg-[#8ab99f] ${
+            isInvalid ? "bg-[#8ab99f]" : "bg-[#16804b]"
+          }`}
+          disabled={isSaving}
+          onClick={handleSave}
+          type="button"
+        >
+          {isSaving ? "저장 중" : "기록 저장하기"}
+        </button>
+      }
+      subtitle="자연어로 쉽고 빠르게 기록"
+      title="기록 입력"
+    >
+      <div className="space-y-5">
+        <Card className="bg-gradient-to-br from-white to-[#edf8ed]" motion="rise">
+          <p className="inline-flex items-center gap-1.5 text-sm font-bold text-[#16804b]">
+            <PetIcon className="h-4 w-4" name="sparkle" />
+            기록 준비
+          </p>
+          <h2 className="mt-1 text-lg font-black text-[#1f2922]">오늘 케어 내용을 한 번에 정리해요</h2>
+          <div className="mt-4 grid grid-cols-3 gap-2">
+            <div className="rounded-2xl bg-white/80 px-3 py-3 text-center">
+              <p className="text-[11px] font-bold text-[#778174]">분류</p>
+              <p className="mt-1 truncate text-sm font-black text-[#1f2922]">{categoryLabels[category]}</p>
+            </div>
+            <div className="rounded-2xl bg-white/80 px-3 py-3 text-center">
+              <p className="text-[11px] font-bold text-[#778174]">AI 신뢰도</p>
+              <p className="mt-1 text-sm font-black text-[#1f2922]">{confidencePercent}%</p>
+            </div>
+            <div className="rounded-2xl bg-white/80 px-3 py-3 text-center">
+              <p className="text-[11px] font-bold text-[#778174]">입력</p>
+              <p className="mt-1 text-sm font-black text-[#1f2922]">{detail.length}/{maxLength}</p>
+            </div>
+          </div>
+        </Card>
+
+        <section>
+          <SectionHeader title="빠른 입력" />
+          <div className="grid grid-cols-2 gap-2">
+            {categoryOptions.map((item) => {
+              const active = item.value === category;
+              return (
+                <button
+                  aria-pressed={active}
+                  className={`pet-log-pressable flex min-h-16 items-center gap-3 rounded-2xl border px-3 text-left text-sm font-bold transition ${
+                    active
+                      ? "border-[#16804b] bg-[#16804b] text-white"
+                      : "border-[#dfe6d9] bg-white text-[#4a5547] shadow-[0_8px_22px_rgba(49,65,44,0.05)]"
+                  }`}
+                  key={item.label}
+                  onClick={() => setCategory(item.value)}
+                  type="button"
+                >
+                  <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl ${active ? "bg-white/20" : "bg-[#f4f7f0] text-[#16804b]"}`}>
+                    <PetIcon className="h-5 w-5" name={active ? "check" : item.icon} />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block">{item.label}</span>
+                    <span className={`mt-1 block text-[11px] font-semibold ${active ? "text-white/80" : "text-[#7c8777]"}`}>
+                      {item.value === "meal"
+                        ? "먹은 양"
+                        : item.value === "walk"
+                          ? "시간/거리"
+                          : item.value === "stool"
+                            ? "횟수/상태"
+                            : item.value === "medical"
+                              ? "약/진료"
+                              : "감정/반응"}
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
+        <Card motion="rise">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-base font-bold text-[#1f2922]">입력 방식</h2>
+              <p className="mt-1 text-xs font-semibold text-[#7c8777]">현재 저장은 텍스트 메모 기준으로 동작합니다.</p>
+            </div>
+            <CategoryBadge category={category} />
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            {inputModes.map((mode) => {
+              const active = inputMode === mode.value;
+              const feedback = getInputModeFeedback(mode.value);
+              return (
+                <button
+                  aria-pressed={active}
+                  className={`pet-log-pressable min-h-14 rounded-xl border px-2 text-sm font-bold ${
+                    active ? "border-[#16804b] bg-[#e7f4eb] text-[#0b7a43]" : "border-[#dce5d5] bg-white text-[#40513f]"
+                  }`}
+                  key={mode.value}
+                  onClick={() => setInputMode(mode.value)}
+                  type="button"
+                >
+                  <span className="block">{mode.label}</span>
+                  <span className="mt-1 block text-[11px] font-semibold opacity-80">{feedback.label}</span>
+                </button>
+              );
+            })}
+          </div>
+          <div
+            className={`mt-3 rounded-2xl px-4 py-3 ${
+              modeFeedback.status === "available" ? "bg-[#edf8ed] text-[#356342]" : "bg-[#fff7ed] text-[#7a5531]"
+            }`}
+          >
+            <p className="text-xs font-bold">{modeFeedback.label}</p>
+            <p className="mt-1 text-xs leading-5">{modeFeedback.detail}</p>
+          </div>
+        </Card>
+
+        <Card motion="rise">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-base font-bold">자연어 기록</h2>
+            <span className={`text-xs font-semibold ${detail.length > maxLength ? "text-[#be4c3c]" : "text-[#9aa494]"}`}>
+              {detail.length}/{maxLength}
+            </span>
+          </div>
+          <textarea
+            className="min-h-40 w-full resize-none rounded-2xl border border-[#dde6d6] bg-[#fbfcfa] p-4 text-sm leading-6 outline-none placeholder:text-[#8a9286] focus:border-[#16804b] focus:ring-2 focus:ring-[#16804b]/15"
+            maxLength={maxLength + 40}
+            onChange={(event) => {
+              setDetail(event.target.value);
+              if (error) {
+                setError("");
+              }
+              if (savedId) {
+                setSavedId(null);
+              }
+            }}
+            placeholder={inputPlaceholders[inputMode]}
+            value={detail}
+          />
+          {error ? <p className="mt-3 text-sm font-semibold text-[#be4c3c]">{error}</p> : null}
+          {savedId ? (
+            <div className="mt-3 flex items-center justify-between rounded-2xl bg-[#edf8ed] px-4 py-3 text-sm">
+              <span className="inline-flex items-center gap-2 font-bold text-[#16804b]">
+                <PetIcon className="h-4 w-4" name="check" />
+                기록이 저장되었습니다.
+              </span>
+              <Link className="font-bold text-[#0f6e3e]" href="/timeline">
+                타임라인 보기
+              </Link>
+            </div>
+          ) : null}
+        </Card>
+
+        <section>
+          <SectionHeader title="AI 구조화 미리보기" />
+          <div className="space-y-3">
+            <Card className="p-4" motion="rise">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className={`grid h-8 w-8 place-items-center rounded-full ${showPreviewLoading ? "pet-log-pulse-dot bg-[#edf8ed] text-[#16804b]" : "bg-[#edf8ed] text-[#16804b]"}`}>
+                      <PetIcon className="h-4 w-4" name="sparkle" />
+                    </span>
+                    <CategoryBadge category={displayPreview.suggestedCategory} />
+                    <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${displayPreview.needsConfirmation ? "bg-[#fff2df] text-[#a4651a]" : "bg-[#e8f5df] text-[#32783c]"}`}>
+                      {showPreviewLoading ? "AI 확인 중" : `신뢰도 ${confidencePercent}%`}
+                    </span>
+                  </div>
+                  <h3 className="mt-2 text-sm font-bold text-[#1f2922]">{displayPreview.normalizedSummary || previewTitle}</h3>
+                  <p className="mt-1 text-xs leading-5 text-[#6c7667]">
+                    {visiblePreviewError ||
+                    (displayPreview.needsConfirmation
+                      ? "AI 분류가 애매합니다. 카테고리와 내용을 확인한 뒤 저장해주세요."
+                      : "입력한 내용이 구조화되어 저장됩니다. 필요하면 저장 전 수정할 수 있습니다.")}
+                  </p>
+                </div>
+                <span className="text-sm font-bold text-[#16804b]">{categoryLabels[displayPreview.suggestedCategory]}</span>
+              </div>
+              {displayPreview.suggestedCategory !== category ? (
+                <button
+                  className="pet-log-pressable mt-3 h-10 w-full rounded-xl border border-[#cfe2cd] bg-[#f4faf2] text-sm font-bold text-[#16804b]"
+                  onClick={() => setCategory(displayPreview.suggestedCategory)}
+                  type="button"
+                >
+                  AI 추천 분류 적용
+                </button>
+              ) : null}
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                {displayPreview.measurements.length > 0 ? (
+                  displayPreview.measurements.map((measurement) => (
+                    <div className="rounded-xl bg-[#f4f7f0] px-3 py-2" key={`${measurement.label}-${measurement.value}`}>
+                      <p className="text-[11px] font-bold text-[#7b8576]">{measurement.label}</p>
+                      <p className="mt-1 text-sm font-black text-[#1f2922]">{measurement.value}</p>
+                    </div>
+                  ))
+                ) : (
+                  <div className="col-span-2 rounded-xl bg-[#f4f7f0] px-3 py-2">
+                    <p className="text-xs font-semibold leading-5 text-[#667262]">추출된 수치가 없습니다. 필요하면 g, kg, 분, 회 같은 단위를 함께 적어주세요.</p>
+                  </div>
+                )}
+              </div>
+            </Card>
+          </div>
+        </section>
+
+        <section>
+          <SectionHeader title="최근 기록" />
+          <div className="space-y-2">
+            {preview.map((record) => (
+              <Card className="p-3" key={record.id} motion="rise">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <CategoryBadge category={record.category} />
+                    <h3 className="mt-2 truncate text-sm font-bold text-[#1f2922]">{record.title}</h3>
+                    <p className="mt-1 line-clamp-2 text-xs leading-5 text-[#6c7667]">{record.detail}</p>
+                  </div>
+                  <span className="text-xs font-bold text-[#8a9286]">{record.time}</span>
+                </div>
+              </Card>
+            ))}
+            {preview.length === 0 ? (
+              <Card className="p-4 text-center" motion="rise">
+                <p className="text-sm font-bold text-[#1f2922]">아직 최근 기록이 없습니다.</p>
+                <p className="mt-1 text-xs leading-5 text-[#667262]">첫 기록을 저장하면 여기에 바로 표시됩니다.</p>
+              </Card>
+            ) : null}
+          </div>
+        </section>
+      </div>
+    </AppShell>
+  );
+}

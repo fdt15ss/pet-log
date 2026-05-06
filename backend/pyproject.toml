@@ -1,0 +1,27 @@
+[project]
+name = "backend"
+version = "0.1.0"
+description = "Pet Log backend package"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = []
+
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+py-modules = ["composition"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = [
+    "agent_runtime*",
+    "application*",
+    "domain*",
+    "infrastructure*",
+    "middleware*",
+    "presentation*",
+    "tools*",
+]

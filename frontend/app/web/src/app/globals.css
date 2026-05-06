@@ -1,0 +1,199 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-width: 320px;
+}
+
+body {
+  background: #f2f3ee;
+  margin: 0;
+  font-family: Arial, "Apple SD Gothic Neo", "Noto Sans KR", Helvetica, sans-serif;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+a {
+  text-decoration: none;
+}
+
+.pet-log-card-rise {
+  animation: pet-log-card-rise 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.pet-log-float-soft {
+  animation: pet-log-float-soft 3.2s ease-in-out infinite;
+}
+
+.pet-log-pulse-dot {
+  animation: pet-log-pulse-dot 1.8s ease-in-out infinite;
+}
+
+.pet-log-pressable {
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    border-color 160ms ease,
+    background-color 160ms ease;
+}
+
+.pet-log-pressable:active {
+  transform: scale(0.98);
+}
+
+.pet-log-chart-draw {
+  animation: pet-log-chart-draw 680ms ease-out both;
+  stroke-dasharray: 420;
+  stroke-dashoffset: 420;
+}
+
+@keyframes pet-log-card-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pet-log-float-soft {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+@keyframes pet-log-pulse-dot {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(22, 128, 75, 0.26);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 0 7px rgba(22, 128, 75, 0);
+    transform: scale(1.08);
+  }
+}
+
+@keyframes pet-log-chart-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes pet-log-backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes pet-log-backdrop-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes pet-log-panel-in-left {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes pet-log-panel-out-left {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+@keyframes pet-log-panel-in-right {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes pet-log-panel-out-right {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+.pet-log-backdrop-in {
+  animation: pet-log-backdrop-in 180ms ease-out both;
+}
+
+.pet-log-backdrop-out {
+  animation: pet-log-backdrop-out 180ms ease-in both;
+}
+
+.pet-log-panel-in-left {
+  animation: pet-log-panel-in-left 220ms ease-out both;
+}
+
+.pet-log-panel-out-left {
+  animation: pet-log-panel-out-left 180ms ease-in both;
+}
+
+.pet-log-panel-in-right {
+  animation: pet-log-panel-in-right 220ms ease-out both;
+}
+
+.pet-log-panel-out-right {
+  animation: pet-log-panel-out-right 180ms ease-in both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 1ms !important;
+  }
+
+  .pet-log-chart-draw {
+    stroke-dashoffset: 0;
+  }
+}

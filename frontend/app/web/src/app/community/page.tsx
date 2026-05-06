@@ -1,0 +1,326 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import { AppShell } from "@/components/app-shell";
+import { PetIcon } from "@/components/pet-icons";
+import { Card, Pill, SectionHeader } from "@/components/ui";
+import { createCommunityComment, createCommunityPost, getCommunityPostDetail, getCommunityPosts } from "@/lib/community";
+import { communityBoards, communityComments, communityPosts } from "@/lib/mock-data";
+import type { CommunityBoard, CommunityFeed } from "@/lib/types";
+
+const feedFilters: CommunityFeed[] = ["인기글", "최신글", "내 주변"];
+
+const boardStyles: Record<CommunityBoard, { marker: string; text: string; bg: string }> = {
+  유기동물: { marker: "bg-[#be4c3c]", text: "text-[#be4c3c]", bg: "bg-[#fff7f5]" },
+  "용품 나눔": { marker: "bg-[#bb721e]", text: "text-[#a4651a]", bg: "bg-[#fffaf0]" },
+  자유게시판: { marker: "bg-[#16804b]", text: "text-[#16804b]", bg: "bg-[#edf8ed]" },
+  "행동 고민": { marker: "bg-[#7256b8]", text: "text-[#7256b8]", bg: "bg-[#f5f1ff]" },
+  후기: { marker: "bg-[#356aa8]", text: "text-[#356aa8]", bg: "bg-[#f6f9ff]" },
+};
+
+const boardIcons: Record<CommunityBoard, "heart" | "shopping" | "community" | "behavior" | "check"> = {
+  유기동물: "heart",
+  "용품 나눔": "shopping",
+  자유게시판: "community",
+  "행동 고민": "behavior",
+  후기: "check",
+};
+
+const feedIcons: Record<CommunityFeed, "sparkle" | "timeline" | "home"> = {
+  인기글: "sparkle",
+  최신글: "timeline",
+  "내 주변": "home",
+};
+
+export default function CommunityPage() {
+  const [posts, setPosts] = useState(communityPosts);
+  const [comments, setComments] = useState(communityComments);
+  const [activeBoard, setActiveBoard] = useState<CommunityBoard | null>(null);
+  const [activeFeed, setActiveFeed] = useState<CommunityFeed>("인기글");
+  const [selectedPostId, setSelectedPostId] = useState(communityPosts[0]?.id ?? "");
+  const [savedPostIds, setSavedPostIds] = useState<string[]>([]);
+  const [commentDraft, setCommentDraft] = useState("");
+  const [isComposerOpen, setIsComposerOpen] = useState(false);
+  const [draftBoard, setDraftBoard] = useState<CommunityBoard>("자유게시판");
+  const [draftTitle, setDraftTitle] = useState("");
+  const [draftBody, setDraftBody] = useState("");
+
+  const visiblePosts = useMemo(() => getCommunityPosts(posts, { feed: activeFeed, board: activeBoard }), [activeBoard, activeFeed, posts]);
+  const selectedPost = useMemo(() => posts.find((post) => post.id === selectedPostId) ?? visiblePosts[0], [posts, selectedPostId, visiblePosts]);
+  const selectedDetail = useMemo(
+    () => (selectedPost ? getCommunityPostDetail(selectedPost, comments) : null),
+    [comments, selectedPost],
+  );
+
+  function addComment() {
+    if (!selectedPost || !commentDraft.trim()) {
+      return;
+    }
+
+    const comment = createCommunityComment({ postId: selectedPost.id, body: commentDraft });
+    setComments((current) => [comment, ...current]);
+    setPosts((current) =>
+      current.map((post) => (post.id === selectedPost.id ? { ...post, comments: post.comments + 1 } : post)),
+    );
+    setCommentDraft("");
+  }
+
+  function submitPost() {
+    if (!draftTitle.trim() || !draftBody.trim()) {
+      return;
+    }
+
+    const post = createCommunityPost({ board: draftBoard, title: draftTitle, body: draftBody });
+    setPosts((current) => [post, ...current]);
+    setSelectedPostId(post.id);
+    setActiveBoard(draftBoard);
+    setActiveFeed("최신글");
+    setDraftTitle("");
+    setDraftBody("");
+    setIsComposerOpen(false);
+  }
+
+  function toggleSavedPost(postId: string) {
+    setSavedPostIds((current) => (current.includes(postId) ? current.filter((id) => id !== postId) : [...current, postId]));
+  }
+
+  return (
+    <AppShell subtitle="커뮤니티" title="커뮤니티">
+      <div className="space-y-5">
+        <Card className="bg-gradient-to-br from-white to-[#f6f9ff]">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="inline-flex items-center gap-1.5 text-sm font-bold text-[#356aa8]">
+                <PetIcon className="h-4 w-4" name="community" />
+                동네 보호자 피드
+              </p>
+              <h2 className="mt-1 text-lg font-black text-[#1f2922]">
+                {activeBoard ? `${activeBoard} 중심으로 보기` : "필요한 게시판을 빠르게 찾기"}
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-[#667262]">
+                {visiblePosts.length}개 글 · 저장 {savedPostIds.length}개 · {activeFeed}
+              </p>
+            </div>
+            <button
+              className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-xl bg-[#16804b] px-3 text-sm font-black text-white"
+              onClick={() => setIsComposerOpen((current) => !current)}
+              type="button"
+            >
+              <PetIcon className="h-4 w-4" name={isComposerOpen ? "close" : "plus"} />
+              {isComposerOpen ? "닫기" : "글쓰기"}
+            </button>
+          </div>
+        </Card>
+
+        {isComposerOpen ? (
+          <Card>
+            <div className="grid grid-cols-2 gap-2">
+              {communityBoards.map((board) => (
+                <Pill active={draftBoard === board} className="w-full px-2 text-xs" key={board} onClick={() => setDraftBoard(board)}>
+                  <span className="inline-flex items-center gap-1.5">
+                    <PetIcon className="h-3.5 w-3.5" name={boardIcons[board]} />
+                  {board}
+                  </span>
+                </Pill>
+              ))}
+            </div>
+            <input
+              className="mt-3 h-11 w-full rounded-xl border border-[#dce7d7] bg-[#fbfdf8] px-3 text-sm font-bold text-[#1f2922] outline-none focus:border-[#16804b]"
+              onChange={(event) => setDraftTitle(event.target.value)}
+              placeholder="제목"
+              value={draftTitle}
+            />
+            <textarea
+              className="mt-3 min-h-28 w-full resize-none rounded-xl border border-[#dce7d7] bg-[#fbfdf8] p-3 text-sm font-semibold leading-6 text-[#1f2922] outline-none focus:border-[#16804b]"
+              onChange={(event) => setDraftBody(event.target.value)}
+              placeholder="내용을 입력하세요"
+              value={draftBody}
+            />
+            <button
+              className="mt-3 h-11 w-full rounded-xl bg-[#16804b] text-sm font-black text-white disabled:bg-[#cfd8ca]"
+              disabled={!draftTitle.trim() || !draftBody.trim()}
+              onClick={submitPost}
+              type="button"
+            >
+              <PetIcon className="mr-1 inline h-4 w-4" name="send" />
+              게시하기
+            </button>
+          </Card>
+        ) : null}
+
+        <div className="grid grid-cols-2 gap-2">
+          {communityBoards.map((item) => {
+            const active = activeBoard === item;
+            const postCount = posts.filter((post) => post.board === item).length;
+            const style = boardStyles[item];
+            return (
+              <button
+                aria-pressed={active}
+                className={`min-h-20 rounded-2xl border p-3 text-left shadow-[0_8px_22px_rgba(49,65,44,0.06)] transition ${
+                  active ? "border-[#16804b] bg-[#16804b] text-white" : `border-[#e0e6da] ${style.bg} text-[#4a5547]`
+                }`}
+                key={item}
+                onClick={() => setActiveBoard(active ? null : item)}
+                type="button"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className={`grid h-8 w-8 place-items-center rounded-xl ${active ? "bg-white/15 text-white" : `${style.bg} ${style.text}`}`}>
+                    <PetIcon className="h-4 w-4" name={boardIcons[item]} />
+                  </span>
+                  <span className={`text-[11px] font-black ${active ? "text-white/85" : style.text}`}>{postCount}개</span>
+                </div>
+                <p className={`mt-3 break-keep text-sm font-black ${active ? "text-white" : "text-[#1f2922]"}`}>{item}</p>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="grid grid-cols-3 gap-2">
+          {feedFilters.map((filter) => (
+            <Pill active={activeFeed === filter} className="w-full px-2 text-xs" key={filter} onClick={() => setActiveFeed(filter)}>
+              <span className="inline-flex items-center gap-1.5">
+                <PetIcon className="h-3.5 w-3.5" name={feedIcons[filter]} />
+              {filter}
+              </span>
+            </Pill>
+          ))}
+        </div>
+
+        <section>
+          <SectionHeader
+            action={
+              activeBoard ? (
+                <button
+                  className="text-xs font-bold text-[#16804b]"
+                  onClick={() => {
+                    setActiveBoard(null);
+                    setSelectedPostId("");
+                  }}
+                  type="button"
+                >
+                  전체 보기
+                </button>
+              ) : null
+            }
+            title={activeBoard ? `${activeBoard} ${activeFeed}` : activeFeed}
+          />
+          <div className="space-y-3">
+            {visiblePosts.map((post) => (
+              <button
+                className={`w-full rounded-2xl border bg-white p-4 text-left shadow-[0_10px_28px_rgba(49,65,44,0.1)] transition ${
+                  selectedPost?.id === post.id ? "border-[#16804b]" : "border-[#cdd8c6]"
+                }`}
+                key={post.id}
+                onClick={() => setSelectedPostId(post.id)}
+                type="button"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="inline-flex items-center gap-1.5 text-xs font-bold text-[#16804b]">
+                      <PetIcon className="h-3.5 w-3.5" name={boardIcons[post.board]} />
+                      {post.board}
+                    </p>
+                    <h2 className="mt-2 text-sm font-black leading-5 text-[#1f2922]">{post.title}</h2>
+                  </div>
+                  {savedPostIds.includes(post.id) ? (
+                    <span className="rounded-full bg-[#fff2dd] px-2 py-1 text-[11px] font-black text-[#a4651a]">저장됨</span>
+                  ) : null}
+                </div>
+                <p className="mt-2 line-clamp-2 text-xs font-semibold leading-5 text-[#667262]">{post.body}</p>
+                <p className="mt-2 text-xs font-semibold text-[#7c8777]">
+                  {post.authorName} · 댓글 {post.comments} · 공감 {post.likes}
+                  {post.distance ? ` · ${post.distance}` : ""}
+                </p>
+              </button>
+            ))}
+            {visiblePosts.length === 0 ? (
+              <Card className="p-5 text-center">
+                <h2 className="text-sm font-bold text-[#1f2922]">표시할 글이 없습니다.</h2>
+                <p className="mt-2 text-sm leading-6 text-[#667262]">게시판이나 글 필터를 바꿔보세요.</p>
+              </Card>
+            ) : null}
+          </div>
+        </section>
+
+        {selectedDetail ? (
+          <section>
+            <SectionHeader title="상세" />
+            <Card>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-[#16804b]">{selectedDetail.meta}</p>
+                  <h2 className="mt-2 text-lg font-black leading-6 text-[#1f2922]">{selectedDetail.title}</h2>
+                  <p className="mt-1 text-xs font-semibold text-[#7c8777]">
+                    {selectedDetail.authorName} · {selectedDetail.createdAt}
+                  </p>
+                </div>
+                <button
+                  aria-pressed={savedPostIds.includes(selectedDetail.id)}
+                  className={`inline-flex h-10 shrink-0 items-center gap-1.5 rounded-xl px-3 text-sm font-black ${
+                    savedPostIds.includes(selectedDetail.id) ? "bg-[#fff2dd] text-[#a4651a]" : "bg-[#edf8ed] text-[#16804b]"
+                  }`}
+                  onClick={() => toggleSavedPost(selectedDetail.id)}
+                  type="button"
+                >
+                  <PetIcon className="h-4 w-4" name={savedPostIds.includes(selectedDetail.id) ? "check" : "heart"} />
+                  {savedPostIds.includes(selectedDetail.id) ? "저장됨" : "저장"}
+                </button>
+              </div>
+              <p className="mt-4 text-sm font-semibold leading-7 text-[#4d594b]">{selectedDetail.body}</p>
+              {selectedDetail.tags?.length ? (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {selectedDetail.tags.map((tag) => (
+                    <span className="rounded-full bg-[#f0f3ed] px-3 py-1 text-xs font-bold text-[#667262]" key={tag}>
+                      #{tag}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+            </Card>
+          </section>
+        ) : null}
+
+        {selectedDetail ? (
+          <section>
+            <SectionHeader title={`댓글 ${selectedDetail.commentItems.length}`} />
+            <div className="space-y-3">
+              <div className="rounded-2xl border border-[#cdd8c6] bg-white p-3 shadow-[0_10px_28px_rgba(49,65,44,0.1)]">
+                <textarea
+                  className="min-h-20 w-full resize-none rounded-xl border border-[#dce7d7] bg-[#fbfdf8] p-3 text-sm font-semibold leading-6 text-[#1f2922] outline-none focus:border-[#16804b]"
+                  onChange={(event) => setCommentDraft(event.target.value)}
+                  placeholder="댓글을 입력하세요"
+                  value={commentDraft}
+                />
+                <div className="mt-2 flex justify-end">
+                  <button
+                    className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-[#16804b] px-4 text-sm font-black text-white disabled:bg-[#cfd8ca]"
+                    disabled={!commentDraft.trim()}
+                    onClick={addComment}
+                    type="button"
+                  >
+                    <PetIcon className="h-4 w-4" name="send" />
+                    댓글 등록
+                  </button>
+                </div>
+              </div>
+
+              {selectedDetail.commentItems.map((comment) => (
+                <Card className="p-3" key={comment.id}>
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="inline-flex items-center gap-1.5 text-sm font-black text-[#1f2922]">
+                      <PetIcon className="h-4 w-4 text-[#16804b]" name="profile" />
+                      {comment.authorName}
+                    </p>
+                    <p className="text-xs font-semibold text-[#9aa393]">{comment.createdAt}</p>
+                  </div>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-[#5c6758]">{comment.body}</p>
+                </Card>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+      </div>
+    </AppShell>
+  );
+}
