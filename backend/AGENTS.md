@@ -20,6 +20,9 @@ Before implementing:
 - No abstractions for single-use code.
 - No "flexibility" or "configurability" that wasn't requested.
 - No error handling for impossible scenarios.
+- Before hand-rolling core logic, first check proven packages, standard libraries, and existing project utilities.
+- If a package or local utility already fits the need, use it instead of custom implementation.
+- If custom implementation is still chosen, state the reason and keep the scope narrow.
 - If you write 200 lines and it could be 50, rewrite it.
 
 Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
