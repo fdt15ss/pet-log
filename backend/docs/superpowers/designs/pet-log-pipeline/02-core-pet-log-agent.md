@@ -38,6 +38,25 @@ PetProfile + recent records + due schedules
   -> ContextAnalysisResult
 ```
 
+### RecordSummaryAgent 후보
+
+`기획.md`는 누적 기록 기반으로 문제 행동 요약, 주간/월간 리포트, 변화 기록 정리, 병원 제출용 요약을 요구한다. 현재 `ContextAnalysisAgent`는 패턴과 누락 insight를 만들지만, 여러 기존 기록을 보호자나 병원에 보여줄 문장형 요약으로 정리하는 전용 agent는 아직 없다.
+
+후속 구현 후보:
+
+```text
+PetProfile + records + context insights + due schedules
+  -> RecordSummaryProviderInterface 또는 RecordSummaryComposerInterface
+  -> RecordSummaryResult
+```
+
+책임 범위:
+
+- 최근 기록을 시간 흐름 기준으로 묶어 요약한다.
+- 반복 행동, 상태 변화, 누락 기록을 사람이 읽을 수 있는 문장으로 정리한다.
+- 주간/월간 리포트와 병원 제출용 요약이 재사용할 수 있는 공통 summary를 만든다.
+- 의료 판단은 하지 않고 `SafetyNotice`와 병원 상담 안내 정책을 따른다.
+
 ### RiskDetectionAgent
 
 현재 입력과 누적 기록에서 위험 신호를 감지한다.
@@ -72,4 +91,5 @@ PetProfile + records + due schedules
 
 - 보호자 확인이 필요한 구조화 후보는 저장 전 수정 요청으로 돌린다.
 - 저장 이후에 제안과 리마인더를 만든다.
+- `ContextAnalysisAgent`는 insight 산출까지 담당하고, 누적 기록을 문장형 리포트로 정리하는 책임은 후속 `RecordSummaryAgent` 계열로 분리한다.
 - 의료 판단은 하지 않고 위험 신호 notice만 만든다.

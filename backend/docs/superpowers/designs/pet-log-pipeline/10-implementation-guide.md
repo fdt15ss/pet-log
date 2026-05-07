@@ -124,10 +124,13 @@ LLM agent 실행 공통 계층이다.
 - tool registry
 - tool calling loop
 - memory hook
+- LangGraph adapter 후보
 
 수정 기준:
 - 단순 rule/mock 구현 단계에서는 건드리지 않아도 된다.
 - 실제 tool-calling LLM agent를 붙일 때 구현한다.
+- 상태 저장, 중단/재개, human-in-the-loop, 복수 tool 분기 흐름이 필요하면 LangGraph를 우선 검토한다.
+- LangChain은 model/tool adapter 또는 prebuilt agent가 명확히 필요한 경우에만 보조적으로 쓴다.
 
 ### `src/middleware/`
 
@@ -191,20 +194,28 @@ PetLogAgentPipeline 생성
 | 만들 기능 | 먼저 볼 interface | 구현 위치 | 연결 위치 |
 | --- | --- | --- | --- |
 | 자연어 기록 구조화 | `RecordStructurerInterface` | `src/infrastructure/llm/record_structurer.py` | `RecordStructuringAgent` |
+| 사진 기록 이해 | `ImageRecordUnderstandingProviderInterface` 후보 | `src/infrastructure/llm/image_record_understanding_provider.py` 후보 | `PhotoRecordUnderstandingAgent` 후보 |
 | 펫 프로필 조회 | `PetProfileReaderInterface` | `src/infrastructure/repositories/pet_profile_repository.py` | `CareContextBuilder`, pipeline |
 | 최근 기록 조회 | `RecordHistoryReaderInterface` | `src/infrastructure/repositories/record_repository.py` | `ContextAnalysisAgent`, `CareContextBuilder` |
 | 기록 저장 | `RecordRepositoryInterface` | `src/infrastructure/repositories/record_repository.py` | `PetLogAgentPipeline` |
 | 일정 조회 | `ScheduleContextReaderInterface` | `src/infrastructure/repositories/schedule_repository.py` | `CareContextBuilder`, `ReminderAgent` |
 | 위험 신호 감지 | `RiskSignalPolicyInterface` | `src/infrastructure/policies/risk_signal_policy.py` | `RiskDetectionAgent` |
 | 기록 누락 감지 | `MissingRecordPolicyInterface` | `src/infrastructure/policies/missing_record_policy.py` | `ContextAnalysisAgent` |
+| 원인 추정 제한 | `CauseHypothesisPolicyInterface` 후보 | `src/infrastructure/policies/cause_hypothesis_policy.py` 후보 | `ContextAnalysisAgent` 또는 `SuggestionAgent` |
 | 행동 제안 생성 | `SuggestionComposerInterface` | `src/infrastructure/policies/suggestion_composer.py` | `SuggestionAgent` |
 | 리마인더 생성 | `ReminderPlannerInterface` | `src/infrastructure/policies/reminder_planner.py` | `ReminderAgent` |
+| 홈 선제 질문 생성 | `ProactiveQuestionPolicyInterface` 후보 | `src/infrastructure/policies/proactive_question_policy.py` 후보 | `ProactiveQuestionAgent` 후보 |
+| 알림 후보 생성 | `NotificationPolicyInterface` 후보 | `src/infrastructure/notifications/notification_policy.py` 후보 | `NotificationAgent` 후보 |
+| LangGraph runtime | `AgentRuntimeInterface` 후보 | `src/agent_runtime/runtime.py` | `agent_runtime` 내부 adapter |
 | AI 케어 답변 | `CareAnswerProviderInterface` | `src/infrastructure/llm/care_answer_provider.py` | `CareQuestionPipeline` |
 | 펫 말투 응답 | `PetPersonaResponderInterface` | `src/infrastructure/llm/pet_persona_responder.py` | `PetPersonaAgent` |
 | 음성 입력 STT | `SpeechToTextInterface` | `src/infrastructure/speech/speech_to_text.py` | `presentation`, `tools/speech_tools.py` |
 | 음성 응답 TTS | `TextToSpeechInterface` | `src/infrastructure/speech/text_to_speech.py` | `presentation`, `tools/speech_tools.py` |
 | 홈 화면 카드 조립 | `HomeFeedComposerInterface` | `src/infrastructure/composers/home_feed_composer.py` | `HomeFeedPipeline` |
 | 병원 제출 요약 | `HospitalReportComposerInterface` | `src/infrastructure/composers/hospital_report_composer.py` | `HospitalSummaryPipeline` |
+| 병원 검색/예약/공유 전송 | hospital integration contract 후보 | 별도 bounded context 후보 | hospital integration pipeline 후보 |
+| 공동 관리 | shared care contract 후보 | 별도 bounded context 후보 | shared care pipeline 후보 |
+| IoT/디바이스 수집 | device ingestion contract 후보 | 별도 bounded context 후보 | device ingestion pipeline 후보 |
 | HTTP API | pipeline interfaces | `src/presentation/http/` | `src/composition.py` |
 | CLI demo | pipeline interfaces | `src/presentation/cli/` | `src/composition.py` |
 
@@ -308,6 +319,55 @@ mock/rule 기반 흐름이 검증된 뒤 실제 LLM을 붙인다.
 3. domain model과 DB row 매핑은 repository 안에 둔다.
 4. `PetLogAgentPipeline`에서 저장 흐름이 호출되는지 확인한다.
 5. repository 단위 테스트 또는 integration test를 추가한다.
+
+### 누적 기록 기반 정리 agent를 구현한다면
+
+1. `기획.md`의 기록 기반 요구를 확인한다: 문제 행동 요약, 최근 변화 정리, 주간/월간 리포트, 병원 제출용 요약.
+2. `ContextAnalysisAgent`가 이미 만든 insight와 missing-record insight를 재사용한다.
+3. 새 책임은 `RecordSummaryAgent` 또는 `CareReportAgent`로 분리하고, 단순 패턴 감지는 기존 policy에 남긴다.
+4. summary 결과 DTO를 `application/dto.py`에 추가하고, 계약은 `application/interfaces/agents.py` 또는 `application/interfaces/composers.py`에 둔다.
+5. 실제 문장 생성은 rule composer 또는 LLM provider를 `infrastructure/` 뒤에 둔다.
+6. `HospitalSummaryPipeline`은 공통 summary를 받아 병원 제출용 포맷으로 재구성한다.
+7. 의료 판단 단정 표현이 없는지 테스트한다.
+
+### 원인 추정 정책을 구현한다면
+
+1. `기획.md`의 원인 추정 요구를 확인하되 의료/행동 원인을 단정하지 않는다.
+2. 출력은 "가능한 맥락", "확인할 질문", "관찰 포인트"로 제한한다.
+3. 근거가 되는 record id와 insight를 반드시 포함한다.
+4. 위험 신호가 있으면 원인 추정보다 `SafetyNotice`와 병원 상담 안내를 우선한다.
+5. 금지 표현 테스트를 추가한다: 질병명 단정, 원인 확정, 치료 지시.
+
+### 홈 선제 질문 agent를 구현한다면
+
+1. `기획.md`의 홈 요구를 확인한다: 오늘 요약, 최근 변화, 기록 누락 알림, AI가 먼저 질문하는 한줄 구간.
+2. `ContextAnalysisResult`, 최근 기록, due schedule 중 질문 근거를 하나 고른다.
+3. 결과 DTO는 질문 문구, 이유, 연결 route, source record id를 포함한다.
+4. 질문은 최대 1개만 반환하고, 없을 수 있음을 `None`으로 표현한다.
+5. 건강 판단이 필요한 질문은 `CareQuestionPipeline` route로 넘긴다.
+
+### 알림 후보 agent를 구현한다면
+
+1. 이상 징후, 행동 변화, 일정 도래, 기록 누락을 알림 후보로 변환한다.
+2. 실제 push/email 전송은 application agent가 아니라 notification infrastructure에 둔다.
+3. 중복 발송 방지를 위해 deterministic `dedupe_key`를 만든다.
+4. 위험 신호 알림은 진단이 아니라 병원 상담 권장 문구로 제한한다.
+
+### 사진 기록 이해 agent를 구현한다면
+
+1. 입력은 image bytes, content type, optional user note로 제한한다.
+2. 실제 vision 모델 호출은 provider interface 뒤에 둔다.
+3. 출력은 가능한 한 `StructuredRecordCandidate`를 재사용한다.
+4. 이미지로 건강 상태를 단정하지 않고 관찰 가능한 정보만 구조화한다.
+5. 확신이 낮으면 `needs_confirmation=True`로 보호자 확인을 요구한다.
+
+### 확장 bounded context를 구현한다면
+
+1. 공동 관리, IoT/디바이스, 병원 실제 연계, 커뮤니티, 커머스, 위치, 목표 미션, 돈 관리는 core care agent 밖에 둔다.
+2. core care pipeline과 연결해야 한다면 record id, pet id, summary id 같은 명시적 계약으로만 연결한다.
+3. 병원 연계는 `HospitalSummaryPipeline`의 요약 생성과 병원 검색/예약/공유 전송을 분리한다.
+4. 커머스 추천은 제휴/광고 표시와 건강 관련 안전 문구 정책을 별도로 둔다.
+5. IoT/디바이스 데이터는 기기별 신뢰도와 사용자 확인 정책을 먼저 정의한다.
 
 ### API를 붙인다면
 
