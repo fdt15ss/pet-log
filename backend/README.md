@@ -77,3 +77,13 @@ rg -n "fastapi|openai|sqlalchemy|sqlite|postgres|psycopg" src/application src/do
 ```
 
 마지막 명령의 기대 결과는 출력 없음이다.
+
+## 실제 LLM smoke test
+
+실제 OpenAI API를 호출하는 수동 확인 스크립트다. `backend/.env`의 `OPENAI_API_KEY`를 읽는다.
+
+```bash
+uv run python -B scripts/smoke_record_summary_provider.py
+```
+
+이 명령은 네트워크와 API 비용이 발생할 수 있으므로 자동 테스트에는 포함하지 않는다.

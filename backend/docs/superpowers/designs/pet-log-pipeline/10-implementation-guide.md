@@ -204,7 +204,7 @@ PetLogAgentPipeline 생성
 | 원인 추정 제한 | `CauseHypothesisPolicyInterface` | `src/infrastructure/policies/cause_hypothesis_policy.py` 스텁 | `ContextAnalysisAgent` 또는 `SuggestionAgent` |
 | 행동 제안 생성 | `SuggestionComposerInterface` | `src/infrastructure/policies/suggestion_composer.py` | `SuggestionAgent` |
 | 리마인더 생성 | `ReminderPlannerInterface` | `src/infrastructure/policies/reminder_planner.py` | `ReminderAgent` |
-| 기록 요약 생성 | `RecordSummaryProviderInterface` 후보 | `src/infrastructure/llm/record_summary_provider.py` 후보 | `RecordSummaryAgent` |
+| 기록 요약 생성 | `RecordSummaryProviderInterface` | `src/infrastructure/llm/record_summary_provider.py` 스텁 | `RecordSummaryAgent` |
 | 기록 요약 fallback/포맷팅 | `RecordSummaryComposerInterface` | `src/infrastructure/composers/record_summary_composer.py` 스텁 | `RecordSummaryAgent` |
 | 홈 선제 질문 생성 | `ProactiveQuestionPolicyInterface` | `src/infrastructure/policies/proactive_question_policy.py` 스텁 | `ProactiveQuestionAgent` |
 | 알림 후보 생성 | `NotificationPolicyInterface` | `src/infrastructure/notifications/notification_policy.py` 스텁 | `NotificationAgent` |
@@ -241,6 +241,10 @@ RecordSummaryAgent
 
 - `RecordSummaryAgent`는 OpenAI SDK, LangChain, LangGraph 타입을 직접 import하지 않는다.
 - 실제 GPT 또는 로컬 모델 호출은 `RecordSummaryProviderInterface` 구현체가 담당한다.
+- 현재 `RecordSummaryProvider`는 LangChain `ChatOpenAI.with_structured_output()`을 사용하는 infrastructure 구현체다.
+- `OPENAI_API_KEY`가 없으면 `RecordSummaryProvider.summarize()`는 실행 시 실패한다.
+- 기본 모델은 `gpt-5-mini`이며, `OPENAI_RECORD_SUMMARY_MODEL` 환경변수로 교체할 수 있다.
+- structured output은 LangChain structured model call과 Pydantic schema로 `RecordSummaryResult` 형태에 맞춘다.
 - `RecordSummaryComposerInterface`는 모델을 쓰지 않는 fallback, 테스트용 deterministic 요약, 모델 결과 포맷팅에만 사용한다.
 - LangGraph를 붙일 때는 `RecordSummaryAgent.summarize()`를 node로 감싸고, provider/composer/policy 구현체를 직접 node로 등록하지 않는다.
 - 요약 문장은 진단처럼 보이면 안 되며, 위험 신호는 `SafetyNotice` 또는 병원 상담 안내로 분리한다.

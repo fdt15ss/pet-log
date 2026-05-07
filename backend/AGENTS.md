@@ -20,6 +20,9 @@ Before implementing:
 - No abstractions for single-use code.
 - No "flexibility" or "configurability" that wasn't requested.
 - No error handling for impossible scenarios.
+- Before hand-rolling core logic, first check proven packages, standard libraries, and existing project utilities.
+- If a package or local utility already fits the need, use it instead of custom implementation.
+- If custom implementation is still chosen, state the reason and keep the scope narrow.
 - If you write 200 lines and it could be 50, rewrite it.
 
 Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
@@ -63,6 +66,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 ## 계획 문서 작성 규칙
 - 한글로 작성
 - 코드 변경이 있으면 항상 관련 파일 업데이트 
+- 사용자-facing 문구, 샘플 데이터, 문서에서는 `개` 표현을 쓰지 않는다. 필요한 경우 `반려동물` 또는 더 중립적인 표현을 사용한다.
 
 ## git 규칙
 - main 브랜치에 checkout 되어 있을경우 새 브랜치 생성
