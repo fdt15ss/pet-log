@@ -198,6 +198,7 @@ PetLogAgentPipeline 생성
 | 일정 조회 | `ScheduleContextReaderInterface` | `src/infrastructure/repositories/schedule_repository.py` | `CareContextBuilder`, `ReminderAgent` |
 | 위험 신호 감지 | `RiskSignalPolicyInterface` | `src/infrastructure/policies/risk_signal_policy.py` | `RiskDetectionAgent` |
 | 기록 누락 감지 | `MissingRecordPolicyInterface` | `src/infrastructure/policies/missing_record_policy.py` | `ContextAnalysisAgent` |
+| 원인 추정 제한 | `CauseHypothesisPolicyInterface` 후보 | `src/infrastructure/policies/cause_hypothesis_policy.py` 후보 | `ContextAnalysisAgent` 또는 `SuggestionAgent` |
 | 행동 제안 생성 | `SuggestionComposerInterface` | `src/infrastructure/policies/suggestion_composer.py` | `SuggestionAgent` |
 | 리마인더 생성 | `ReminderPlannerInterface` | `src/infrastructure/policies/reminder_planner.py` | `ReminderAgent` |
 | 홈 선제 질문 생성 | `ProactiveQuestionPolicyInterface` 후보 | `src/infrastructure/policies/proactive_question_policy.py` 후보 | `ProactiveQuestionAgent` 후보 |
@@ -208,6 +209,9 @@ PetLogAgentPipeline 생성
 | 음성 응답 TTS | `TextToSpeechInterface` | `src/infrastructure/speech/text_to_speech.py` | `presentation`, `tools/speech_tools.py` |
 | 홈 화면 카드 조립 | `HomeFeedComposerInterface` | `src/infrastructure/composers/home_feed_composer.py` | `HomeFeedPipeline` |
 | 병원 제출 요약 | `HospitalReportComposerInterface` | `src/infrastructure/composers/hospital_report_composer.py` | `HospitalSummaryPipeline` |
+| 병원 검색/예약/공유 전송 | hospital integration contract 후보 | 별도 bounded context 후보 | hospital integration pipeline 후보 |
+| 공동 관리 | shared care contract 후보 | 별도 bounded context 후보 | shared care pipeline 후보 |
+| IoT/디바이스 수집 | device ingestion contract 후보 | 별도 bounded context 후보 | device ingestion pipeline 후보 |
 | HTTP API | pipeline interfaces | `src/presentation/http/` | `src/composition.py` |
 | CLI demo | pipeline interfaces | `src/presentation/cli/` | `src/composition.py` |
 
@@ -322,6 +326,14 @@ mock/rule 기반 흐름이 검증된 뒤 실제 LLM을 붙인다.
 6. `HospitalSummaryPipeline`은 공통 summary를 받아 병원 제출용 포맷으로 재구성한다.
 7. 의료 판단 단정 표현이 없는지 테스트한다.
 
+### 원인 추정 정책을 구현한다면
+
+1. `기획.md`의 원인 추정 요구를 확인하되 의료/행동 원인을 단정하지 않는다.
+2. 출력은 "가능한 맥락", "확인할 질문", "관찰 포인트"로 제한한다.
+3. 근거가 되는 record id와 insight를 반드시 포함한다.
+4. 위험 신호가 있으면 원인 추정보다 `SafetyNotice`와 병원 상담 안내를 우선한다.
+5. 금지 표현 테스트를 추가한다: 질병명 단정, 원인 확정, 치료 지시.
+
 ### 홈 선제 질문 agent를 구현한다면
 
 1. `기획.md`의 홈 요구를 확인한다: 오늘 요약, 최근 변화, 기록 누락 알림, AI가 먼저 질문하는 한줄 구간.
@@ -344,6 +356,14 @@ mock/rule 기반 흐름이 검증된 뒤 실제 LLM을 붙인다.
 3. 출력은 가능한 한 `StructuredRecordCandidate`를 재사용한다.
 4. 이미지로 건강 상태를 단정하지 않고 관찰 가능한 정보만 구조화한다.
 5. 확신이 낮으면 `needs_confirmation=True`로 보호자 확인을 요구한다.
+
+### 확장 bounded context를 구현한다면
+
+1. 공동 관리, IoT/디바이스, 병원 실제 연계, 커뮤니티, 커머스, 위치, 목표 미션, 돈 관리는 core care agent 밖에 둔다.
+2. core care pipeline과 연결해야 한다면 record id, pet id, summary id 같은 명시적 계약으로만 연결한다.
+3. 병원 연계는 `HospitalSummaryPipeline`의 요약 생성과 병원 검색/예약/공유 전송을 분리한다.
+4. 커머스 추천은 제휴/광고 표시와 건강 관련 안전 문구 정책을 별도로 둔다.
+5. IoT/디바이스 데이터는 기기별 신뢰도와 사용자 확인 정책을 먼저 정의한다.
 
 ### API를 붙인다면
 

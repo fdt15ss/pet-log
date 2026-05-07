@@ -11,6 +11,7 @@
 | 누적 데이터 기반 분석 | `ContextAnalysisAgent` |
 | 시간 흐름 기반 요약/리포트 | `RecordSummaryAgent` 후보 |
 | 이상 변화 감지 | `RiskDetectionAgent`, `RiskSignalPolicyInterface` |
+| 원인 추정 | `CauseHypothesisPolicyInterface` 후보, 단정 금지 |
 | 행동 가이드 제공 | `SuggestionAgent` |
 | 기록 누락 감지 | `ContextAnalysisAgent`, `MissingRecordPolicyInterface` |
 | 홈 오늘 요약/최근 변화/제안 카드 | `HomeFeedPipeline`, `HomeFeedComposerInterface` |
@@ -22,6 +23,10 @@
 | 병원 제출용 요약 | `HospitalSummaryPipeline` |
 | 일정 기반 관리 | `ScheduleContextReaderInterface`, `ReminderPlannerInterface` |
 | 이상/행동/일정/누락 알림 | `NotificationAgent` 후보 |
+| 공동 관리 | shared care bounded context 후보 |
+| IoT/디바이스 데이터 수집 | device ingestion bounded context 후보 |
+| 병원 검색/예약/공유 전송 | hospital integration bounded context 후보 |
+| 커뮤니티/커머스/지도/미션/돈 관리 | 확장 bounded context 후보 |
 
 ## Architect Agent 검토 반영
 
@@ -40,5 +45,6 @@
 - 홈의 `오늘 요약`, `최근 변화`, `이상 징후`, `제안 카드`를 만들 수 있는 interface가 있다.
 - `AI 케어 질문`과 `펫 대화`가 backend에서 분리된 pipeline으로 표현된다.
 - 위험 신호는 병원 상담 권장 또는 케어 질문 연결로 제한된다.
+- 원인 추정은 진단이 아니라 "가능한 맥락" 또는 "확인할 질문" 수준으로 제한된다.
 - `기획.md`에 있지만 아직 코드 계약이 없는 agent 후보는 [11-agent-gap-analysis.md](11-agent-gap-analysis.md)에 추적한다.
 - 현재 단계는 폴더, interface 파일, infrastructure/runtime skeleton import까지 검증되어야 한다.
