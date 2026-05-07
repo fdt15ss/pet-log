@@ -194,18 +194,19 @@ PetLogAgentPipeline 생성
 | 만들 기능 | 먼저 볼 interface | 구현 위치 | 연결 위치 |
 | --- | --- | --- | --- |
 | 자연어 기록 구조화 | `RecordStructurerInterface` | `src/infrastructure/llm/record_structurer.py` | `RecordStructuringAgent` |
-| 사진 기록 이해 | `ImageRecordUnderstandingProviderInterface` 후보 | `src/infrastructure/llm/image_record_understanding_provider.py` 후보 | `PhotoRecordUnderstandingAgent` 후보 |
+| 사진 기록 이해 | `ImageRecordUnderstandingProviderInterface` | `src/infrastructure/llm/image_record_understanding_provider.py` 스텁 | `PhotoRecordUnderstandingAgent` |
 | 펫 프로필 조회 | `PetProfileReaderInterface` | `src/infrastructure/repositories/pet_profile_repository.py` | `CareContextBuilder`, pipeline |
 | 최근 기록 조회 | `RecordHistoryReaderInterface` | `src/infrastructure/repositories/record_repository.py` | `ContextAnalysisAgent`, `CareContextBuilder` |
 | 기록 저장 | `RecordRepositoryInterface` | `src/infrastructure/repositories/record_repository.py` | `PetLogAgentPipeline` |
 | 일정 조회 | `ScheduleContextReaderInterface` | `src/infrastructure/repositories/schedule_repository.py` | `CareContextBuilder`, `ReminderAgent` |
 | 위험 신호 감지 | `RiskSignalPolicyInterface` | `src/infrastructure/policies/risk_signal_policy.py` | `RiskDetectionAgent` |
 | 기록 누락 감지 | `MissingRecordPolicyInterface` | `src/infrastructure/policies/missing_record_policy.py` | `ContextAnalysisAgent` |
-| 원인 추정 제한 | `CauseHypothesisPolicyInterface` 후보 | `src/infrastructure/policies/cause_hypothesis_policy.py` 후보 | `ContextAnalysisAgent` 또는 `SuggestionAgent` |
+| 원인 추정 제한 | `CauseHypothesisPolicyInterface` | `src/infrastructure/policies/cause_hypothesis_policy.py` 스텁 | `ContextAnalysisAgent` 또는 `SuggestionAgent` |
 | 행동 제안 생성 | `SuggestionComposerInterface` | `src/infrastructure/policies/suggestion_composer.py` | `SuggestionAgent` |
 | 리마인더 생성 | `ReminderPlannerInterface` | `src/infrastructure/policies/reminder_planner.py` | `ReminderAgent` |
-| 홈 선제 질문 생성 | `ProactiveQuestionPolicyInterface` 후보 | `src/infrastructure/policies/proactive_question_policy.py` 후보 | `ProactiveQuestionAgent` 후보 |
-| 알림 후보 생성 | `NotificationPolicyInterface` 후보 | `src/infrastructure/notifications/notification_policy.py` 후보 | `NotificationAgent` 후보 |
+| 기록 요약 생성 | `RecordSummaryComposerInterface` | `src/infrastructure/composers/record_summary_composer.py` 스텁 | `RecordSummaryAgent` |
+| 홈 선제 질문 생성 | `ProactiveQuestionPolicyInterface` | `src/infrastructure/policies/proactive_question_policy.py` 스텁 | `ProactiveQuestionAgent` |
+| 알림 후보 생성 | `NotificationPolicyInterface` | `src/infrastructure/notifications/notification_policy.py` 스텁 | `NotificationAgent` |
 | LangGraph runtime | `AgentRuntimeInterface` 후보 | `src/agent_runtime/runtime.py` | `agent_runtime` 내부 adapter |
 | AI 케어 답변 | `CareAnswerProviderInterface` | `src/infrastructure/llm/care_answer_provider.py` | `CareQuestionPipeline` |
 | 펫 말투 응답 | `PetPersonaResponderInterface` | `src/infrastructure/llm/pet_persona_responder.py` | `PetPersonaAgent` |

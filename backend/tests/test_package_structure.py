@@ -29,11 +29,20 @@ class TestPackageStructure(unittest.TestCase):
             "tools.care_tools",
             "tools.speech_tools",
             "infrastructure.llm.record_structurer",
+            "infrastructure.llm.image_record_understanding_provider",
             "infrastructure.speech.speech_to_text",
             "infrastructure.speech.text_to_speech",
             "infrastructure.repositories.record_repository",
             "infrastructure.policies.safety_guard",
+            "infrastructure.policies.cause_hypothesis_policy",
+            "infrastructure.policies.proactive_question_policy",
+            "infrastructure.notifications.notification_policy",
+            "infrastructure.agents.record_summary_agent",
+            "infrastructure.agents.proactive_question_agent",
+            "infrastructure.agents.notification_agent",
+            "infrastructure.agents.photo_record_understanding_agent",
             "infrastructure.composers.home_feed_composer",
+            "infrastructure.composers.record_summary_composer",
             "presentation.cli",
             "presentation.http",
             "composition",
@@ -47,7 +56,12 @@ class TestPackageStructure(unittest.TestCase):
         interfaces = importlib.import_module("application.interfaces")
 
         self.assertTrue(hasattr(interfaces, "PetLogAgentPipelineInterface"))
+        self.assertTrue(hasattr(interfaces, "RecordSummaryAgentInterface"))
+        self.assertTrue(hasattr(interfaces, "ProactiveQuestionAgentInterface"))
+        self.assertTrue(hasattr(interfaces, "NotificationAgentInterface"))
+        self.assertTrue(hasattr(interfaces, "PhotoRecordUnderstandingAgentInterface"))
         self.assertTrue(hasattr(interfaces, "RecordStructurerInterface"))
+        self.assertTrue(hasattr(interfaces, "ImageRecordUnderstandingProviderInterface"))
         self.assertTrue(hasattr(interfaces, "SpeechToTextInterface"))
         self.assertTrue(hasattr(interfaces, "TextToSpeechInterface"))
         self.assertFalse(hasattr(interfaces, "PetLogAgentPipelinePort"))

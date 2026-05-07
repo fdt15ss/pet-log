@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from domain.models import CareInsight, CareSuggestion, PetProfile, PetRecord, PlannedReminder, SafetyNotice
+from application.dto import NotificationCandidate, ProactiveQuestionResult
+from domain.models import CareInsight, CareSuggestion, ContextAnalysisResult, PetProfile, PetRecord, PlannedReminder, SafetyNotice
 
 
 class PatternAnalyzerInterface(Protocol):
@@ -32,6 +33,38 @@ class ReminderPlannerInterface(Protocol):
         records: tuple[PetRecord, ...],
         due_items: tuple[PlannedReminder, ...],
     ) -> tuple[PlannedReminder, ...]:
+        raise NotImplementedError
+
+
+class CauseHypothesisPolicyInterface(Protocol):
+    def analyze(
+        self,
+        pet: PetProfile,
+        records: tuple[PetRecord, ...],
+        context: ContextAnalysisResult,
+    ) -> tuple[CareInsight, ...]:
+        raise NotImplementedError
+
+
+class ProactiveQuestionPolicyInterface(Protocol):
+    def build_question(
+        self,
+        pet: PetProfile,
+        records: tuple[PetRecord, ...],
+        context: ContextAnalysisResult,
+        due_items: tuple[PlannedReminder, ...],
+    ) -> ProactiveQuestionResult | None:
+        raise NotImplementedError
+
+
+class NotificationPolicyInterface(Protocol):
+    def plan(
+        self,
+        pet: PetProfile,
+        context: ContextAnalysisResult,
+        safety_notices: tuple[SafetyNotice, ...],
+        due_items: tuple[PlannedReminder, ...],
+    ) -> tuple[NotificationCandidate, ...]:
         raise NotImplementedError
 
 

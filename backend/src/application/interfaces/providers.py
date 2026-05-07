@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Protocol
 
 from application.dto import PetLogAgentInput
-from domain.models import CareContext, StructuredRecordCandidate
+from domain.models import CareContext, PetProfile, StructuredRecordCandidate
 
 
 class RecordStructurerInterface(Protocol):
@@ -18,6 +18,17 @@ class CareAnswerProviderInterface(Protocol):
 
 class PetPersonaResponderInterface(Protocol):
     def respond(self, context: CareContext, message: str) -> str:
+        raise NotImplementedError
+
+
+class ImageRecordUnderstandingProviderInterface(Protocol):
+    def understand(
+        self,
+        pet: PetProfile,
+        image: bytes,
+        content_type: str,
+        user_note: str | None = None,
+    ) -> StructuredRecordCandidate:
         raise NotImplementedError
 
 

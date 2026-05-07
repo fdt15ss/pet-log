@@ -36,6 +36,8 @@
 
 구현 위치는 `src/application/interfaces/` 패키지다. `src/application/interfaces/__init__.py`가 전체 interface를 다시 export하므로 기존처럼 `from application.interfaces import ...`로 가져올 수 있다. 실제 동작은 `infrastructure`, `agent_runtime`, `tools`에서 구현한다.
 
+2026-05-07 기준으로 아래 신규 계약은 코드에 반영했다. `infrastructure` 쪽 구현체 class는 class별 파일로 생성하되 실제 로직은 넣지 않고 `NotImplementedError` 상태로 둔다.
+
 ### Pipeline interfaces
 
 파일: `src/application/interfaces/pipelines.py`
@@ -92,6 +94,7 @@
 - `RiskSignalPolicyInterface`
 - `SuggestionComposerInterface`
 - `ReminderPlannerInterface`
+- `CauseHypothesisPolicyInterface`
 - `ProactiveQuestionPolicyInterface`
 - `NotificationPolicyInterface`
 - `SafetyGuardInterface`

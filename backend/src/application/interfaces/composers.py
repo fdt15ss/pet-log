@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from application.dto import HomeFeedResult, HospitalSummaryResult, PetLogAgentResult
-from domain.models import PetProfile, PetRecord, PlannedReminder
+from application.dto import HomeFeedResult, HospitalSummaryResult, PetLogAgentResult, RecordSummaryResult
+from domain.models import ContextAnalysisResult, PetProfile, PetRecord, PlannedReminder
 
 
 class HomeFeedComposerInterface(Protocol):
@@ -13,6 +13,17 @@ class HomeFeedComposerInterface(Protocol):
         agent_result: PetLogAgentResult,
         due_items: tuple[PlannedReminder, ...],
     ) -> HomeFeedResult:
+        raise NotImplementedError
+
+
+class RecordSummaryComposerInterface(Protocol):
+    def compose(
+        self,
+        pet: PetProfile,
+        records: tuple[PetRecord, ...],
+        context: ContextAnalysisResult,
+        due_items: tuple[PlannedReminder, ...],
+    ) -> RecordSummaryResult:
         raise NotImplementedError
 
 

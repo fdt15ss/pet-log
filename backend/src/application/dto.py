@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Literal
 
 from domain.models import (
     CareInsight,
@@ -59,4 +60,34 @@ class PetChatResult:
 class HospitalSummaryResult:
     summary: str
     record_ids: tuple[str, ...] = ()
+    safety_notice: SafetyNotice | None = None
+
+
+@dataclass(frozen=True)
+class RecordSummaryResult:
+    summary: str
+    record_ids: tuple[str, ...] = ()
+    highlights: tuple[str, ...] = ()
+    behavior_patterns: tuple[str, ...] = ()
+    missing_record_notes: tuple[str, ...] = ()
+    safety_notice: SafetyNotice | None = None
+
+
+@dataclass(frozen=True)
+class ProactiveQuestionResult:
+    question: str
+    reason: str
+    source_record_ids: tuple[str, ...] = ()
+    related_due_items: tuple[PlannedReminder, ...] = ()
+    route: Literal["record_input", "care_question", "schedule"] = "record_input"
+
+
+@dataclass(frozen=True)
+class NotificationCandidate:
+    title: str
+    message: str
+    kind: Literal["risk", "behavior_change", "schedule", "missing_record"]
+    dedupe_key: str
+    source_record_ids: tuple[str, ...] = ()
+    due_date: str | None = None
     safety_notice: SafetyNotice | None = None
