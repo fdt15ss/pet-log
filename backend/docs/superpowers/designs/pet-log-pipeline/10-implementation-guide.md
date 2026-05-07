@@ -204,7 +204,8 @@ PetLogAgentPipeline 생성
 | 원인 추정 제한 | `CauseHypothesisPolicyInterface` | `src/infrastructure/policies/cause_hypothesis_policy.py` 스텁 | `ContextAnalysisAgent` 또는 `SuggestionAgent` |
 | 행동 제안 생성 | `SuggestionComposerInterface` | `src/infrastructure/policies/suggestion_composer.py` | `SuggestionAgent` |
 | 리마인더 생성 | `ReminderPlannerInterface` | `src/infrastructure/policies/reminder_planner.py` | `ReminderAgent` |
-| 기록 요약 생성 | `RecordSummaryComposerInterface` | `src/infrastructure/composers/record_summary_composer.py` 스텁 | `RecordSummaryAgent` |
+| 기록 요약 생성 | `RecordSummaryProviderInterface` 후보 | `src/infrastructure/llm/record_summary_provider.py` 후보 | `RecordSummaryAgent` |
+| 기록 요약 fallback/포맷팅 | `RecordSummaryComposerInterface` | `src/infrastructure/composers/record_summary_composer.py` 스텁 | `RecordSummaryAgent` |
 | 홈 선제 질문 생성 | `ProactiveQuestionPolicyInterface` | `src/infrastructure/policies/proactive_question_policy.py` 스텁 | `ProactiveQuestionAgent` |
 | 알림 후보 생성 | `NotificationPolicyInterface` | `src/infrastructure/notifications/notification_policy.py` 스텁 | `NotificationAgent` |
 | LangGraph runtime | `AgentRuntimeInterface` 후보 | `src/agent_runtime/runtime.py` | `agent_runtime` 내부 adapter |
@@ -218,6 +219,31 @@ PetLogAgentPipeline 생성
 | 공동 관리 | shared care contract 후보 | 별도 bounded context 후보 | shared care pipeline 후보 |
 | IoT/디바이스 수집 | device ingestion contract 후보 | 별도 bounded context 후보 | device ingestion pipeline 후보 |
 | HTTP API | pipeline interfaces | `src/presentation/http/` | `src/composition.py` |
+
+## 모델 기반 요약 구현 원칙
+
+기획서의 분석 리포트, 문제 행동 요약, 주간/월간 리포트, 병원 제출용 요약은 사람이 읽는 자연어 결과가 핵심이다. 따라서 실제 요약 문장은 규칙 composer만으로 완성하지 않고 모델 provider를 통해 생성한다.
+
+권장 책임 분리:
+
+```text
+ContextAnalysisAgent
+  -> 누적 기록 분석
+  -> ContextAnalysisResult
+
+RecordSummaryAgent
+  -> 요약 대상과 분석 결과 조립
+  -> RecordSummaryProviderInterface 호출
+  -> RecordSummaryResult 반환
+```
+
+구현 규칙:
+
+- `RecordSummaryAgent`는 OpenAI SDK, LangChain, LangGraph 타입을 직접 import하지 않는다.
+- 실제 GPT 또는 로컬 모델 호출은 `RecordSummaryProviderInterface` 구현체가 담당한다.
+- `RecordSummaryComposerInterface`는 모델을 쓰지 않는 fallback, 테스트용 deterministic 요약, 모델 결과 포맷팅에만 사용한다.
+- LangGraph를 붙일 때는 `RecordSummaryAgent.summarize()`를 node로 감싸고, provider/composer/policy 구현체를 직접 node로 등록하지 않는다.
+- 요약 문장은 진단처럼 보이면 안 되며, 위험 신호는 `SafetyNotice` 또는 병원 상담 안내로 분리한다.
 | CLI demo | pipeline interfaces | `src/presentation/cli/` | `src/composition.py` |
 
 ## 추천 구현 순서

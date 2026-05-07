@@ -79,6 +79,7 @@
 파일: `src/application/interfaces/providers.py`
 
 - `RecordStructurerInterface`
+- `RecordSummaryProviderInterface` 후보
 - `CareAnswerProviderInterface`
 - `PetPersonaResponderInterface`
 - `ImageRecordUnderstandingProviderInterface`
@@ -134,10 +135,23 @@ RecordSummaryAgentInterface.summarize(
 ) -> RecordSummaryResult
 ```
 
+모델 provider 계약 후보:
+
+```text
+RecordSummaryProviderInterface.summarize(
+  pet: PetProfile,
+  records: tuple[PetRecord, ...],
+  context: ContextAnalysisResult,
+  due_items: tuple[PlannedReminder, ...],
+) -> RecordSummaryResult
+```
+
 구현 방향:
 
 - `ContextAnalysisAgent`가 만든 insight를 재사용한다.
-- 시간 흐름 기반 변화와 반복 행동을 문장형으로 정리한다.
+- 시간 흐름 기반 변화와 반복 행동은 모델 provider가 문장형으로 정리한다.
+- `RecordSummaryAgent`는 요약 대상, 분석 결과, 일정 맥락을 provider에 전달하는 orchestration 책임을 가진다.
+- `RecordSummaryComposerInterface`는 모델 없는 fallback 또는 모델 결과 포맷팅에만 사용한다.
 - 병원 제출용 문구는 `HospitalReportComposerInterface`에서 목적에 맞게 재구성한다.
 - 의료 판단 단정 표현은 금지하고, 위험 신호는 `SafetyNotice`로 분리한다.
 
