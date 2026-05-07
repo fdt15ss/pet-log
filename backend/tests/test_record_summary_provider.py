@@ -1,30 +1,23 @@
 from __future__ import annotations
 
-import json
 import unittest
 
 from domain.models import ContextAnalysisResult, PetProfile, PetRecord, PlannedReminder
 from infrastructure.llm.record_summary_provider import RecordSummaryProvider
 
 
-class FakeOpenAITransport:
+class FakeLangChainAgent:
     def __init__(self, response: dict[str, object]) -> None:
         self.response = response
-        self.calls: list[tuple[str, dict[str, str], dict[str, object], float]] = []
+        self.calls: list[dict[str, object]] = []
 
-    def __call__(
-        self,
-        endpoint: str,
-        headers: dict[str, str],
-        payload: dict[str, object],
-        timeout: float,
-    ) -> dict[str, object]:
-        self.calls.append((endpoint, headers, payload, timeout))
+    def invoke(self, payload: dict[str, object]) -> dict[str, object]:
+        self.calls.append(payload)
         return self.response
 
 
 class TestRecordSummaryProvider(unittest.TestCase):
-    def test_summarize_calls_openai_responses_api_and_parses_structured_output(self):
+    def test_summarize_invokes_langchain_agent_and_maps_structured_response(self):
         model_output = {
             "summary": "초코의 새벽 짖음 기록이 반복되는지 지켜볼 필요가 있습니다.",
             "record_ids": ["record-1"],
@@ -33,22 +26,8 @@ class TestRecordSummaryProvider(unittest.TestCase):
             "missing_record_notes": ["짖음 이후 안정 여부 기록이 있으면 좋습니다."],
             "safety_notice": None,
         }
-        transport = FakeOpenAITransport(
-            {
-                "output": [
-                    {
-                        "type": "message",
-                        "content": [
-                            {
-                                "type": "output_text",
-                                "text": json.dumps(model_output, ensure_ascii=False),
-                            }
-                        ],
-                    }
-                ]
-            }
-        )
-        provider = RecordSummaryProvider(api_key="test-key", model="test-model", transport=transport)
+        agent = FakeLangChainAgent({"structured_response": model_output})
+        provider = RecordSummaryProvider(api_key="test-key", model="test-model", langchain_agent=agent)
         pet = PetProfile(id="pet-1", name="초코")
         records = (
             PetRecord(
@@ -69,18 +48,44 @@ class TestRecordSummaryProvider(unittest.TestCase):
         self.assertEqual(result.summary, model_output["summary"])
         self.assertEqual(result.record_ids, ("record-1",))
         self.assertEqual(result.highlights, ("새벽 짖음",))
-        self.assertEqual(len(transport.calls), 1)
+        self.assertEqual(result.behavior_patterns, ("현관 쪽 반응",))
+        self.assertEqual(result.missing_record_notes, ("짖음 이후 안정 여부 기록이 있으면 좋습니다.",))
+        self.assertEqual(len(agent.calls), 1)
 
-        endpoint, headers, payload, timeout = transport.calls[0]
-        self.assertEqual(endpoint, "https://api.openai.com/v1/responses")
-        self.assertEqual(headers["Authorization"], "Bearer test-key")
-        self.assertEqual(headers["Content-Type"], "application/json")
-        self.assertEqual(payload["model"], "test-model")
-        self.assertEqual(timeout, 30.0)
-        self.assertEqual(payload["text"]["format"]["type"], "json_schema")
-        self.assertEqual(payload["text"]["format"]["name"], "record_summary_result")
-        self.assertIn("진단을 단정하지 마세요", payload["instructions"])
-        self.assertIn("밤에 짖음", json.dumps(payload["input"], ensure_ascii=False))
+        messages = agent.calls[0]["messages"]
+        self.assertEqual(messages[0]["role"], "user")
+        self.assertIn("진단을 단정하지 마세요", messages[0]["content"])
+        self.assertIn("밤에 짖음", messages[0]["content"])
+
+    def test_builds_langchain_agent_with_configured_model(self):
+        created: list[dict[str, object]] = []
+        agent = FakeLangChainAgent(
+            {
+                "structured_response": {
+                    "summary": "요약",
+                    "record_ids": [],
+                    "highlights": [],
+                    "behavior_patterns": [],
+                    "missing_record_notes": [],
+                    "safety_notice": None,
+                }
+            }
+        )
+
+        def fake_agent_factory(model: str, api_key: str, timeout: float):
+            created.append({"model": model, "api_key": api_key, "timeout": timeout})
+            return agent
+
+        provider = RecordSummaryProvider(
+            api_key="test-key",
+            model="test-model",
+            timeout=12.0,
+            agent_factory=fake_agent_factory,
+        )
+
+        provider.summarize(PetProfile(id="pet-1", name="초코"), (), ContextAnalysisResult(), ())
+
+        self.assertEqual(created, [{"model": "test-model", "api_key": "test-key", "timeout": 12.0}])
 
     def test_summarize_requires_api_key(self):
         provider = RecordSummaryProvider(api_key="")
