@@ -2,6 +2,8 @@
 
 ## 기획 반영 범위
 
+전체 agent 흐름은 [12-end-to-end-agent-flow.md](12-end-to-end-agent-flow.md)에 따로 정리한다.
+
 | 기획 요소 | backend 파이프라인 반영 |
 | --- | --- |
 | 자연어 기반 통합 입력 | `PetLogAgentPipeline`, `RecordStructuringAgent` |

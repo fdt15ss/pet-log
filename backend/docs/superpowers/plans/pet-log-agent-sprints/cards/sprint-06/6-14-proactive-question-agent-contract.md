@@ -19,13 +19,15 @@
 
 ## Completion criteria
 
-- [ ] `ProactiveQuestionResult` DTO 계약을 만든다.
-- [ ] `ProactiveQuestionAgentInterface` 계약을 만든다.
-- [ ] 입력은 `PetProfile`, `PetRecord` tuple, `ContextAnalysisResult`, due schedule context를 포함한다.
-- [ ] 출력은 question, reason, source record ids, related due items, route를 포함한다.
-- [ ] 질문이 필요 없으면 `None`을 반환할 수 있다.
-- [ ] 건강 판단이 필요한 질문은 `CareQuestionPipeline` route로 연결한다.
-- [ ] 홈에는 최대 1개 질문만 노출한다.
+- [x] `ProactiveQuestionResult` DTO 계약을 만든다.
+- [x] `ProactiveQuestionAgentInterface` 계약을 만든다.
+- [x] 입력은 `PetProfile`, `PetRecord` tuple, `ContextAnalysisResult`, due schedule context를 포함한다.
+- [x] 출력은 question, reason, source record ids, related due items, route를 포함한다.
+- [x] 질문이 필요 없으면 `None`을 반환할 수 있다.
+- [x] 건강 판단이 필요한 질문은 `CareQuestionPipeline` route로 연결한다.
+- [x] 홈에는 최대 1개 질문만 노출한다.
+
+**구현 상태:** `src/infrastructure/agents/proactive_question_agent.py`, `src/infrastructure/policies/proactive_question_policy.py`에 class별 스텁을 추가했다. 실제 질문 선택 로직은 아직 구현하지 않는다.
 
 ## Verification
 

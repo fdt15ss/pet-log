@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from application.dto import PetLogAgentInput
+from application.dto import NotificationCandidate, PetLogAgentInput, ProactiveQuestionResult, RecordSummaryResult
 from domain.models import (
     CareContext,
     CareSuggestion,
@@ -52,6 +52,50 @@ class ReminderAgentInterface(Protocol):
         records: tuple[PetRecord, ...],
         due_items: tuple[PlannedReminder, ...],
     ) -> tuple[PlannedReminder, ...]:
+        raise NotImplementedError
+
+
+class RecordSummaryAgentInterface(Protocol):
+    def summarize(
+        self,
+        pet: PetProfile,
+        records: tuple[PetRecord, ...],
+        context: ContextAnalysisResult,
+        due_items: tuple[PlannedReminder, ...],
+    ) -> RecordSummaryResult:
+        raise NotImplementedError
+
+
+class ProactiveQuestionAgentInterface(Protocol):
+    def build_question(
+        self,
+        pet: PetProfile,
+        records: tuple[PetRecord, ...],
+        context: ContextAnalysisResult,
+        due_items: tuple[PlannedReminder, ...],
+    ) -> ProactiveQuestionResult | None:
+        raise NotImplementedError
+
+
+class NotificationAgentInterface(Protocol):
+    def plan(
+        self,
+        pet: PetProfile,
+        context: ContextAnalysisResult,
+        safety_notices: tuple[SafetyNotice, ...],
+        due_items: tuple[PlannedReminder, ...],
+    ) -> tuple[NotificationCandidate, ...]:
+        raise NotImplementedError
+
+
+class PhotoRecordUnderstandingAgentInterface(Protocol):
+    def understand(
+        self,
+        pet: PetProfile,
+        image: bytes,
+        content_type: str,
+        user_note: str | None = None,
+    ) -> StructuredRecordCandidate:
         raise NotImplementedError
 
 

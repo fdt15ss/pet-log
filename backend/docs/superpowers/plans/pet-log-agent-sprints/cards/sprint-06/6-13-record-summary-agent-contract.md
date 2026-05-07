@@ -16,12 +16,14 @@
 - 병원 연계의 증상 요약, 변화 기록 정리, 리포트 생성
 
 **완료 기준:**
-- [ ] `RecordSummaryResult` DTO 계약을 만든다.
-- [ ] `RecordSummaryAgentInterface` 또는 `RecordSummaryComposerInterface` 계약을 만든다.
-- [ ] 입력은 `PetProfile`, `PetRecord` tuple, `ContextAnalysisResult`, due schedule context를 포함한다.
-- [ ] 출력은 summary text, source record ids, highlights, pattern notes, missing-record notes를 포함한다.
-- [ ] 위험 신호는 진단 문장이 아니라 `SafetyNotice` 또는 병원 상담 안내로 분리한다.
-- [ ] `HospitalSummaryPipeline`이 후속 단계에서 이 summary 계약을 재사용할 수 있게 경계를 명시한다.
+- [x] `RecordSummaryResult` DTO 계약을 만든다.
+- [x] `RecordSummaryAgentInterface` 또는 `RecordSummaryComposerInterface` 계약을 만든다.
+- [x] 입력은 `PetProfile`, `PetRecord` tuple, `ContextAnalysisResult`, due schedule context를 포함한다.
+- [x] 출력은 summary text, source record ids, highlights, pattern notes, missing-record notes를 포함한다.
+- [x] 위험 신호는 진단 문장이 아니라 `SafetyNotice` 또는 병원 상담 안내로 분리한다.
+- [x] `HospitalSummaryPipeline`이 후속 단계에서 이 summary 계약을 재사용할 수 있게 경계를 명시한다.
+
+**구현 상태:** `src/infrastructure/agents/record_summary_agent.py`, `src/infrastructure/composers/record_summary_composer.py`에 class별 스텁을 추가했다. 실제 요약 로직은 아직 구현하지 않는다.
 
 **검증 명령:**
 

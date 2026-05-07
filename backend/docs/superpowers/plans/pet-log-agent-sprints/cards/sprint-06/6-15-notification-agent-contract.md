@@ -20,13 +20,15 @@
 
 ## Completion criteria
 
-- [ ] `NotificationCandidate` DTO 계약을 만든다.
-- [ ] `NotificationAgentInterface` 계약을 만든다.
-- [ ] 입력은 `PetProfile`, `ContextAnalysisResult`, `SafetyNotice` tuple, due schedule context를 포함한다.
-- [ ] 출력은 title, message, kind, dedupe key, source record ids, optional due date를 포함한다.
-- [ ] 알림 후보 생성과 실제 push/email 전송 책임을 분리한다.
-- [ ] 같은 원인으로 중복 알림이 반복되지 않도록 deterministic dedupe key를 둔다.
-- [ ] 위험 신호 문구는 진단이 아니라 병원 상담 안내로 제한한다.
+- [x] `NotificationCandidate` DTO 계약을 만든다.
+- [x] `NotificationAgentInterface` 계약을 만든다.
+- [x] 입력은 `PetProfile`, `ContextAnalysisResult`, `SafetyNotice` tuple, due schedule context를 포함한다.
+- [x] 출력은 title, message, kind, dedupe key, source record ids, optional due date를 포함한다.
+- [x] 알림 후보 생성과 실제 push/email 전송 책임을 분리한다.
+- [x] 같은 원인으로 중복 알림이 반복되지 않도록 deterministic dedupe key를 둔다.
+- [x] 위험 신호 문구는 진단이 아니라 병원 상담 안내로 제한한다.
+
+**구현 상태:** `src/infrastructure/agents/notification_agent.py`, `src/infrastructure/notifications/notification_policy.py`에 class별 스텁을 추가했다. 실제 알림 후보 생성/전송 로직은 아직 구현하지 않는다.
 
 ## Verification
 

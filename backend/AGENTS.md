@@ -62,3 +62,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 ## 계획 문서 작성 규칙
 - 한글로 작성
+- 코드 변경이 있으면 항상 관련 파일 업데이트 
+
+## git 규칙
+- main 브랜치에 checkout 되어 있을경우 새 브랜치 생성

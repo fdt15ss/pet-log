@@ -19,13 +19,15 @@
 
 ## Completion criteria
 
-- [ ] `PhotoRecordUnderstandingAgentInterface` 계약을 만든다.
-- [ ] `ImageRecordUnderstandingProviderInterface` 계약을 만든다.
-- [ ] 입력은 `PetProfile`, image bytes, content type, optional user note를 포함한다.
-- [ ] 출력은 가능한 한 `StructuredRecordCandidate`를 재사용한다.
-- [ ] 사료량, 배변 상태, 자세처럼 관찰 가능한 정보만 구조화한다.
-- [ ] 건강 상태를 이미지로 단정하지 않는다.
-- [ ] 확신이 낮으면 `needs_confirmation=True`로 보호자 확인을 요구한다.
+- [x] `PhotoRecordUnderstandingAgentInterface` 계약을 만든다.
+- [x] `ImageRecordUnderstandingProviderInterface` 계약을 만든다.
+- [x] 입력은 `PetProfile`, image bytes, content type, optional user note를 포함한다.
+- [x] 출력은 가능한 한 `StructuredRecordCandidate`를 재사용한다.
+- [x] 사료량, 배변 상태, 자세처럼 관찰 가능한 정보만 구조화한다.
+- [x] 건강 상태를 이미지로 단정하지 않는다.
+- [x] 확신이 낮으면 `needs_confirmation=True`로 보호자 확인을 요구한다.
+
+**구현 상태:** `src/infrastructure/agents/photo_record_understanding_agent.py`, `src/infrastructure/llm/image_record_understanding_provider.py`에 class별 스텁을 추가했다. 실제 vision 모델 호출은 아직 구현하지 않는다.
 
 ## Verification
 
