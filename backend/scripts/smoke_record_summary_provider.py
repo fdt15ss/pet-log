@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 
 from domain.models import ContextAnalysisResult, PetProfile, PetRecord, PlannedReminder
-from infrastructure.llm.record_summary_provider import RecordSummaryProvider
+from infrastructure.llm.record_summary import RecordSummaryProvider
 
 
 def load_env_file(path: Path) -> None:
