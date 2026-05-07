@@ -241,10 +241,10 @@ RecordSummaryAgent
 
 - `RecordSummaryAgent`는 OpenAI SDK, LangChain, LangGraph 타입을 직접 import하지 않는다.
 - 실제 GPT 또는 로컬 모델 호출은 `RecordSummaryProviderInterface` 구현체가 담당한다.
-- 현재 `RecordSummaryProvider`는 OpenAI Responses API를 호출하는 infrastructure 구현체다.
+- 현재 `RecordSummaryProvider`는 LangChain `create_agent`와 `ChatOpenAI`를 사용하는 infrastructure 구현체다.
 - `OPENAI_API_KEY`가 없으면 `RecordSummaryProvider.summarize()`는 실행 시 실패한다.
 - 기본 모델은 `gpt-5-mini`이며, `OPENAI_RECORD_SUMMARY_MODEL` 환경변수로 교체할 수 있다.
-- OpenAI SDK 의존성은 아직 추가하지 않고 표준 라이브러리 HTTP 호출로 연결한다.
+- structured output은 LangChain `ProviderStrategy`와 Pydantic schema로 `RecordSummaryResult` 형태에 맞춘다.
 - `RecordSummaryComposerInterface`는 모델을 쓰지 않는 fallback, 테스트용 deterministic 요약, 모델 결과 포맷팅에만 사용한다.
 - LangGraph를 붙일 때는 `RecordSummaryAgent.summarize()`를 node로 감싸고, provider/composer/policy 구현체를 직접 node로 등록하지 않는다.
 - 요약 문장은 진단처럼 보이면 안 되며, 위험 신호는 `SafetyNotice` 또는 병원 상담 안내로 분리한다.

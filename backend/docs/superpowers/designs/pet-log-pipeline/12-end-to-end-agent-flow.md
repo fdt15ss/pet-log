@@ -138,7 +138,7 @@ PetProfile
 
 요약은 사람이 읽는 자연어 결과이므로 모델 provider가 필요하다. `RecordSummaryAgent`가 직접 GPT, LangChain, LangGraph 타입을 import하지 않는다. 실제 모델 호출은 `RecordSummaryProviderInterface` 구현체가 담당한다.
 
-현재 구현 기준으로 `RecordSummaryProvider`는 OpenAI Responses API를 호출한다. 실행에는 `OPENAI_API_KEY`가 필요하고, 기본 모델은 `gpt-5-mini`다. 모델은 `OPENAI_RECORD_SUMMARY_MODEL` 환경변수로 바꿀 수 있다.
+현재 구현 기준으로 `RecordSummaryProvider`는 LangChain `create_agent`와 `ChatOpenAI`를 사용한다. 실행에는 `OPENAI_API_KEY`가 필요하고, 기본 모델은 `gpt-5-mini`다. 모델은 `OPENAI_RECORD_SUMMARY_MODEL` 환경변수로 바꿀 수 있다.
 
 `RecordSummaryComposerInterface`는 다음 용도로 제한한다.
 
