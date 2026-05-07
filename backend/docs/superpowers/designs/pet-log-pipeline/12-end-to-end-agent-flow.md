@@ -140,6 +140,8 @@ PetProfile
 
 현재 구현 기준으로 `RecordSummaryProvider`는 LangChain `ChatOpenAI.with_structured_output()`을 사용한다. 실행에는 `OPENAI_API_KEY`가 필요하고, 기본 모델은 `gpt-5-mini`다. 모델은 `OPENAI_RECORD_SUMMARY_MODEL` 환경변수로 바꿀 수 있다.
 
+모델 요약 구현은 `record_summary/` 하위의 `provider.py`, `model.py`, `schema.py`, `prompt.py`, `mapper.py`로 나뉜다. 팀원이 직접 수정할 때는 provider 한 파일에 모든 책임을 넣지 않고, 모델 생성, 프롬프트, schema, 변환 로직을 각각의 파일에서 채운다.
+
 `RecordSummaryComposerInterface`는 다음 용도로 제한한다.
 
 - 모델이 없는 테스트/fallback 요약

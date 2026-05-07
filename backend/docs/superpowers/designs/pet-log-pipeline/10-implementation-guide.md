@@ -204,7 +204,7 @@ PetLogAgentPipeline 생성
 | 원인 추정 제한 | `CauseHypothesisPolicyInterface` | `src/infrastructure/policies/cause_hypothesis_policy.py` 스텁 | `ContextAnalysisAgent` 또는 `SuggestionAgent` |
 | 행동 제안 생성 | `SuggestionComposerInterface` | `src/infrastructure/policies/suggestion_composer.py` | `SuggestionAgent` |
 | 리마인더 생성 | `ReminderPlannerInterface` | `src/infrastructure/policies/reminder_planner.py` | `ReminderAgent` |
-| 기록 요약 생성 | `RecordSummaryProviderInterface` | `src/infrastructure/llm/record_summary_provider.py` 스텁 | `RecordSummaryAgent` |
+| 기록 요약 생성 | `RecordSummaryProviderInterface` | `src/infrastructure/llm/record_summary/provider.py` | `RecordSummaryAgent` |
 | 기록 요약 fallback/포맷팅 | `RecordSummaryComposerInterface` | `src/infrastructure/composers/record_summary_composer.py` 스텁 | `RecordSummaryAgent` |
 | 홈 선제 질문 생성 | `ProactiveQuestionPolicyInterface` | `src/infrastructure/policies/proactive_question_policy.py` 스텁 | `ProactiveQuestionAgent` |
 | 알림 후보 생성 | `NotificationPolicyInterface` | `src/infrastructure/notifications/notification_policy.py` 스텁 | `NotificationAgent` |
@@ -248,7 +248,16 @@ RecordSummaryAgent
 - `RecordSummaryComposerInterface`는 모델을 쓰지 않는 fallback, 테스트용 deterministic 요약, 모델 결과 포맷팅에만 사용한다.
 - LangGraph를 붙일 때는 `RecordSummaryAgent.summarize()`를 node로 감싸고, provider/composer/policy 구현체를 직접 node로 등록하지 않는다.
 - 요약 문장은 진단처럼 보이면 안 되며, 위험 신호는 `SafetyNotice` 또는 병원 상담 안내로 분리한다.
-| CLI demo | pipeline interfaces | `src/presentation/cli/` | `src/composition.py` |
+
+팀원이 채울 파일 기준:
+
+| 파일 | 책임 |
+| --- | --- |
+| `src/infrastructure/llm/record_summary/provider.py` | provider orchestration, 모델 호출 순서 |
+| `src/infrastructure/llm/record_summary/model.py` | `ChatOpenAI.with_structured_output()` 생성 |
+| `src/infrastructure/llm/record_summary/schema.py` | 모델 structured output Pydantic schema |
+| `src/infrastructure/llm/record_summary/prompt.py` | system/user prompt 생성 |
+| `src/infrastructure/llm/record_summary/mapper.py` | domain 입력 payload 변환, model output -> `RecordSummaryResult` 변환 |
 
 ## 추천 구현 순서
 

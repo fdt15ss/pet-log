@@ -3,7 +3,7 @@ from __future__ import annotations
 import unittest
 
 from domain.models import ContextAnalysisResult, PetProfile, PetRecord, PlannedReminder
-from infrastructure.llm.record_summary_provider import RecordSummaryProvider
+from infrastructure.llm.record_summary import RecordSummaryProvider
 
 
 class FakeStructuredModel:
