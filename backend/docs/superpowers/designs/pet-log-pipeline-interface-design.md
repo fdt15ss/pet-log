@@ -35,6 +35,7 @@
 | [08-contracts.md](pet-log-pipeline/08-contracts.md) | domain, DTO, interface 계약 |
 | [09-infrastructure-skeleton.md](pet-log-pipeline/09-infrastructure-skeleton.md) | infrastructure 구현체 skeleton 위치 |
 | [10-implementation-guide.md](pet-log-pipeline/10-implementation-guide.md) | 처음 보는 개발자를 위한 구현 위치 안내 |
+| [11-agent-gap-analysis.md](pet-log-pipeline/11-agent-gap-analysis.md) | `기획.md` 재점검 기준 누락 agent 후보 |
 
 ## 전체 구조 요약
 
@@ -46,11 +47,16 @@
       -> RiskDetectionAgent
       -> SuggestionAgent
       -> ReminderAgent
+      -> RecordSummaryAgent 후보
   -> Surface Pipelines
       -> HomeFeedPipeline
+      -> ProactiveQuestionAgent 후보
+      -> NotificationAgent 후보
       -> CareQuestionPipeline
       -> PetChatPipeline
       -> HospitalSummaryPipeline
+  -> Input Understanding
+      -> PhotoRecordUnderstandingAgent 후보
 
 Agent Runtime
   -> AgentRuntime

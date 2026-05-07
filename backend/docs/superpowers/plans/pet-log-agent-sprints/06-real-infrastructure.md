@@ -19,3 +19,6 @@
 | 6-11 | [6-11-middleware-chain.md](cards/sprint-06/6-11-middleware-chain.md) | middleware chain |
 | 6-12 | [6-12-runtime-tool-calling-smoke.md](cards/sprint-06/6-12-runtime-tool-calling-smoke.md) | runtime tool calling smoke |
 | 6-13 | [6-13-record-summary-agent-contract.md](cards/sprint-06/6-13-record-summary-agent-contract.md) | record summary agent contract |
+| 6-14 | [6-14-proactive-question-agent-contract.md](cards/sprint-06/6-14-proactive-question-agent-contract.md) | proactive question agent contract |
+| 6-15 | [6-15-notification-agent-contract.md](cards/sprint-06/6-15-notification-agent-contract.md) | notification agent contract |
+| 6-16 | [6-16-photo-record-understanding-agent-contract.md](cards/sprint-06/6-16-photo-record-understanding-agent-contract.md) | photo record understanding contract |

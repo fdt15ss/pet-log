@@ -191,6 +191,7 @@ PetLogAgentPipeline 생성
 | 만들 기능 | 먼저 볼 interface | 구현 위치 | 연결 위치 |
 | --- | --- | --- | --- |
 | 자연어 기록 구조화 | `RecordStructurerInterface` | `src/infrastructure/llm/record_structurer.py` | `RecordStructuringAgent` |
+| 사진 기록 이해 | `ImageRecordUnderstandingProviderInterface` 후보 | `src/infrastructure/llm/image_record_understanding_provider.py` 후보 | `PhotoRecordUnderstandingAgent` 후보 |
 | 펫 프로필 조회 | `PetProfileReaderInterface` | `src/infrastructure/repositories/pet_profile_repository.py` | `CareContextBuilder`, pipeline |
 | 최근 기록 조회 | `RecordHistoryReaderInterface` | `src/infrastructure/repositories/record_repository.py` | `ContextAnalysisAgent`, `CareContextBuilder` |
 | 기록 저장 | `RecordRepositoryInterface` | `src/infrastructure/repositories/record_repository.py` | `PetLogAgentPipeline` |
@@ -199,6 +200,8 @@ PetLogAgentPipeline 생성
 | 기록 누락 감지 | `MissingRecordPolicyInterface` | `src/infrastructure/policies/missing_record_policy.py` | `ContextAnalysisAgent` |
 | 행동 제안 생성 | `SuggestionComposerInterface` | `src/infrastructure/policies/suggestion_composer.py` | `SuggestionAgent` |
 | 리마인더 생성 | `ReminderPlannerInterface` | `src/infrastructure/policies/reminder_planner.py` | `ReminderAgent` |
+| 홈 선제 질문 생성 | `ProactiveQuestionPolicyInterface` 후보 | `src/infrastructure/policies/proactive_question_policy.py` 후보 | `ProactiveQuestionAgent` 후보 |
+| 알림 후보 생성 | `NotificationPolicyInterface` 후보 | `src/infrastructure/notifications/notification_policy.py` 후보 | `NotificationAgent` 후보 |
 | AI 케어 답변 | `CareAnswerProviderInterface` | `src/infrastructure/llm/care_answer_provider.py` | `CareQuestionPipeline` |
 | 펫 말투 응답 | `PetPersonaResponderInterface` | `src/infrastructure/llm/pet_persona_responder.py` | `PetPersonaAgent` |
 | 음성 입력 STT | `SpeechToTextInterface` | `src/infrastructure/speech/speech_to_text.py` | `presentation`, `tools/speech_tools.py` |
@@ -318,6 +321,29 @@ mock/rule 기반 흐름이 검증된 뒤 실제 LLM을 붙인다.
 5. 실제 문장 생성은 rule composer 또는 LLM provider를 `infrastructure/` 뒤에 둔다.
 6. `HospitalSummaryPipeline`은 공통 summary를 받아 병원 제출용 포맷으로 재구성한다.
 7. 의료 판단 단정 표현이 없는지 테스트한다.
+
+### 홈 선제 질문 agent를 구현한다면
+
+1. `기획.md`의 홈 요구를 확인한다: 오늘 요약, 최근 변화, 기록 누락 알림, AI가 먼저 질문하는 한줄 구간.
+2. `ContextAnalysisResult`, 최근 기록, due schedule 중 질문 근거를 하나 고른다.
+3. 결과 DTO는 질문 문구, 이유, 연결 route, source record id를 포함한다.
+4. 질문은 최대 1개만 반환하고, 없을 수 있음을 `None`으로 표현한다.
+5. 건강 판단이 필요한 질문은 `CareQuestionPipeline` route로 넘긴다.
+
+### 알림 후보 agent를 구현한다면
+
+1. 이상 징후, 행동 변화, 일정 도래, 기록 누락을 알림 후보로 변환한다.
+2. 실제 push/email 전송은 application agent가 아니라 notification infrastructure에 둔다.
+3. 중복 발송 방지를 위해 deterministic `dedupe_key`를 만든다.
+4. 위험 신호 알림은 진단이 아니라 병원 상담 권장 문구로 제한한다.
+
+### 사진 기록 이해 agent를 구현한다면
+
+1. 입력은 image bytes, content type, optional user note로 제한한다.
+2. 실제 vision 모델 호출은 provider interface 뒤에 둔다.
+3. 출력은 가능한 한 `StructuredRecordCandidate`를 재사용한다.
+4. 이미지로 건강 상태를 단정하지 않고 관찰 가능한 정보만 구조화한다.
+5. 확신이 낮으면 `needs_confirmation=True`로 보호자 확인을 요구한다.
 
 ### API를 붙인다면
 

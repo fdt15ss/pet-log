@@ -6,18 +6,22 @@
 | --- | --- |
 | 자연어 기반 통합 입력 | `PetLogAgentPipeline`, `RecordStructuringAgent` |
 | 음성 기반 기록 입력 | `SpeechToTextInterface`, `PetLogAgentPipeline` |
+| 사진 첨부 기록/사진 인식 | `PhotoRecordUnderstandingAgent` 후보, `ImageRecordUnderstandingProviderInterface` 후보 |
 | 자동 데이터 구조화 | `RecordStructuringAgent`, `RecordStructurerInterface` |
 | 누적 데이터 기반 분석 | `ContextAnalysisAgent` |
+| 시간 흐름 기반 요약/리포트 | `RecordSummaryAgent` 후보 |
 | 이상 변화 감지 | `RiskDetectionAgent`, `RiskSignalPolicyInterface` |
 | 행동 가이드 제공 | `SuggestionAgent` |
 | 기록 누락 감지 | `ContextAnalysisAgent`, `MissingRecordPolicyInterface` |
-| 홈 오늘 요약/최근 변화/제안 카드 | `HomeFeedPipeline` |
+| 홈 오늘 요약/최근 변화/제안 카드 | `HomeFeedPipeline`, `HomeFeedComposerInterface` |
+| AI가 먼저 묻는 홈 질문 | `ProactiveQuestionAgent` 후보 |
 | AI 케어 질문 | `CareQuestionPipeline` |
 | 펫과 대화하는 감성 인터페이스 | `PetChatPipeline` |
 | 펫 대화 음성 출력 | `TextToSpeechInterface`, `PetChatPipeline` |
 | 건강 이상 질문 시 병원 상담 안내 | `SafetyGuardInterface`, `middleware/safety.py` |
 | 병원 제출용 요약 | `HospitalSummaryPipeline` |
 | 일정 기반 관리 | `ScheduleContextReaderInterface`, `ReminderPlannerInterface` |
+| 이상/행동/일정/누락 알림 | `NotificationAgent` 후보 |
 
 ## Architect Agent 검토 반영
 
@@ -36,4 +40,5 @@
 - 홈의 `오늘 요약`, `최근 변화`, `이상 징후`, `제안 카드`를 만들 수 있는 interface가 있다.
 - `AI 케어 질문`과 `펫 대화`가 backend에서 분리된 pipeline으로 표현된다.
 - 위험 신호는 병원 상담 권장 또는 케어 질문 연결로 제한된다.
+- `기획.md`에 있지만 아직 코드 계약이 없는 agent 후보는 [11-agent-gap-analysis.md](11-agent-gap-analysis.md)에 추적한다.
 - 현재 단계는 폴더, interface 파일, infrastructure/runtime skeleton import까지 검증되어야 한다.
