@@ -6,18 +6,18 @@ from domain.models import ContextAnalysisResult, PetProfile, PetRecord, PlannedR
 from infrastructure.llm.record_summary_provider import RecordSummaryProvider
 
 
-class FakeLangChainAgent:
+class FakeStructuredModel:
     def __init__(self, response: dict[str, object]) -> None:
         self.response = response
-        self.calls: list[dict[str, object]] = []
+        self.calls: list[list[tuple[str, str]]] = []
 
-    def invoke(self, payload: dict[str, object]) -> dict[str, object]:
-        self.calls.append(payload)
+    def invoke(self, messages: list[tuple[str, str]]) -> dict[str, object]:
+        self.calls.append(messages)
         return self.response
 
 
 class TestRecordSummaryProvider(unittest.TestCase):
-    def test_summarize_invokes_langchain_agent_and_maps_structured_response(self):
+    def test_summarize_invokes_structured_model_and_maps_response(self):
         model_output = {
             "summary": "초코의 새벽 짖음 기록이 반복되는지 지켜볼 필요가 있습니다.",
             "record_ids": ["record-1"],
@@ -26,8 +26,12 @@ class TestRecordSummaryProvider(unittest.TestCase):
             "missing_record_notes": ["짖음 이후 안정 여부 기록이 있으면 좋습니다."],
             "safety_notice": None,
         }
-        agent = FakeLangChainAgent({"structured_response": model_output})
-        provider = RecordSummaryProvider(api_key="test-key", model="test-model", langchain_agent=agent)
+        structured_model = FakeStructuredModel(model_output)
+        provider = RecordSummaryProvider(
+            api_key="test-key",
+            model="test-model",
+            structured_model=structured_model,
+        )
         pet = PetProfile(id="pet-1", name="초코")
         records = (
             PetRecord(
@@ -50,37 +54,36 @@ class TestRecordSummaryProvider(unittest.TestCase):
         self.assertEqual(result.highlights, ("새벽 짖음",))
         self.assertEqual(result.behavior_patterns, ("현관 쪽 반응",))
         self.assertEqual(result.missing_record_notes, ("짖음 이후 안정 여부 기록이 있으면 좋습니다.",))
-        self.assertEqual(len(agent.calls), 1)
+        self.assertEqual(len(structured_model.calls), 1)
 
-        messages = agent.calls[0]["messages"]
-        self.assertEqual(messages[0]["role"], "user")
-        self.assertIn("진단을 단정하지 마세요", messages[0]["content"])
-        self.assertIn("밤에 짖음", messages[0]["content"])
+        messages = structured_model.calls[0]
+        self.assertEqual(messages[0][0], "system")
+        self.assertEqual(messages[1][0], "user")
+        self.assertIn("진단을 단정하지 마세요", messages[0][1])
+        self.assertIn("밤에 짖음", messages[1][1])
 
-    def test_builds_langchain_agent_with_configured_model(self):
+    def test_builds_structured_model_with_configured_model(self):
         created: list[dict[str, object]] = []
-        agent = FakeLangChainAgent(
+        structured_model = FakeStructuredModel(
             {
-                "structured_response": {
-                    "summary": "요약",
-                    "record_ids": [],
-                    "highlights": [],
-                    "behavior_patterns": [],
-                    "missing_record_notes": [],
-                    "safety_notice": None,
-                }
+                "summary": "요약",
+                "record_ids": [],
+                "highlights": [],
+                "behavior_patterns": [],
+                "missing_record_notes": [],
+                "safety_notice": None,
             }
         )
 
-        def fake_agent_factory(model: str, api_key: str, timeout: float):
+        def fake_model_factory(model: str, api_key: str, timeout: float):
             created.append({"model": model, "api_key": api_key, "timeout": timeout})
-            return agent
+            return structured_model
 
         provider = RecordSummaryProvider(
             api_key="test-key",
             model="test-model",
             timeout=12.0,
-            agent_factory=fake_agent_factory,
+            model_factory=fake_model_factory,
         )
 
         provider.summarize(PetProfile(id="pet-1", name="초코"), (), ContextAnalysisResult(), ())
