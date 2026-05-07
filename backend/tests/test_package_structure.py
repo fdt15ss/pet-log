@@ -29,6 +29,7 @@ class TestPackageStructure(unittest.TestCase):
             "tools.care_tools",
             "tools.speech_tools",
             "infrastructure.llm.record_structurer",
+            "infrastructure.llm.record_summary_provider",
             "infrastructure.llm.image_record_understanding_provider",
             "infrastructure.speech.speech_to_text",
             "infrastructure.speech.text_to_speech",
@@ -57,6 +58,7 @@ class TestPackageStructure(unittest.TestCase):
 
         self.assertTrue(hasattr(interfaces, "PetLogAgentPipelineInterface"))
         self.assertTrue(hasattr(interfaces, "RecordSummaryAgentInterface"))
+        self.assertTrue(hasattr(interfaces, "RecordSummaryProviderInterface"))
         self.assertTrue(hasattr(interfaces, "ProactiveQuestionAgentInterface"))
         self.assertTrue(hasattr(interfaces, "NotificationAgentInterface"))
         self.assertTrue(hasattr(interfaces, "PhotoRecordUnderstandingAgentInterface"))

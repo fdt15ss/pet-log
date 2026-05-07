@@ -2,12 +2,23 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from application.dto import PetLogAgentInput
-from domain.models import CareContext, PetProfile, StructuredRecordCandidate
+from application.dto import PetLogAgentInput, RecordSummaryResult
+from domain.models import CareContext, ContextAnalysisResult, PetProfile, PetRecord, PlannedReminder, StructuredRecordCandidate
 
 
 class RecordStructurerInterface(Protocol):
     def structure(self, input: PetLogAgentInput) -> StructuredRecordCandidate:
+        raise NotImplementedError
+
+
+class RecordSummaryProviderInterface(Protocol):
+    def summarize(
+        self,
+        pet: PetProfile,
+        records: tuple[PetRecord, ...],
+        context: ContextAnalysisResult,
+        due_items: tuple[PlannedReminder, ...],
+    ) -> RecordSummaryResult:
         raise NotImplementedError
 
 
