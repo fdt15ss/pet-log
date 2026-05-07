@@ -1,12 +1,46 @@
 from __future__ import annotations
 
+import sqlite3
+from datetime import UTC, datetime, timedelta
+
 from application.interfaces import ScheduleContextReaderInterface
 from domain.models import PlannedReminder
+from infrastructure.database import initialize_schema
 
 
 class ScheduleRepository(ScheduleContextReaderInterface):
-    def __init__(self, due_items_by_pet_id: dict[str, tuple[PlannedReminder, ...]] | None = None) -> None:
+    def __init__(
+        self,
+        due_items_by_pet_id: dict[str, tuple[PlannedReminder, ...]] | None = None,
+        connection: sqlite3.Connection | None = None,
+    ) -> None:
+        self._connection = connection
+        if self._connection is not None:
+            initialize_schema(self._connection)
         self._due_items_by_pet_id = due_items_by_pet_id or {}
 
     def list_due_items(self, pet_id: str, days_ahead: int) -> tuple[PlannedReminder, ...]:
+        if self._connection is not None:
+            max_due_date = (datetime.now(UTC).date() + timedelta(days=days_ahead)).isoformat()
+            rows = self._connection.execute(
+                """
+                SELECT title, due_date, note, repeat_label
+                FROM care_schedules
+                WHERE pet_id = ?
+                    AND deleted_at IS NULL
+                    AND is_done = 0
+                    AND due_date <= ?
+                ORDER BY due_date, created_at
+                """,
+                (pet_id, max_due_date),
+            ).fetchall()
+            return tuple(
+                PlannedReminder(
+                    title=row["title"],
+                    due_date=row["due_date"],
+                    reason=row["note"] or row["repeat_label"],
+                )
+                for row in rows
+            )
+
         return self._due_items_by_pet_id.get(pet_id, ())

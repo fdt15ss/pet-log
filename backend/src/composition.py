@@ -13,13 +13,15 @@ from infrastructure.policies.pattern_analyzer import PatternAnalyzer
 from infrastructure.policies.reminder_planner import ReminderPlanner
 from infrastructure.policies.risk_signal_policy import RiskSignalPolicy
 from infrastructure.policies.suggestion_composer import SuggestionComposer
+from infrastructure.database import connect
 from infrastructure.repositories.record_repository import RecordRepository
 from infrastructure.repositories.schedule_repository import ScheduleRepository
 
 
-def build_pet_log_agent_pipeline() -> PetLogAgentPipelineInterface:
-    record_repository = RecordRepository()
-    schedule_repository = ScheduleRepository()
+def build_pet_log_agent_pipeline(database_path: str | None = None) -> PetLogAgentPipelineInterface:
+    database = connect(database_path)
+    record_repository = RecordRepository(connection=database)
+    schedule_repository = ScheduleRepository(connection=database)
     return PetLogAgentPipeline(
         record_structuring_agent=RecordStructuringAgent(RecordStructurer()),
         record_history_reader=record_repository,
