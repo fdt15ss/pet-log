@@ -22,3 +22,4 @@
 | 6-14 | [6-14-proactive-question-agent-contract.md](cards/sprint-06/6-14-proactive-question-agent-contract.md) | proactive question agent contract |
 | 6-15 | [6-15-notification-agent-contract.md](cards/sprint-06/6-15-notification-agent-contract.md) | notification agent contract |
 | 6-16 | [6-16-photo-record-understanding-agent-contract.md](cards/sprint-06/6-16-photo-record-understanding-agent-contract.md) | photo record understanding contract |
+| 6-17 | [6-17-langgraph-runtime-decision.md](cards/sprint-06/6-17-langgraph-runtime-decision.md) | LangGraph runtime decision |

@@ -28,6 +28,48 @@ infrastructure/
 | `src/agent_runtime/tool_registry.py` | tool 등록, 조회, schema 노출 |
 | `src/agent_runtime/memory.py` | 단기 context와 향후 memory hook |
 
+## LangGraph/LangChain 선택
+
+현재 프로젝트의 기본 방향은 LangGraph 우선이다.
+
+판단 근거:
+
+- `PetLogAgentPipeline`은 기록 구조화, 맥락 분석, 위험 감지, 저장, 제안, 리마인더처럼 순서와 상태가 있는 workflow다.
+- 보호자 확인, 병원 요약, 알림 후보 생성, 향후 human-in-the-loop가 들어갈 가능성이 높다.
+- `agent_runtime/`은 이미 LLM 호출 loop, tool registry, memory, middleware를 분리한 구조라 LangGraph의 graph orchestration과 잘 맞는다.
+
+결정:
+
+- application pipeline과 interface는 LangGraph 또는 LangChain 타입에 의존하지 않는다.
+- `src/agent_runtime/` 내부 구현에서만 LangGraph adapter를 둔다.
+- LLM provider 호출은 `infrastructure/llm/`의 얇은 provider wrapper로 먼저 구현한다.
+- LangChain은 model/tool adapter, provider 통합, prebuilt agent가 명확히 필요한 경우에만 보조적으로 사용한다.
+- 단순 rule/mock 구현 단계에서는 LangGraph/LangChain을 추가하지 않는다.
+
+후속 구현 후보:
+
+```text
+application pipeline
+  -> application agent
+  -> AgentRuntimeInterface 후보
+  -> LangGraphAgentRuntime
+  -> ToolRegistry
+  -> infrastructure provider/tool
+```
+
+도입 기준:
+
+- agent 실행 중간 상태를 저장하거나 재개해야 한다.
+- 보호자 확인 같은 interrupt/resume 흐름이 필요하다.
+- 여러 tool 호출과 분기 조건을 graph로 명시해야 한다.
+- 실행 경로 추적과 재현 가능한 테스트가 중요해진다.
+
+비도입 기준:
+
+- rule-based policy만으로 충분하다.
+- 단일 LLM 호출 후 DTO를 반환하는 단순 provider다.
+- application interface skeleton 또는 mock 단계다.
+
 ## Middleware
 
 | 파일 | 책임 |

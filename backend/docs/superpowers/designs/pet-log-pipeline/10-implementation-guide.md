@@ -124,10 +124,13 @@ LLM agent 실행 공통 계층이다.
 - tool registry
 - tool calling loop
 - memory hook
+- LangGraph adapter 후보
 
 수정 기준:
 - 단순 rule/mock 구현 단계에서는 건드리지 않아도 된다.
 - 실제 tool-calling LLM agent를 붙일 때 구현한다.
+- 상태 저장, 중단/재개, human-in-the-loop, 복수 tool 분기 흐름이 필요하면 LangGraph를 우선 검토한다.
+- LangChain은 model/tool adapter 또는 prebuilt agent가 명확히 필요한 경우에만 보조적으로 쓴다.
 
 ### `src/middleware/`
 
@@ -203,6 +206,7 @@ PetLogAgentPipeline 생성
 | 리마인더 생성 | `ReminderPlannerInterface` | `src/infrastructure/policies/reminder_planner.py` | `ReminderAgent` |
 | 홈 선제 질문 생성 | `ProactiveQuestionPolicyInterface` 후보 | `src/infrastructure/policies/proactive_question_policy.py` 후보 | `ProactiveQuestionAgent` 후보 |
 | 알림 후보 생성 | `NotificationPolicyInterface` 후보 | `src/infrastructure/notifications/notification_policy.py` 후보 | `NotificationAgent` 후보 |
+| LangGraph runtime | `AgentRuntimeInterface` 후보 | `src/agent_runtime/runtime.py` | `agent_runtime` 내부 adapter |
 | AI 케어 답변 | `CareAnswerProviderInterface` | `src/infrastructure/llm/care_answer_provider.py` | `CareQuestionPipeline` |
 | 펫 말투 응답 | `PetPersonaResponderInterface` | `src/infrastructure/llm/pet_persona_responder.py` | `PetPersonaAgent` |
 | 음성 입력 STT | `SpeechToTextInterface` | `src/infrastructure/speech/speech_to_text.py` | `presentation`, `tools/speech_tools.py` |

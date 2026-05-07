@@ -14,6 +14,7 @@
 - 모든 외부 의존성은 interface 뒤로 숨긴다.
 - `agent`는 제품 기능을 맡는 LLM agent 단위로 유지한다.
 - LLM 호출 loop, prompt 조립, tool registry, memory는 `agent_runtime/`에 둔다.
+- `agent_runtime/`의 실제 orchestration 구현은 LangGraph 우선으로 검토한다. LangChain은 model/tool adapter 또는 prebuilt agent가 필요할 때 보조적으로만 쓴다.
 - agent 실행 전후 공통 처리인 safety, logging, tracing, retry, validation은 `middleware/`에 둔다.
 - agent가 호출할 수 있는 기능은 schema-first `tools/`에 둔다.
 - STT/TTS provider는 `infrastructure/speech/` 뒤로 숨기고, 파일/스트림 처리는 `presentation/`에서 변환한다.
@@ -60,6 +61,7 @@
 
 Agent Runtime
   -> AgentRuntime
+  -> LangGraph adapter 후보
   -> ToolRegistry
   -> Middleware chain
   -> Tools
