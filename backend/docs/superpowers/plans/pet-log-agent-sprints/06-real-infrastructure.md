@@ -18,3 +18,4 @@
 | 6-10 | [6-10-tool-registry.md](cards/sprint-06/6-10-tool-registry.md) | tool registry |
 | 6-11 | [6-11-middleware-chain.md](cards/sprint-06/6-11-middleware-chain.md) | middleware chain |
 | 6-12 | [6-12-runtime-tool-calling-smoke.md](cards/sprint-06/6-12-runtime-tool-calling-smoke.md) | runtime tool calling smoke |
+| 6-13 | [6-13-record-summary-agent-contract.md](cards/sprint-06/6-13-record-summary-agent-contract.md) | record summary agent contract |

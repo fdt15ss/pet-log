@@ -309,6 +309,16 @@ mock/rule 기반 흐름이 검증된 뒤 실제 LLM을 붙인다.
 4. `PetLogAgentPipeline`에서 저장 흐름이 호출되는지 확인한다.
 5. repository 단위 테스트 또는 integration test를 추가한다.
 
+### 누적 기록 기반 정리 agent를 구현한다면
+
+1. `기획.md`의 기록 기반 요구를 확인한다: 문제 행동 요약, 최근 변화 정리, 주간/월간 리포트, 병원 제출용 요약.
+2. `ContextAnalysisAgent`가 이미 만든 insight와 missing-record insight를 재사용한다.
+3. 새 책임은 `RecordSummaryAgent` 또는 `CareReportAgent`로 분리하고, 단순 패턴 감지는 기존 policy에 남긴다.
+4. summary 결과 DTO를 `application/dto.py`에 추가하고, 계약은 `application/interfaces/agents.py` 또는 `application/interfaces/composers.py`에 둔다.
+5. 실제 문장 생성은 rule composer 또는 LLM provider를 `infrastructure/` 뒤에 둔다.
+6. `HospitalSummaryPipeline`은 공통 summary를 받아 병원 제출용 포맷으로 재구성한다.
+7. 의료 판단 단정 표현이 없는지 테스트한다.
+
 ### API를 붙인다면
 
 1. `src/composition.py`에서 pipeline을 만들 수 있게 한다.
