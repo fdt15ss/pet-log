@@ -5,8 +5,6 @@ import os
 from collections.abc import Callable
 from typing import Any, Literal, Protocol
 
-from langchain.agents import create_agent
-from langchain.agents.structured_output import ProviderStrategy
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel
 
@@ -18,12 +16,12 @@ from domain.models import ContextAnalysisResult, PetProfile, PetRecord, PlannedR
 DEFAULT_RECORD_SUMMARY_MODEL = "gpt-5-mini"
 
 
-class LangChainAgent(Protocol):
-    def invoke(self, payload: dict[str, object]) -> dict[str, object]:
+class StructuredRecordSummaryModel(Protocol):
+    def invoke(self, messages: list[tuple[str, str]]) -> object:
         raise NotImplementedError
 
 
-LangChainAgentFactory = Callable[[str, str, float], LangChainAgent]
+StructuredRecordSummaryModelFactory = Callable[[str, str, float], StructuredRecordSummaryModel]
 
 
 class RecordSummarySafetyNoticeOutput(BaseModel):
@@ -40,23 +38,17 @@ class RecordSummaryOutput(BaseModel):
     safety_notice: RecordSummarySafetyNoticeOutput | None
 
 
-def build_record_summary_langchain_agent(model: str, api_key: str, timeout: float) -> LangChainAgent:
+def build_record_summary_model(model: str, api_key: str, timeout: float) -> StructuredRecordSummaryModel:
     llm = ChatOpenAI(
         model=model,
         api_key=api_key,
         timeout=timeout,
         use_responses_api=True,
     )
-    return create_agent(
-        model=llm,
-        tools=[],
-        system_prompt=(
-            "반려동물 기록을 보호자가 이해하기 쉬운 한국어로 요약하세요. "
-            "진단을 단정하지 마세요. 위험 신호가 있으면 safety_notice로 분리하고 "
-            "병원 상담이 필요한 가능성만 조심스럽게 표현하세요."
-        ),
-        response_format=ProviderStrategy(RecordSummaryOutput),
-        name="record_summary_agent",
+    return llm.with_structured_output(
+        RecordSummaryOutput,
+        method="json_schema",
+        strict=True,
     )
 
 
@@ -67,14 +59,14 @@ class RecordSummaryProvider(RecordSummaryProviderInterface):
         api_key: str | None = None,
         model: str | None = None,
         timeout: float = 30.0,
-        agent_factory: LangChainAgentFactory = build_record_summary_langchain_agent,
-        langchain_agent: LangChainAgent | None = None,
+        model_factory: StructuredRecordSummaryModelFactory = build_record_summary_model,
+        structured_model: StructuredRecordSummaryModel | None = None,
     ) -> None:
         self._api_key = api_key if api_key is not None else os.environ.get("OPENAI_API_KEY", "")
         self._model = model or os.environ.get("OPENAI_RECORD_SUMMARY_MODEL", DEFAULT_RECORD_SUMMARY_MODEL)
         self._timeout = timeout
-        self._agent_factory = agent_factory
-        self._langchain_agent = langchain_agent
+        self._model_factory = model_factory
+        self._structured_model = structured_model
 
     def summarize(
         self,
@@ -86,27 +78,27 @@ class RecordSummaryProvider(RecordSummaryProviderInterface):
         if not self._api_key:
             raise RuntimeError("OPENAI_API_KEY is required to use RecordSummaryProvider.")
 
-        result = self._agent().invoke(
-            {
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": self._prompt(pet, records, context, due_items),
-                    }
-                ]
-            }
+        result = self._structured_llm().invoke(
+            [
+                ("system", self._system_prompt()),
+                ("user", self._user_prompt(pet, records, context, due_items)),
+            ]
         )
-        structured_response = result.get("structured_response")
-        if structured_response is None:
-            raise RuntimeError("LangChain record summary agent did not return structured_response.")
-        return self._to_result(structured_response)
+        return self._to_result(result)
 
-    def _agent(self) -> LangChainAgent:
-        if self._langchain_agent is None:
-            self._langchain_agent = self._agent_factory(self._model, self._api_key, self._timeout)
-        return self._langchain_agent
+    def _structured_llm(self) -> StructuredRecordSummaryModel:
+        if self._structured_model is None:
+            self._structured_model = self._model_factory(self._model, self._api_key, self._timeout)
+        return self._structured_model
 
-    def _prompt(
+    def _system_prompt(self) -> str:
+        return (
+            "반려동물 기록을 보호자가 이해하기 쉬운 한국어로 요약하세요. "
+            "진단을 단정하지 마세요. 위험 신호가 있으면 safety_notice로 분리하고 "
+            "병원 상담이 필요한 가능성만 조심스럽게 표현하세요."
+        )
+
+    def _user_prompt(
         self,
         pet: PetProfile,
         records: tuple[PetRecord, ...],
@@ -115,7 +107,7 @@ class RecordSummaryProvider(RecordSummaryProviderInterface):
     ) -> str:
         return (
             "다음 데이터를 기반으로 RecordSummaryResult 형식의 요약을 작성하세요. "
-            "진단을 단정하지 마세요.\n\n"
+            "입력 record id를 record_ids에 보존하세요.\n\n"
             + json.dumps(
                 {
                     "pet": self._pet_payload(pet),
