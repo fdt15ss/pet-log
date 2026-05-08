@@ -203,7 +203,7 @@ composition 전략:
 
 | 만들 기능 | 먼저 볼 interface | 구현 위치 | 연결 위치 |
 | --- | --- | --- | --- |
-| 자연어 기록 구조화 | `RecordStructurerInterface` | `src/infrastructure/llm/record_structurer.py` | `RecordStructuringAgent` |
+| 자연어 기록 구조화 | `RecordStructurerInterface` | `src/infrastructure/llm/record_structuring/provider.py` | `RecordStructuringAgent` |
 | 사진 기록 이해 | `ImageRecordUnderstandingProviderInterface` | `src/infrastructure/llm/image_record_understanding_provider.py` 스텁 | `PhotoRecordUnderstandingAgent` |
 | 펫 프로필 조회 | `PetProfileReaderInterface` | `src/infrastructure/repositories/pet_profile_repository.py` | `CareContextBuilder`, pipeline |
 | 최근 기록 조회 | `RecordHistoryReaderInterface` | `src/infrastructure/repositories/record_repository.py` | `ContextAnalysisAgent`, `CareContextBuilder` |
@@ -285,15 +285,33 @@ RecordSummaryAgent
 - 최근 기록을 조회할 수 있다.
 - 구조화 후보를 기록으로 저장할 수 있다.
 
-### 2. Mock 또는 rule-based `RecordStructurer`
+### 2. 모델 기반 `RecordStructurer`
 
-LLM 없이 자연어 입력을 구조화 후보 묶음으로 바꾸는 최소 구현을 만든다.
+자연어 입력을 구조화 후보 묶음으로 바꾼다. 현재 구현은 LangChain `ChatOpenAI.with_structured_output()`을 사용한다.
 
 구현 위치:
-- `src/infrastructure/llm/record_structurer.py`
+- `src/infrastructure/llm/record_structuring/provider.py`
+- `src/infrastructure/llm/record_structuring/model.py`
+- `src/infrastructure/llm/record_structuring/schema.py`
+- `src/infrastructure/llm/record_structuring/prompt.py`
+- `src/infrastructure/llm/record_structuring/mapper.py`
 
 검증 목표:
 - `"오늘 밥을 조금 먹고 산책은 못 했어"` 같은 입력이 식사 후보와 산책 후보를 가진 `StructuredRecordBatch`로 변환된다.
+- `OPENAI_API_KEY`가 없으면 `RecordStructurer.structure()`는 실행 시 실패한다.
+- 기본 모델은 `gpt-5-mini`이며, `OPENAI_RECORD_STRUCTURING_MODEL` 환경변수로 교체할 수 있다.
+
+수동 smoke 확인:
+
+```bash
+uv run python -B scripts/smoke_record_structurer.py
+```
+
+문장 구조화 후 DB 저장까지 확인:
+
+```bash
+uv run python -B scripts/smoke_record_input_to_db.py
+```
 
 ### 3. Rule-based policies
 
@@ -357,7 +375,7 @@ mock/rule 기반 흐름이 검증된 뒤 실제 LLM을 붙인다.
 ### 자연어 기록 구조화를 구현한다면
 
 1. `RecordStructurerInterface`를 확인한다.
-2. `src/infrastructure/llm/record_structurer.py`를 구현한다.
+2. `src/infrastructure/llm/record_structuring/` 하위 파일을 확인한다.
 3. `RecordStructuringAgent`가 해당 구현체를 호출하는지 확인한다.
 4. `src/composition.py`에서 구현체를 agent에 주입한다.
 5. 구조화 입력/출력 테스트를 추가한다.

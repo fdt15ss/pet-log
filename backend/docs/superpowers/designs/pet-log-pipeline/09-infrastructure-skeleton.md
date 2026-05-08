@@ -6,7 +6,7 @@
 
 | 파일 | 클래스 | 구현 interface | 현재 상태 |
 | --- | --- | --- | --- |
-| `src/infrastructure/llm/record_structurer.py` | `RecordStructurer` | `RecordStructurerInterface` | skeleton |
+| `src/infrastructure/llm/record_structuring/provider.py` | `RecordStructurer` | `RecordStructurerInterface` | LangChain structured output 구현 |
 | `src/infrastructure/llm/care_answer_provider.py` | `CareAnswerProvider` | `CareAnswerProviderInterface` | skeleton |
 | `src/infrastructure/llm/pet_persona_responder.py` | `PetPersonaResponder` | `PetPersonaResponderInterface` | skeleton |
 | `src/infrastructure/speech/speech_to_text.py` | `SpeechToTextProvider` | `SpeechToTextInterface` | skeleton |
@@ -28,7 +28,7 @@
 
 | 후보 | 기준 interface | 목적 |
 | --- | --- | --- |
-| `MockRecordStructurer` 또는 `OpenAIRecordStructurer` | `RecordStructurerInterface` | 네트워크 없는 구조화 또는 실제 LLM 구조화 |
+| `MockRecordStructurer` | `RecordStructurerInterface` | 네트워크 없는 구조화 테스트 |
 | `InMemoryPetProfileRepository` 또는 `DatabasePetProfileRepository` | `PetProfileReaderInterface` | 테스트/로컬 demo 또는 실제 DB profile 조회 |
 | `DatabaseRecordRepository` | `RecordRepositoryInterface`, `RecordHistoryReaderInterface` | 기록 저장/조회 |
 | `RuleBased*` policy 구현체 | policy interfaces | 식사/산책/배변/행동 패턴, 위험 신호, 기록 누락, 리마인더 |

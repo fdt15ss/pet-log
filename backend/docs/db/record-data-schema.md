@@ -137,6 +137,82 @@ CREATE INDEX IF NOT EXISTS idx_pet_records_pet_recorded_at
 | `original_text` | 현재 record table 컬럼이 없다. |
 | `batch_id` | 현재는 한 입력에서 나온 기록끼리 묶는 DB 컬럼이 없다. |
 
+## LLM 구조화 입력
+
+자연어 기록을 DB에 저장하기 전에는 `RecordStructurer`가 입력을 `StructuredRecordBatch`로 바꾼다. 이때 LLM에는 DB row가 아니라 `PetLogAgentInput` 기반 payload를 전달한다.
+
+입력 payload:
+
+```json
+{
+  "input": {
+    "pet": {
+      "id": "pet-1",
+      "name": "초코",
+      "breed": null,
+      "species": "companion",
+      "age_label": null,
+      "personality": null,
+      "notes": []
+    },
+    "text": "오늘 오전 8시에 초코가 사료 40g 중 15g만 먹고, 저녁 산책은 12분만 했고, 오른쪽 귀를 5번 긁었어.",
+    "source": "manual",
+    "confirm": false
+  },
+  "allowed_values": {
+    "categories": ["meal", "walk", "stool", "medical", "behavior"],
+    "statuses": ["normal", "notice", "alert"],
+    "sources": ["manual", "voice", "ai_preview", "quick_action"]
+  }
+}
+```
+
+LLM structured output:
+
+```json
+{
+  "candidates": [
+    {
+      "title": "식사",
+      "detail": "오전 8시에 사료 40g 중 15g만 먹음",
+      "category": "meal",
+      "status": "notice",
+      "confidence": 0.92,
+      "needs_confirmation": false,
+      "measurements": ["오전 8시", "사료 40g", "섭취 15g"]
+    },
+    {
+      "title": "산책",
+      "detail": "저녁 산책을 12분만 함",
+      "category": "walk",
+      "status": "notice",
+      "confidence": 0.9,
+      "needs_confirmation": false,
+      "measurements": ["12분"]
+    },
+    {
+      "title": "귀 긁음",
+      "detail": "오른쪽 귀를 5번 긁음",
+      "category": "medical",
+      "status": "notice",
+      "confidence": 0.82,
+      "needs_confirmation": true,
+      "measurements": ["오른쪽 귀", "5번"]
+    }
+  ]
+}
+```
+
+이 결과가 domain의 `StructuredRecordBatch`로 변환되고, 확인이 필요하지 않으면 각 candidate가 `pet_records` row로 저장된다.
+
+수동 smoke 확인:
+
+```bash
+uv run python -B scripts/smoke_record_input_to_db.py
+```
+
+이 스크립트는 자연어 문장을 `StructuredRecordBatch`로 구조화한 뒤 각 candidate를 `RecordRepository.save_candidate()`로 저장하고, 다시 `list_by_ids()`로 읽어 저장 결과를 확인한다.
+
 ## Enum
 
 ```text
