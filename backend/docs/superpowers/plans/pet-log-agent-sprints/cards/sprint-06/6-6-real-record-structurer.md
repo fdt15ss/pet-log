@@ -3,7 +3,11 @@
 **목표:** 실제 LLM 기반 record structurer를 추가한다.
 
 **Files:**
-- Modify: `src/infrastructure/llm/record_structurer.py`
+- Modify: `src/infrastructure/llm/record_structuring/provider.py`
+- Modify: `src/infrastructure/llm/record_structuring/model.py`
+- Modify: `src/infrastructure/llm/record_structuring/schema.py`
+- Modify: `src/infrastructure/llm/record_structuring/prompt.py`
+- Modify: `src/infrastructure/llm/record_structuring/mapper.py`
 - Test: `tests/test_llm_provider_contract.py`
 
 **완료 기준:**

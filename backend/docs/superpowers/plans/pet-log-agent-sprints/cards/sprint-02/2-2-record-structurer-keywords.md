@@ -3,7 +3,7 @@
 **목표:** mock structurer가 대표 키워드로 category/status를 분류한다.
 
 **Files:**
-- Modify: `src/infrastructure/llm/record_structurer.py`
+- Modify: `src/infrastructure/llm/record_structuring/prompt.py`
 - Test: `tests/test_record_structurer.py`
 
 **완료 기준:**

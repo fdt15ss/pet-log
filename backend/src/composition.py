@@ -7,7 +7,7 @@ from application.agents.reminder import ReminderAgent
 from application.agents.risk_detection import RiskDetectionAgent
 from application.agents.suggestion import SuggestionAgent
 from application.pipelines.pet_log_agent import PetLogAgentPipeline
-from infrastructure.llm.record_structurer import RecordStructurer
+from infrastructure.llm.record_structuring import RecordStructurer
 from infrastructure.policies.missing_record_policy import MissingRecordPolicy
 from infrastructure.policies.pattern_analyzer import PatternAnalyzer
 from infrastructure.policies.reminder_planner import ReminderPlanner

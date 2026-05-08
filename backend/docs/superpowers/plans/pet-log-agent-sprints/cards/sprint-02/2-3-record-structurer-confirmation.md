@@ -3,7 +3,7 @@
 **목표:** mock structurer가 확신 없는 입력을 보호자 확인 필요 후보로 반환한다.
 
 **Files:**
-- Modify: `src/infrastructure/llm/record_structurer.py`
+- Modify: `src/infrastructure/llm/record_structuring/mapper.py`
 - Test: `tests/test_record_structurer.py`
 
 **완료 기준:**

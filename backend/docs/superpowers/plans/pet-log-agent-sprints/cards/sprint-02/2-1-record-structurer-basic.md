@@ -3,7 +3,7 @@
 **목표:** `RecordStructurer.structure(input)`이 어떤 입력에도 `StructuredRecordBatch`를 반환한다.
 
 **Files:**
-- Modify: `src/infrastructure/llm/record_structurer.py`
+- Modify: `src/infrastructure/llm/record_structuring/provider.py`
 - Test: `tests/test_record_structurer.py`
 
 **완료 기준:**
