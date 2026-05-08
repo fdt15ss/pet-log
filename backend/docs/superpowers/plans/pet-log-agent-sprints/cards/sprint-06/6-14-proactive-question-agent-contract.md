@@ -27,7 +27,7 @@
 - [x] 건강 판단이 필요한 질문은 `CareQuestionPipeline` route로 연결한다.
 - [x] 홈에는 최대 1개 질문만 노출한다.
 
-**구현 상태:** `src/infrastructure/agents/proactive_question_agent.py`, `src/infrastructure/policies/proactive_question_policy.py`에 class별 스텁을 추가했다. 실제 질문 선택 로직은 아직 구현하지 않는다.
+**구현 상태:** `src/infrastructure/agents/proactive_question_agent.py`, `src/infrastructure/policies/proactive_question/`에 class별 스텁을 추가했다. 실제 질문 선택 로직은 아직 구현하지 않는다.
 
 ## Verification
 

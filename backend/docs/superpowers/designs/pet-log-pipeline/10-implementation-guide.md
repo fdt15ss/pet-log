@@ -204,7 +204,7 @@ composition 전략:
 | 만들 기능 | 먼저 볼 interface | 구현 위치 | 연결 위치 |
 | --- | --- | --- | --- |
 | 자연어 기록 구조화 | `RecordStructurerInterface` | `src/infrastructure/llm/record_structuring/provider.py` | `RecordStructuringAgent` |
-| 사진 기록 이해 | `ImageRecordUnderstandingProviderInterface` | `src/infrastructure/llm/image_record_understanding_provider.py` 스텁 | `PhotoRecordUnderstandingAgent` |
+| 사진 기록 이해 | `ImageRecordUnderstandingProviderInterface` | `src/infrastructure/llm/image_record_understanding/` 스텁 | `PhotoRecordUnderstandingAgent` |
 | 펫 프로필 조회 | `PetProfileReaderInterface` | `src/infrastructure/repositories/pet_profile_repository.py` | `CareContextBuilder`, pipeline |
 | 최근 기록 조회 | `RecordHistoryReaderInterface` | `src/infrastructure/repositories/record_repository.py` | `ContextAnalysisAgent`, `CareContextBuilder` |
 | 기록 저장 | `RecordRepositoryInterface` | `src/infrastructure/repositories/record_repository.py` | `PetLogAgentPipeline` |
@@ -216,8 +216,8 @@ composition 전략:
 | 리마인더 생성 | `ReminderPlannerInterface` | `src/infrastructure/policies/reminder_planner.py` | `ReminderAgent` |
 | 기록 요약 생성 | `RecordSummaryProviderInterface` | `src/infrastructure/llm/record_summary/provider.py` | `RecordSummaryAgent` |
 | 기록 요약 fallback/포맷팅 | `RecordSummaryComposerInterface` | `src/infrastructure/composers/record_summary_composer.py` 스텁 | `RecordSummaryAgent` |
-| 홈 선제 질문 생성 | `ProactiveQuestionPolicyInterface` | `src/infrastructure/policies/proactive_question_policy.py` 스텁 | `ProactiveQuestionAgent` |
-| 알림 후보 생성 | `NotificationPolicyInterface` | `src/infrastructure/notifications/notification_policy.py` 스텁 | `NotificationAgent` |
+| 홈 선제 질문 생성 | `ProactiveQuestionPolicyInterface` | `src/infrastructure/policies/proactive_question/` 스텁 | `ProactiveQuestionAgent` |
+| 알림 후보 생성 | `NotificationPolicyInterface` | `src/infrastructure/notifications/policy.py` 스텁 | `NotificationAgent` |
 | LangGraph runtime | `AgentRuntimeInterface` 후보 | `src/agent_runtime/runtime.py` | `agent_runtime` 내부 adapter |
 | AI 케어 답변 | `CareAnswerProviderInterface` | `src/infrastructure/llm/care_answer_provider.py` | `CareQuestionPipeline` |
 | 펫 말투 응답 | `PetPersonaResponderInterface` | `src/infrastructure/llm/pet_persona_responder.py` | `PetPersonaAgent` |
