@@ -29,12 +29,13 @@
      - PhotoRecordUnderstandingAgent
 
   -> 기록 후보 생성
-     - StructuredRecordCandidate
+     - StructuredRecordBatch
+     - StructuredRecordCandidate tuple
      - 보호자 확인 필요 여부 판단
 
   -> 기록 저장
      - RecordRepositoryInterface
-     - PetRecord
+     - PetRecord tuple
 
   -> 누적 맥락 분석
      - ContextAnalysisAgent
@@ -87,19 +88,21 @@
 PetLogAgentInput
   -> RecordStructuringAgent
   -> RecordStructurerInterface
-  -> StructuredRecordCandidate
+  -> StructuredRecordBatch
 ```
 
 음성 입력은 먼저 `SpeechToTextInterface`를 거쳐 텍스트가 되고, 사진 입력은 `PhotoRecordUnderstandingAgent`와 `ImageRecordUnderstandingProviderInterface`를 통해 구조화 후보가 된다.
 
 보호자 확인이 필요한 경우 바로 저장하지 않고 수정/확인 단계로 돌린다.
 
+문장 하나에 여러 사건이 섞이면 `StructuredRecordBatch.candidates`에 여러 `StructuredRecordCandidate`를 담는다. 예를 들어 식사와 산책 상태가 함께 들어온 문장은 식사 후보와 산책 후보로 분리하고, 확인이 완료되면 각각 저장한다.
+
 ### 2. 기록 저장 후 core agent 실행
 
 ```text
-StructuredRecordCandidate
+StructuredRecordBatch
   -> RecordRepositoryInterface
-  -> PetRecord
+  -> PetRecord tuple
   -> ContextAnalysisAgent
   -> RiskDetectionAgent
   -> SuggestionAgent

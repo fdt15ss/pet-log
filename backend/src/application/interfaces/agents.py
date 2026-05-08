@@ -11,12 +11,13 @@ from domain.models import (
     PetRecord,
     PlannedReminder,
     SafetyNotice,
+    StructuredRecordBatch,
     StructuredRecordCandidate,
 )
 
 
 class RecordStructuringAgentInterface(Protocol):
-    def structure(self, input: PetLogAgentInput) -> StructuredRecordCandidate:
+    def structure(self, input: PetLogAgentInput) -> StructuredRecordBatch:
         raise NotImplementedError
 
 

@@ -40,6 +40,15 @@ class StructuredRecordCandidate:
 
 
 @dataclass(frozen=True)
+class StructuredRecordBatch:
+    candidates: tuple[StructuredRecordCandidate, ...]
+
+    @property
+    def needs_confirmation(self) -> bool:
+        return any(candidate.needs_confirmation for candidate in self.candidates)
+
+
+@dataclass(frozen=True)
 class CareInsight:
     severity: InsightSeverity
     title: str

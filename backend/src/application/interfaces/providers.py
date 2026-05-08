@@ -3,11 +3,19 @@ from __future__ import annotations
 from typing import Protocol
 
 from application.dto import PetLogAgentInput, RecordSummaryResult
-from domain.models import CareContext, ContextAnalysisResult, PetProfile, PetRecord, PlannedReminder, StructuredRecordCandidate
+from domain.models import (
+    CareContext,
+    ContextAnalysisResult,
+    PetProfile,
+    PetRecord,
+    PlannedReminder,
+    StructuredRecordBatch,
+    StructuredRecordCandidate,
+)
 
 
 class RecordStructurerInterface(Protocol):
-    def structure(self, input: PetLogAgentInput) -> StructuredRecordCandidate:
+    def structure(self, input: PetLogAgentInput) -> StructuredRecordBatch:
         raise NotImplementedError
 
 

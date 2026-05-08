@@ -6,7 +6,7 @@
 - Test: `tests/test_pet_log_agent_pipeline.py`
 
 **완료 기준:**
-- [ ] `candidate.needs_confirmation=True`이면 `saved_record`는 `None`이다.
+- [ ] batch 안의 후보 중 하나라도 `needs_confirmation=True`이면 `saved_records`는 비어 있다.
 - [ ] `context_analysis`와 `safety_notices`는 결과에 포함된다.
 - [ ] 같은 입력에 `confirm=True`를 주면 저장된다.
 
