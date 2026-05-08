@@ -9,6 +9,7 @@
 | `PetProfile` | 펫 프로필 |
 | `PetRecord` | 저장된 기록 |
 | `StructuredRecordCandidate` | 저장 전 구조화 후보 |
+| `StructuredRecordBatch` | 한 입력에서 분리된 구조화 후보 묶음 |
 | `CareInsight` | 맥락 분석 결과 |
 | `ContextAnalysisResult` | insight와 기록 누락 분석 묶음 |
 | `CareSuggestion` | 보호자 행동 제안 |
@@ -85,6 +86,46 @@
 - `ImageRecordUnderstandingProviderInterface`
 - `SpeechToTextInterface`
 - `TextToSpeechInterface`
+
+## 기록 구조화 계약
+
+자연어 입력은 한 문장 안에 여러 사건이 함께 들어올 수 있다. 예를 들어 식사와 산책 상태가 한 번에 들어오면 저장 전 후보도 여러 항목으로 분리해야 한다.
+
+초기 domain 계약:
+
+```text
+StructuredRecordCandidate
+  title: str
+  detail: str
+  category: RecordCategory
+  status: RecordStatus
+  confidence: float
+  needs_confirmation: bool
+  measurements: tuple[str, ...]
+
+StructuredRecordBatch
+  candidates: tuple[StructuredRecordCandidate, ...]
+  needs_confirmation: bool
+```
+
+초기 agent/provider 계약:
+
+```text
+RecordStructuringAgentInterface.structure(
+  input: PetLogAgentInput,
+) -> StructuredRecordBatch
+
+RecordStructurerInterface.structure(
+  input: PetLogAgentInput,
+) -> StructuredRecordBatch
+```
+
+구현 방향:
+
+- 문장 하나에서 식사, 산책, 배변, 의료, 행동 기록이 섞이면 후보를 나눠 반환한다.
+- batch의 `needs_confirmation`은 후보 중 하나라도 확인이 필요하면 `True`로 본다.
+- `PetLogAgentPipeline`은 확인이 필요하지 않은 batch의 모든 후보를 각각 `PetRecord`로 저장한다.
+- 저장 후 결과는 `PetLogAgentResult.candidates`, `PetLogAgentResult.saved_records`로 전달한다.
 
 ### Policy interfaces
 

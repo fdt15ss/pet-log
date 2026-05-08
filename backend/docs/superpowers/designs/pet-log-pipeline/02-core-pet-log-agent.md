@@ -19,13 +19,15 @@ PetLogAgentInput
 
 ### RecordStructuringAgent
 
-자연어, 음성 변환 텍스트, 빠른 입력을 structured record candidate로 바꾼다.
+자연어, 음성 변환 텍스트, 빠른 입력을 structured record candidate 묶음으로 바꾼다.
 
 ```text
 PetLogAgentInput
   -> RecordStructurerInterface
-  -> StructuredRecordCandidate
+  -> StructuredRecordBatch
 ```
+
+입력 문장 하나에 여러 사건이 섞이면 `StructuredRecordBatch.candidates`에 여러 후보를 담는다. 확인이 끝난 batch는 각 후보를 별도 `PetRecord`로 저장한다.
 
 ### ContextAnalysisAgent
 
@@ -105,7 +107,7 @@ PetProfile + records + due schedules
 
 ## 결정
 
-- 보호자 확인이 필요한 구조화 후보는 저장 전 수정 요청으로 돌린다.
+- 보호자 확인이 필요한 구조화 후보 묶음은 저장 전 수정 요청으로 돌린다.
 - 저장 이후에 제안과 리마인더를 만든다.
 - `ContextAnalysisAgent`는 insight 산출까지 담당하고, 누적 기록을 문장형 리포트로 정리하는 책임은 후속 `RecordSummaryAgent` 계열로 분리한다.
 - 모델 기반 요약은 `RecordSummaryAgent`가 직접 LLM SDK를 호출하지 않고 `RecordSummaryProviderInterface` 뒤로 숨긴다.

@@ -11,6 +11,7 @@ from domain.models import (
     PetRecord,
     PlannedReminder,
     SafetyNotice,
+    StructuredRecordBatch,
     StructuredRecordCandidate,
 )
 
@@ -25,12 +26,24 @@ class PetLogAgentInput:
 
 @dataclass(frozen=True)
 class PetLogAgentResult:
-    candidate: StructuredRecordCandidate
-    saved_record: PetRecord | None = None
+    candidates: tuple[StructuredRecordCandidate, ...]
+    saved_records: tuple[PetRecord, ...] = ()
     context_analysis: ContextAnalysisResult | None = None
     safety_notices: tuple[SafetyNotice, ...] = field(default_factory=tuple)
     suggestions: tuple[CareSuggestion, ...] = field(default_factory=tuple)
     reminders: tuple[PlannedReminder, ...] = field(default_factory=tuple)
+
+    @property
+    def record_batch(self) -> StructuredRecordBatch:
+        return StructuredRecordBatch(candidates=self.candidates)
+
+    @property
+    def candidate(self) -> StructuredRecordCandidate | None:
+        return self.candidates[0] if self.candidates else None
+
+    @property
+    def saved_record(self) -> PetRecord | None:
+        return self.saved_records[0] if self.saved_records else None
 
 
 @dataclass(frozen=True)

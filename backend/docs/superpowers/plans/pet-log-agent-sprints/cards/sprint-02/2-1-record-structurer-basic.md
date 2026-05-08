@@ -1,6 +1,6 @@
 # Card 2-1: RecordStructurer 기본 후보 반환
 
-**목표:** `RecordStructurer.structure(input)`이 어떤 입력에도 `StructuredRecordCandidate`를 반환한다.
+**목표:** `RecordStructurer.structure(input)`이 어떤 입력에도 `StructuredRecordBatch`를 반환한다.
 
 **Files:**
 - Modify: `src/infrastructure/llm/record_structurer.py`

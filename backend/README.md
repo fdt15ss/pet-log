@@ -80,7 +80,7 @@ rg -n "fastapi|openai|sqlalchemy|sqlite|postgres|psycopg" src/application src/do
 
 ## 실제 LLM smoke test
 
-실제 OpenAI API를 호출하는 수동 확인 스크립트다. `backend/.env`의 `OPENAI_API_KEY`를 읽는다.
+실제 OpenAI API를 호출하는 수동 확인 스크립트다. `backend/.env`의 `OPENAI_API_KEY`를 읽고, script 내부 smoke fixture helper로 in-memory SQLite seed, repository 조회, provider 조립을 만든 뒤 모델 입력으로 사용한다.
 
 ```bash
 uv run python -B scripts/smoke_record_summary_provider.py

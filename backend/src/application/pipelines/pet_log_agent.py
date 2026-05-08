@@ -40,26 +40,29 @@ class PetLogAgentPipeline(PetLogAgentPipelineInterface):
         self._days_ahead = days_ahead
 
     def handle(self, input: PetLogAgentInput) -> PetLogAgentResult:
-        candidate = self._record_structuring_agent.structure(input)
+        record_batch = self._record_structuring_agent.structure(input)
         recent_records = self._record_history_reader.list_recent(input.pet.id, self._lookback_days)
         due_items = self._schedule_context_reader.list_due_items(input.pet.id, self._days_ahead)
         context = self._context_analysis_agent.analyze(input.pet, recent_records, due_items)
         safety_notices = self._risk_detection_agent.detect(input.text, recent_records)
 
-        if candidate.needs_confirmation and not input.confirm:
+        if record_batch.needs_confirmation and not input.confirm:
             return PetLogAgentResult(
-                candidate=candidate,
+                candidates=record_batch.candidates,
                 context_analysis=context,
                 safety_notices=safety_notices,
             )
 
-        saved_record = self._record_repository.save_candidate(input.pet.id, candidate)
+        saved_records = tuple(
+            self._record_repository.save_candidate(input.pet.id, candidate)
+            for candidate in record_batch.candidates
+        )
         suggestions = self._suggestion_agent.suggest(input.pet, context, safety_notices)
-        reminders = self._reminder_agent.plan(input.pet, recent_records + (saved_record,), due_items)
+        reminders = self._reminder_agent.plan(input.pet, recent_records + saved_records, due_items)
 
         return PetLogAgentResult(
-            candidate=candidate,
-            saved_record=saved_record,
+            candidates=record_batch.candidates,
+            saved_records=saved_records,
             context_analysis=context,
             safety_notices=safety_notices,
             suggestions=suggestions,

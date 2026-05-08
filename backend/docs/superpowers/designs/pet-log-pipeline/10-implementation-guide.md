@@ -34,6 +34,7 @@ presentation -> application pipeline -> application agents -> interfaces -> infr
 - `PetProfile`
 - `PetRecord`
 - `StructuredRecordCandidate`
+- `StructuredRecordBatch`
 - `CareInsight`
 - `CareSuggestion`
 
@@ -189,6 +190,15 @@ PetLogAgentPipeline 생성
 수정 기준:
 - interface 구현체를 조립해서 실행 가능한 pipeline을 만들 때 수정한다.
 
+composition 전략:
+- 현재 단계에서는 함수 기반 composition을 유지한다.
+- `src/composition.py`는 production wiring 전용으로 둔다.
+- smoke script, 테스트 fixture, seed 고정 날짜 같은 수동 검증 전용 조립은 `src/composition.py`에 넣지 않는다.
+- agent 또는 pipeline builder가 3개 이상으로 늘어나면 `composition/` 패키지 분리를 검토한다.
+- `composition/` 패키지로 전환할 때는 `pyproject.toml`의 `py-modules = ["composition"]` 설정 변경까지 함께 처리한다.
+- DB connection close, request scope, background worker lifecycle이 중요해지면 `AppContext` dataclass 또는 contextmanager를 도입한다.
+- DI container class는 환경별 wiring과 lifecycle 정책이 실제로 복잡해진 뒤 검토한다.
+
 ## 기능별 구현 위치
 
 | 만들 기능 | 먼저 볼 interface | 구현 위치 | 연결 위치 |
@@ -277,13 +287,13 @@ RecordSummaryAgent
 
 ### 2. Mock 또는 rule-based `RecordStructurer`
 
-LLM 없이 자연어 입력을 구조화 후보로 바꾸는 최소 구현을 만든다.
+LLM 없이 자연어 입력을 구조화 후보 묶음으로 바꾸는 최소 구현을 만든다.
 
 구현 위치:
 - `src/infrastructure/llm/record_structurer.py`
 
 검증 목표:
-- `"오늘 밥을 조금 먹고 산책은 못 했어"` 같은 입력이 `StructuredRecordCandidate`로 변환된다.
+- `"오늘 밥을 조금 먹고 산책은 못 했어"` 같은 입력이 식사 후보와 산책 후보를 가진 `StructuredRecordBatch`로 변환된다.
 
 ### 3. Rule-based policies
 
