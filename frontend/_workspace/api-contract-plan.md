@@ -4,7 +4,20 @@
 
 현재 `app/web`은 `PetLogProvider`에서 mock data와 `localStorage`를 직접 관리합니다. API 연동 1차 작업은 백엔드 구현 전에 계약을 먼저 고정해, 이후 provider를 axios 기반 데이터 경계로 바꿀 수 있게 만드는 것입니다.
 
-이번 문서는 **API 계약과 mock API 구현 기준 문서**입니다. 프론트는 실제 axios HTTP 호출을 사용하고, 1차 서버 응답은 Next.js Route Handler의 메모리 mock store에서 제공합니다. 실제 DB, 인증, 파일 업로드는 후속 스프린트에서 결정합니다. LLM은 서버 provider 경계를 먼저 만들고, 기본 개발 환경에서는 mock 응답을 반환합니다.
+이번 문서는 **API 계약과 mock API 구현 기준 문서**입니다. 프론트는 실제 axios HTTP 호출을 사용하고, 1차 서버 응답은 Next.js Route Handler의 메모리 mock store에서 제공합니다. 기록 미리보기와 기록 생성은 FastAPI 백엔드가 연결되어 있으면 Next Route Handler가 axios로 `backend`의 기록 파이프라인을 호출하고, 백엔드 호출이 실패하면 기존 mock store와 mock AI provider로 fallback합니다. 실제 인증, 파일 업로드, 계정 간 동기화는 후속 스프린트에서 결정합니다.
+
+## 백엔드 연결 환경변수
+
+`frontend/app/web`의 Next Route Handler는 다음 서버 환경변수를 사용합니다.
+
+```env
+PET_LOG_BACKEND_API_BASE_URL=http://127.0.0.1:8000
+PET_LOG_BACKEND_PET_ID=sample-pet-choco
+```
+
+- `PET_LOG_BACKEND_API_BASE_URL`: FastAPI 서버 base URL입니다. 기본값은 `http://127.0.0.1:8000`입니다.
+- `PET_LOG_BACKEND_PET_ID`: 기록 파이프라인에 넘길 서버 pet id입니다. 기본값은 seed data의 `sample-pet-choco`입니다.
+- 클라이언트 브라우저는 FastAPI를 직접 호출하지 않고 `/api/v1/*`의 Next Route Handler만 호출합니다.
 
 ## 현재 프론트 저장 경계
 
@@ -127,7 +140,7 @@ ApiSuccess<{ profile: PetProfile }>
 ```ts
 type StructureRecordRequest = {
   detail: string;
-  fallbackCategory: RecordCategory;
+  fallbackCategory: RecordCategory | "all";
 };
 ```
 
@@ -139,10 +152,24 @@ ApiSuccess<{ structured: StructuredRecord }>
 
 서버 책임:
 
-- 원문, 정규화 요약, 추천 분류, 신뢰도, 추출 수치, 확인 필요 여부를 반환합니다.
-- 기본 provider는 mock이며 현재 규칙 기반 구조화 계약과 동일한 응답을 반환합니다.
+- Next Route Handler는 FastAPI `POST /api/v1/pet-log/records`에 `confirm:false`로 요청합니다.
+- 이때 `source`는 `ai_preview`로 보내며, 백엔드 파이프라인은 후보 신뢰도와 무관하게 저장하지 않습니다.
+- FastAPI 응답의 첫 번째 `candidates`를 프론트 `StructuredRecord`로 변환합니다.
+- `fallbackCategory:"all"`은 기록 화면의 기본값이며, 이 경우 프론트는 서버가 추천한 `suggestedCategory`를 저장 분류로 사용합니다.
+- 백엔드 호출 실패 시 기본 provider는 mock이며 현재 규칙 기반 구조화 계약과 동일한 응답을 반환합니다.
 - `PET_LOG_AI_PROVIDER=openai`와 `OPENAI_API_KEY`가 설정되면 서버에서 OpenAI Responses API를 axios로 호출할 수 있습니다.
 - LLM 호출 실패, 키 누락, 잘못된 응답 형식은 mock 구조화로 fallback합니다.
+
+FastAPI로 전달되는 요청:
+
+```json
+{
+  "pet_id": "sample-pet-choco",
+  "text": "아침 사료 45g 먹고 산책 20분 했어요.",
+  "source": "ai_preview",
+  "confirm": false
+}
+```
 
 ### `POST /api/v1/records`
 
@@ -165,9 +192,23 @@ ApiSuccess<{ record: RecordEntry }>
 
 서버 책임:
 
-- `id`, `date`, `time`, `title`, `status`를 생성합니다.
-- `structured`는 `app/web/src/lib/server/pet-log-ai-service.ts`의 구조화 provider 결과를 저장합니다.
+- Next Route Handler는 FastAPI `POST /api/v1/pet-log/records`에 `confirm:true`로 요청합니다.
+- 이때 `source`는 `manual`로 보내며, 백엔드 파이프라인은 `saved_records`를 생성합니다.
+- FastAPI 응답의 첫 번째 `saved_records`와 첫 번째 `candidates`를 조합해 프론트 `RecordEntry`로 변환합니다.
+- 백엔드 호출 실패 시 `id`, `date`, `time`, `title`, `status`는 Next mock store에서 생성합니다.
+- fallback 경로의 `structured`는 `app/web/src/lib/server/pet-log-ai-service.ts`의 구조화 provider 결과를 저장합니다.
 - 프론트는 저장 전 미리보기와 실제 저장 모두 API 경계를 거치므로 나중에 mock provider만 제거할 수 있습니다.
+
+FastAPI로 전달되는 요청:
+
+```json
+{
+  "pet_id": "sample-pet-choco",
+  "text": "저녁 산책 20분 했어요.",
+  "source": "manual",
+  "confirm": true
+}
+```
 
 ### `PATCH /api/v1/records/:id`
 

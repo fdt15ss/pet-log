@@ -41,7 +41,9 @@
 - `/hospital` 병원 연계
 - `/shopping` 쇼핑
 
-현재 웹 앱은 Next.js Route Handler의 mock API와 서버 AI service 경계를 사용합니다. 기본 개발 환경은 mock store와 mock AI provider로 동작하며, 실제 데이터베이스, 인증, 파일 업로드, 계정 간 동기화는 아직 연결하지 않았습니다.
+현재 웹 앱은 Next.js Route Handler의 API 경계를 사용합니다. 기록 미리보기와 기록 생성은 FastAPI 백엔드가 연결되어 있으면 axios로 `POST /api/v1/pet-log/records`를 호출하고, 백엔드가 없으면 기존 mock store와 mock AI provider로 fallback합니다. 실제 인증, 파일 업로드, 계정 간 동기화는 아직 연결하지 않았습니다.
+
+기록 화면의 빠른 입력 기본값은 `전체`입니다. `전체` 상태에서는 자연어 입력의 AI 구조화 결과(`suggestedCategory`)를 실제 저장 분류로 사용하고, 식사/산책/배변/병원/행동을 직접 선택하면 선택한 분류를 우선합니다.
 
 ## UI 기준
 
@@ -109,6 +111,22 @@ npm run dev
 ```text
 http://localhost:3000
 ```
+
+기록 기능을 실제 FastAPI 서버와 연결하려면 별도 터미널에서 백엔드를 먼저 실행합니다.
+
+```bash
+cd ../../backend
+uv run uvicorn main:app --reload --host 127.0.0.1 --port 8000
+```
+
+웹 앱 서버 환경변수는 `frontend/app/web/.env.local`에 설정합니다.
+
+```env
+PET_LOG_BACKEND_API_BASE_URL=http://127.0.0.1:8000
+PET_LOG_BACKEND_PET_ID=sample-pet-choco
+```
+
+브라우저는 `/api/v1/records`와 `/api/v1/ai/records/structure`만 호출하고, Next Route Handler가 서버에서 FastAPI로 프록시합니다.
 
 ## 검증 명령
 
