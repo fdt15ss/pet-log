@@ -7,7 +7,7 @@
 - Modify: `src/application/dto.py` 또는 input DTO 위치
 - Modify: `src/application/interfaces/agents.py`
 - Modify: `src/application/interfaces/providers.py`
-- Add: `src/infrastructure/llm/image_record_understanding_provider.py`
+- Add: `src/infrastructure/llm/image_record_understanding/`
 - Test: `tests/test_photo_record_understanding_agent_contract.py`
 
 ## Planning basis
@@ -27,7 +27,7 @@
 - [x] 건강 상태를 이미지로 단정하지 않는다.
 - [x] 확신이 낮으면 `needs_confirmation=True`로 보호자 확인을 요구한다.
 
-**구현 상태:** `src/infrastructure/agents/photo_record_understanding_agent.py`, `src/infrastructure/llm/image_record_understanding_provider.py`에 class별 스텁을 추가했다. 실제 vision 모델 호출은 아직 구현하지 않는다.
+**구현 상태:** `src/infrastructure/agents/photo_record_understanding_agent.py`, `src/infrastructure/llm/image_record_understanding/`에 class별 스텁을 추가했다. 실제 vision 모델 호출은 아직 구현하지 않는다.
 
 ## Verification
 

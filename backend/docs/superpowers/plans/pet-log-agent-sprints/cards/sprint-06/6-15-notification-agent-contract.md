@@ -28,7 +28,7 @@
 - [x] 같은 원인으로 중복 알림이 반복되지 않도록 deterministic dedupe key를 둔다.
 - [x] 위험 신호 문구는 진단이 아니라 병원 상담 안내로 제한한다.
 
-**구현 상태:** `src/infrastructure/agents/notification_agent.py`, `src/infrastructure/notifications/notification_policy.py`에 class별 스텁을 추가했다. 실제 알림 후보 생성/전송 로직은 아직 구현하지 않는다.
+**구현 상태:** `src/infrastructure/agents/notification_agent.py`, `src/infrastructure/notifications/policy.py`에 class별 스텁을 추가했다. 실제 알림 후보 생성/전송 로직은 아직 구현하지 않는다.
 
 ## Verification
 
