@@ -42,14 +42,17 @@ def allowed_values_payload() -> dict[str, object]:
 
 
 def to_structured_record_batch(value: object) -> StructuredRecordBatch:
-    if isinstance(value, BaseModel):
-        parsed = value.model_dump()
-    elif isinstance(value, dict):
+    if isinstance(value, dict):
         parsed = value
+        candidates = parsed.get("candidates")
+    elif hasattr(value, "candidates"):
+        candidates = getattr(value, "candidates")
+    elif isinstance(value, BaseModel):
+        parsed = value.model_dump()
+        candidates = parsed.get("candidates")
     else:
         raise RuntimeError("LangChain structured record output had an invalid shape.")
 
-    candidates = parsed.get("candidates")
     if not isinstance(candidates, list):
         raise RuntimeError("LangChain structured record output had no candidates list.")
 
@@ -59,10 +62,21 @@ def to_structured_record_batch(value: object) -> StructuredRecordBatch:
 
 
 def to_structured_record_candidate(value: object) -> StructuredRecordCandidate:
-    if isinstance(value, BaseModel):
-        value = value.model_dump()
     if not isinstance(value, dict):
-        raise RuntimeError("LangChain structured record candidate output was not an object.")
+        if _has_candidate_attrs(value):
+            value = {
+                "title": getattr(value, "title"),
+                "detail": getattr(value, "detail"),
+                "category": getattr(value, "category"),
+                "status": getattr(value, "status"),
+                "confidence": getattr(value, "confidence"),
+                "needs_confirmation": getattr(value, "needs_confirmation"),
+                "measurements": getattr(value, "measurements"),
+            }
+        elif isinstance(value, BaseModel):
+            value = value.model_dump()
+        else:
+            raise RuntimeError("LangChain structured record candidate output was not an object.")
 
     category = value.get("category")
     status = value.get("status")
@@ -83,4 +97,19 @@ def to_structured_record_candidate(value: object) -> StructuredRecordCandidate:
         confidence=float(value["confidence"]),
         needs_confirmation=bool(value["needs_confirmation"]),
         measurements=tuple(str(item) for item in measurements),
+    )
+
+
+def _has_candidate_attrs(value: object) -> bool:
+    return all(
+        hasattr(value, field_name)
+        for field_name in (
+            "title",
+            "detail",
+            "category",
+            "status",
+            "confidence",
+            "needs_confirmation",
+            "measurements",
+        )
     )

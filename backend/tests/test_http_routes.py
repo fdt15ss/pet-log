@@ -33,8 +33,8 @@ class FakePetLogAgentPipeline:
 class FakePetProfileReader:
     def __init__(self) -> None:
         self.pets = {
-            "sample-pet-choco": PetProfile(
-                id="sample-pet-choco",
+            "pet_01JCM7V8H9Q2K4N6R8T0A1B2C3": PetProfile(
+                id="pet_01JCM7V8H9Q2K4N6R8T0A1B2C3",
                 name="초코",
                 breed="말티푸",
                 species="dog",
@@ -92,7 +92,7 @@ class TestHttpRoutes(unittest.TestCase):
             response = client.post(
                 "/api/v1/pet-log/records",
                 json={
-                    "pet_id": "sample-pet-choco",
+                    "pet_id": "pet_01JCM7V8H9Q2K4N6R8T0A1B2C3",
                     "text": "오늘 아침 사료를 조금 남겼어",
                     "source": "manual",
                     "confirm": False,
@@ -100,7 +100,7 @@ class TestHttpRoutes(unittest.TestCase):
             )
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(context.pet_log_agent_pipeline.handled_input.pet.id, "sample-pet-choco")
+        self.assertEqual(context.pet_log_agent_pipeline.handled_input.pet.id, "pet_01JCM7V8H9Q2K4N6R8T0A1B2C3")
         self.assertEqual(context.pet_log_agent_pipeline.handled_input.pet.name, "초코")
         self.assertEqual(context.pet_log_agent_pipeline.handled_input.text, "오늘 아침 사료를 조금 남겼어")
         self.assertEqual(context.pet_log_agent_pipeline.handled_input.source, "manual")
@@ -130,13 +130,39 @@ class TestHttpRoutes(unittest.TestCase):
             },
         )
 
+    def test_record_route_logs_pipeline_result_summary(self):
+        context = FakeAppContext()
+
+        with TestClient(create_app(app_context_factory=lambda: context)) as client:
+            with self.assertLogs("presentation.http.pet_log_routes", level="INFO") as logs:
+                response = client.post(
+                    "/api/v1/pet-log/records",
+                    json={
+                        "pet_id": "pet_01JCM7V8H9Q2K4N6R8T0A1B2C3",
+                        "text": "오늘 아침 사료를 조금 남겼어",
+                        "source": "ai_preview",
+                        "confirm": False,
+                    },
+                )
+
+        self.assertEqual(response.status_code, 200)
+        log_output = "\n".join(logs.output)
+        self.assertIn("record.result", log_output)
+        self.assertIn("pet_id=pet_01JCM7V8H9Q2K4N6R8T0A1B2C3", log_output)
+        self.assertIn("source=ai_preview", log_output)
+        self.assertIn("mode=preview", log_output)
+        self.assertIn("confirm=no", log_output)
+        self.assertIn("candidates=1", log_output)
+        self.assertIn("saved=0", log_output)
+        self.assertIn('first="meal: 아침 식사"', log_output)
+
     def test_record_route_rejects_blank_text(self):
         client = TestClient(create_app(app_context_factory=FakeAppContext))
 
         response = client.post(
             "/api/v1/pet-log/records",
             json={
-                "pet_id": "sample-pet-choco",
+                "pet_id": "pet_01JCM7V8H9Q2K4N6R8T0A1B2C3",
                 "text": "   ",
                 "source": "manual",
             },
@@ -172,7 +198,7 @@ class TestHttpRoutes(unittest.TestCase):
             response = client.post(
                 "/api/v1/pet-log/records",
                 json={
-                    "pet_id": "sample-pet-choco",
+                    "pet_id": "pet_01JCM7V8H9Q2K4N6R8T0A1B2C3",
                     "text": "오늘 아침 사료를 조금 남겼어",
                     "source": "manual",
                     "confirm": False,
@@ -180,7 +206,7 @@ class TestHttpRoutes(unittest.TestCase):
             )
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(context.pet_log_agent_pipeline.handled_input.pet.id, "sample-pet-choco")
+        self.assertEqual(context.pet_log_agent_pipeline.handled_input.pet.id, "pet_01JCM7V8H9Q2K4N6R8T0A1B2C3")
 
     def test_lifespan_closes_app_context_on_shutdown(self):
         context = FakeAppContext()

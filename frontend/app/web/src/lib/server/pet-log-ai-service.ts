@@ -1,7 +1,7 @@
 import axios from "axios";
 import { structureRecord } from "@/lib/ai-insights";
 import type { PetLogSnapshot } from "@/lib/api-client";
-import type { ExtractedMeasurement, PetProfile, RecordCategory, RecordEntry, StructuredRecord } from "@/lib/types";
+import type { ExtractedMeasurement, PetProfile, RecordCategory, RecordCategoryChoice, RecordEntry, StructuredRecord } from "@/lib/types";
 
 export type PetLogAiProviderId = "mock" | "openai";
 
@@ -19,7 +19,7 @@ type CreateChatbotMessageInput = {
 
 type CreateStructuredRecordInput = {
   detail: string;
-  fallbackCategory: RecordCategory;
+  fallbackCategory: RecordCategoryChoice;
 };
 
 type OpenAiResponsesResult = {
@@ -99,17 +99,18 @@ function isRecordCategory(value: unknown): value is RecordCategory {
   return recordCategories.includes(value as RecordCategory);
 }
 
-function createOpenAiStructurePrompt(detail: string, fallbackCategory: RecordCategory) {
+function createOpenAiStructurePrompt(detail: string, fallbackCategory: RecordCategoryChoice) {
   return [
     `원문: ${detail.trim()}`,
     `보호자가 선택한 기본 카테고리: ${fallbackCategory}`,
     "카테고리는 meal, walk, stool, medical, behavior 중 하나만 사용하세요.",
+    "원문에 여러 카테고리가 함께 있으면 detectedCategories 배열에 등장 순서대로 모두 담으세요.",
     "수치가 있으면 label/value 배열로 추출하세요. label 예시는 급여량, 체중, 시간, 횟수입니다.",
     "JSON 객체만 반환하세요.",
   ].join("\n");
 }
 
-function parseOpenAiStructuredRecord(text: string, detail: string, fallbackCategory: RecordCategory): StructuredRecord | null {
+function parseOpenAiStructuredRecord(text: string, detail: string, fallbackCategory: RecordCategoryChoice): StructuredRecord | null {
   const firstBrace = text.indexOf("{");
   const lastBrace = text.lastIndexOf("}");
   if (firstBrace < 0 || lastBrace <= firstBrace) {
@@ -130,7 +131,12 @@ function parseOpenAiStructuredRecord(text: string, detail: string, fallbackCateg
           .slice(0, 4)
       : [];
     const confidence = typeof parsed.confidence === "number" ? Math.min(0.99, Math.max(0.1, parsed.confidence)) : 0.45;
-    const suggestedCategory = isRecordCategory(parsed.suggestedCategory) ? parsed.suggestedCategory : fallbackCategory;
+    const suggestedCategory = isRecordCategory(parsed.suggestedCategory)
+      ? parsed.suggestedCategory
+      : structureRecord(detail, fallbackCategory).suggestedCategory;
+    const detectedCategories = Array.isArray(parsed.detectedCategories)
+      ? parsed.detectedCategories.filter(isRecordCategory)
+      : structureRecord(detail, fallbackCategory).detectedCategories;
 
     return {
       sourceText: typeof parsed.sourceText === "string" && parsed.sourceText.trim() ? parsed.sourceText.trim() : detail.trim(),
@@ -139,10 +145,13 @@ function parseOpenAiStructuredRecord(text: string, detail: string, fallbackCateg
           ? parsed.normalizedSummary.trim().slice(0, 80)
           : structureRecord(detail, fallbackCategory).normalizedSummary,
       suggestedCategory,
+      detectedCategories,
       confidence,
       measurements,
       needsConfirmation:
-        typeof parsed.needsConfirmation === "boolean" ? parsed.needsConfirmation : confidence < 0.7 || suggestedCategory !== fallbackCategory,
+        typeof parsed.needsConfirmation === "boolean"
+          ? parsed.needsConfirmation
+          : confidence < 0.7 || (fallbackCategory !== "all" && suggestedCategory !== fallbackCategory),
     };
   } catch {
     return null;

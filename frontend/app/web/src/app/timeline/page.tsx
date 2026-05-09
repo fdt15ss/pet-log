@@ -6,8 +6,16 @@ import { PetIcon } from "@/components/pet-icons";
 import { usePetLog } from "@/components/pet-log-provider";
 import { Card, CategoryBadge, Pill, SectionHeader } from "@/components/ui";
 import { categoryLabels } from "@/lib/mock-data";
-import { getTimelineDates, getTimelineDetail, getTimelineRecords, getTimelineSummary, type TimelineFilter } from "@/lib/timeline";
-import type { RecordCategory, RecordEntry, RecordStatus } from "@/lib/types";
+import { getRecordCategoryChoiceLabel, recordCategoryChoiceOptions } from "@/lib/record-input";
+import {
+  getTimelineDates,
+  getTimelineDetail,
+  getTimelineEditCategory,
+  getTimelineRecords,
+  getTimelineSummary,
+  type TimelineFilter,
+} from "@/lib/timeline";
+import type { RecordCategory, RecordCategoryChoice, RecordEntry, RecordStatus } from "@/lib/types";
 
 const timelineFilters: { label: string; value: TimelineFilter }[] = [
   { label: "전체", value: "all" },
@@ -40,7 +48,7 @@ export default function TimelinePage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedRecordId, setSelectedRecordId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editingCategory, setEditingCategory] = useState<RecordCategory>("meal");
+  const [editingCategory, setEditingCategory] = useState<RecordCategoryChoice>("meal");
   const [editingDetail, setEditingDetail] = useState("");
   const [editingError, setEditingError] = useState("");
 
@@ -72,7 +80,7 @@ export default function TimelinePage() {
 
   function startEdit(record: RecordEntry) {
     setEditingId(record.id);
-    setEditingCategory(record.category);
+    setEditingCategory(getTimelineEditCategory(record));
     setEditingDetail(record.detail);
     setEditingError("");
   }
@@ -199,7 +207,9 @@ export default function TimelinePage() {
           <SectionHeader title={activeTitle} />
           {filteredRecords.length > 0 ? (
             <div className="relative space-y-3 before:absolute before:bottom-4 before:left-[21px] before:top-4 before:w-px before:bg-[#dfe8d9]">
-              {filteredRecords.map((record) => (
+              {filteredRecords.map((record) => {
+                const recordCategoryChoice = getTimelineEditCategory(record);
+                return (
                 <Card className="relative ml-8 p-4" key={record.id}>
                   <span className="absolute -left-[38px] top-5 grid h-8 w-8 place-items-center rounded-full border-4 border-[#f8faf5] bg-[#eaf5e8] text-xs font-black text-[#16804b]">
                     <PetIcon className="h-4 w-4" name={record.category} />
@@ -208,7 +218,13 @@ export default function TimelinePage() {
                     <div className="space-y-3">
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-bold text-[#7a8374]">{record.time}</span>
-                        <CategoryBadge category={editingCategory} />
+                        {editingCategory === "all" ? (
+                          <span className="rounded-full bg-[#f1f5ed] px-2.5 py-1 text-xs font-bold text-[#53604f]">
+                            {getRecordCategoryChoiceLabel(editingCategory)}
+                          </span>
+                        ) : (
+                          <CategoryBadge category={editingCategory} />
+                        )}
                       </div>
                       <textarea
                         className="min-h-28 w-full resize-none rounded-2xl border border-[#dde6d6] bg-[#fbfcfa] p-3 text-sm leading-6 outline-none focus:border-[#16804b] focus:ring-2 focus:ring-[#16804b]/15"
@@ -221,20 +237,22 @@ export default function TimelinePage() {
                         value={editingDetail}
                       />
                       <div className="flex flex-wrap gap-2">
-                        {timelineFilters
-                          .filter((filter): filter is { label: string; value: RecordCategory } => filter.value !== "all")
-                          .map((filter) => (
+                        {recordCategoryChoiceOptions.map((option) => {
+                          const active = editingCategory === option.value;
+                          return (
                             <Pill
-                              active={editingCategory === filter.value}
-                              key={filter.value}
-                              onClick={() => setEditingCategory(filter.value)}
+                              active={active}
+                              key={option.value}
+                              onClick={() => setEditingCategory(option.value)}
                             >
                               <span className="inline-flex items-center gap-1.5">
-                                <PetIcon className="h-3.5 w-3.5" name={timelineFilterIcons[filter.value]} />
-                              {filter.label}
+                                {active ? <PetIcon className="h-3.5 w-3.5" name="check" /> : null}
+                                <PetIcon className="h-3.5 w-3.5" name={option.icon} />
+                                {option.label}
                               </span>
                             </Pill>
-                          ))}
+                          );
+                        })}
                       </div>
                       {editingError ? <p className="text-sm font-semibold text-[#be4c3c]">{editingError}</p> : null}
                       <div className="grid grid-cols-2 gap-2">
@@ -263,7 +281,13 @@ export default function TimelinePage() {
                           <div>
                             <div className="flex items-center gap-2">
                               <span className="text-xs font-bold text-[#7a8374]">{record.time}</span>
-                              <CategoryBadge category={record.category} />
+                              {recordCategoryChoice === "all" ? (
+                                <span className="rounded-full bg-[#f1f5ed] px-2.5 py-1 text-xs font-bold text-[#53604f]">
+                                  {getRecordCategoryChoiceLabel(recordCategoryChoice)}
+                                </span>
+                              ) : (
+                                <CategoryBadge category={recordCategoryChoice} />
+                              )}
                             </div>
                             <h3 className="mt-2 text-sm font-bold text-[#1f2922]">{record.title}</h3>
                             <p className="mt-1 line-clamp-2 text-sm leading-6 text-[#667262]">{record.detail}</p>
@@ -319,7 +343,8 @@ export default function TimelinePage() {
                     </div>
                   )}
                 </Card>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <Card className="p-5 text-center">

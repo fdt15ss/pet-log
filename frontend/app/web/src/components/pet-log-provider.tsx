@@ -21,15 +21,24 @@ import { defaultExpansionState, normalizeExpansionState } from "@/lib/expansion-
 import { petProfile as initialProfile, records as initialRecords, schedules as initialSchedules } from "@/lib/mock-data";
 import { defaultAppSettings } from "@/lib/settings";
 import type { ExpansionState, HospitalState, SharedCareState, ShoppingState } from "@/lib/expansion-state";
-import type { AppSettings, CareSchedule, PetProfile, RecordCategory, RecordEntry, ScheduleCategory, StructuredRecord } from "@/lib/types";
+import type {
+  AppSettings,
+  CareSchedule,
+  PetProfile,
+  RecordCategory,
+  RecordCategoryChoice,
+  RecordEntry,
+  ScheduleCategory,
+  StructuredRecord,
+} from "@/lib/types";
 
 type NewRecordInput = {
-  category: RecordCategory;
+  category: RecordCategoryChoice;
   detail: string;
 };
 
 type UpdateRecordInput = {
-  category: RecordCategory;
+  category: RecordCategoryChoice;
   detail: string;
 };
 
@@ -102,19 +111,26 @@ function createFallbackStructuredRecord(detail: string, category: RecordCategory
     sourceText,
     normalizedSummary: createTitle(sourceText),
     suggestedCategory: category,
+    detectedCategories: [category],
     confidence: 0.4,
     measurements: [],
     needsConfirmation: true,
   };
 }
 
+function resolveInputCategory(category: RecordCategoryChoice, structured: StructuredRecord): RecordCategory {
+  return category === "all" ? structured.suggestedCategory : category;
+}
+
 function createLocalRecord(input: NewRecordInput, structured: StructuredRecord, createdAt = new Date()): RecordEntry {
   const detail = input.detail.trim();
+  const category = resolveInputCategory(input.category, structured);
   return {
     id: `local-${createdAt.getTime()}`,
     date: formatDateLabel(createdAt),
     time: formatTimeLabel(createdAt),
-    category: input.category,
+    category,
+    categoryChoice: input.category,
     title: createTitle(detail),
     detail,
     status: "normal",
@@ -138,6 +154,10 @@ function isRecordCategory(value: unknown): value is RecordCategory {
   return value === "meal" || value === "walk" || value === "stool" || value === "medical" || value === "behavior";
 }
 
+function isRecordCategoryChoice(value: unknown): value is RecordCategoryChoice {
+  return value === "all" || isRecordCategory(value);
+}
+
 function isScheduleCategory(value: unknown): value is ScheduleCategory {
   return value === "vaccination" || value === "medication" || value === "checkup" || value === "grooming" || value === "food";
 }
@@ -153,6 +173,7 @@ function isRecordEntry(value: unknown): value is RecordEntry {
     typeof record.date === "string" &&
     typeof record.time === "string" &&
     isRecordCategory(record.category) &&
+    (record.categoryChoice === undefined || isRecordCategoryChoice(record.categoryChoice)) &&
     typeof record.title === "string" &&
     typeof record.detail === "string" &&
     (record.status === "normal" || record.status === "notice" || record.status === "alert")
@@ -343,7 +364,7 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
     } catch {
       const fallbackStructured = await structureRecordPreview({ detail: input.detail, fallbackCategory: input.category })
         .then((response) => response.structured)
-        .catch(() => createFallbackStructuredRecord(input.detail, input.category));
+        .catch(() => createFallbackStructuredRecord(input.detail, input.category === "all" ? "meal" : input.category));
       const fallbackRecord = createLocalRecord(input, fallbackStructured);
       setRecords((current) => [fallbackRecord, ...current]);
       setError("API 저장에 실패해 로컬 기록으로 유지했습니다.");

@@ -5,6 +5,7 @@ import unittest
 from application.dto import PetLogAgentInput
 from application.pipelines.pet_log_graph import LangGraphPetLogAgentPipeline
 from application.pipelines.pet_log_agent import PetLogAgentPipeline
+from domain.enums import RecordInputSource
 from domain.models import (
     ContextAnalysisResult,
     PetProfile,
@@ -26,6 +27,7 @@ class FakeRecordStructuringAgent:
 class FakeRecordRepository:
     def __init__(self) -> None:
         self.saved_candidates: list[StructuredRecordCandidate] = []
+        self.saved_sources: list[RecordInputSource] = []
 
     def list_recent(self, pet_id: str, lookback_days: int) -> tuple[PetRecord, ...]:
         return ()
@@ -33,8 +35,14 @@ class FakeRecordRepository:
     def list_by_ids(self, pet_id: str, record_ids: tuple[str, ...]) -> tuple[PetRecord, ...]:
         return ()
 
-    def save_candidate(self, pet_id: str, candidate: StructuredRecordCandidate) -> PetRecord:
+    def save_candidate(
+        self,
+        pet_id: str,
+        candidate: StructuredRecordCandidate,
+        source: RecordInputSource = "ai_preview",
+    ) -> PetRecord:
         self.saved_candidates.append(candidate)
+        self.saved_sources.append(source)
         return PetRecord(
             id=f"record-{len(self.saved_candidates)}",
             pet_id=pet_id,
@@ -43,7 +51,7 @@ class FakeRecordRepository:
             detail=candidate.detail,
             status=candidate.status,
             recorded_at="2026-05-08T09:00:00Z",
-            source="ai_preview",
+            source=source,
         )
 
 
@@ -124,7 +132,9 @@ class TestPetLogAgentPipeline(unittest.TestCase):
 
         self.assertEqual(result.candidates, (meal, walk))
         self.assertEqual(tuple(record.title for record in result.saved_records), ("식사", "산책"))
+        self.assertEqual(tuple(record.source for record in result.saved_records), ("manual", "manual"))
         self.assertEqual(repository.saved_candidates, [meal, walk])
+        self.assertEqual(repository.saved_sources, ["manual", "manual"])
         self.assertEqual(tuple(record.title for record in reminder_agent.records), ("식사", "산책"))
 
     def test_confirmation_required_batch_does_not_save_records_without_confirm(self) -> None:
@@ -144,6 +154,30 @@ class TestPetLogAgentPipeline(unittest.TestCase):
                 pet=PetProfile(id="pet-1", name="초코"),
                 text="오늘 밥을 거의 안 먹었어",
                 source="manual",
+            )
+        )
+
+        self.assertEqual(result.candidates, (candidate,))
+        self.assertEqual(result.saved_records, ())
+        self.assertEqual(repository.saved_candidates, [])
+
+    def test_ai_preview_source_does_not_save_even_when_candidate_is_confident(self) -> None:
+        candidate = StructuredRecordCandidate(
+            title="산책",
+            detail="저녁 산책 20분",
+            category="walk",
+            status="normal",
+            confidence=0.9,
+            needs_confirmation=False,
+        )
+        repository = FakeRecordRepository()
+        pipeline = self._pipeline(StructuredRecordBatch(candidates=(candidate,)), repository)
+
+        result = pipeline.handle(
+            PetLogAgentInput(
+                pet=PetProfile(id="pet-1", name="초코"),
+                text="저녁 산책 20분",
+                source="ai_preview",
             )
         )
 

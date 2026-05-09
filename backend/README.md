@@ -100,7 +100,7 @@ POST /api/v1/pet-log/records
 
 ```json
 {
-  "pet_id": "sample-pet-choco",
+  "pet_id": "pet_01JCM7V8H9Q2K4N6R8T0A1B2C3",
   "text": "오늘 아침 사료를 조금 남겼어",
   "source": "manual",
   "confirm": false
@@ -109,6 +109,14 @@ POST /api/v1/pet-log/records
 
 HTTP 계층은 request/response 변환과 pipeline 호출만 담당한다. FastAPI import는 `src/presentation/http/`와 `main.py`에만 둔다.
 DB-backed repository와 pipeline은 `composition.build_app_context()`에서 만들고, FastAPI `lifespan`에서 열고 닫는다.
+
+기록 입력 결과 확인 로그:
+
+```text
+record.result | pet_id=... | source=... | mode=preview | confirm=no | candidates=... | saved=... | needs_confirmation=yes | first="meal: 식사" | saved_id=-
+```
+
+이 로그는 `presentation.http.pet_log_routes` logger에서 `INFO` 레벨로 남긴다. 미리보기 호출은 `source=ai_preview`, `mode=preview`, `saved=0`, `saved_id=-`이어야 하고, 실제 저장 호출은 저장 성공 시 `mode=saved`, `saved`가 1 이상이어야 한다.
 
 음성 STT API:
 

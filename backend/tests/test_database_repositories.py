@@ -1,5 +1,6 @@
 import json
 import tempfile
+import threading
 import unittest
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
@@ -40,9 +41,9 @@ class TestDatabaseRepositories(unittest.TestCase):
         }
 
         self.assertEqual(tuple(sorted(pets)), tuple(sorted(SAMPLE_PET_IDS)))
-        self.assertEqual(pets["sample-pet-choco"], ("초코", "말티푸", "dog"))
-        self.assertEqual(pets["sample-pet-nabi"], ("나비", "코리안숏헤어", "cat"))
-        self.assertEqual(pets["sample-pet-ddang"], ("땅콩", "포메라니안", "dog"))
+        self.assertEqual(pets["pet_01JCM7V8H9Q2K4N6R8T0A1B2C3"], ("초코", "말티푸", "dog"))
+        self.assertEqual(pets["pet_01JCM7V8H9Q2K4N6R8T0D4E5F6"], ("나비", "코리안숏헤어", "cat"))
+        self.assertEqual(pets["pet_01JCM7V8H9Q2K4N6R8T0G7H8J9"], ("땅콩", "포메라니안", "dog"))
 
     def test_seed_default_data_uses_run_date_relative_dates(self):
         connection = connect(":memory:")
@@ -123,6 +124,32 @@ class TestDatabaseRepositories(unittest.TestCase):
         self.assertEqual(pet.species, "dog")
         self.assertEqual(pet.notes, ("likes walks",))
 
+    def test_sqlite_connection_can_be_used_from_fastapi_worker_thread(self):
+        connection = connect(":memory:")
+        connection.execute(
+            """
+            INSERT INTO pets (id, name, breed, species, age_label, personality, notes)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            ("pet-thread", "Thread Choco", "Poodle", "dog", "3 years", "gentle", json.dumps([])),
+        )
+        connection.commit()
+        repository = PetProfileRepository(connection=connection)
+        result: dict[str, object] = {}
+
+        def read_pet() -> None:
+            try:
+                result["pet"] = repository.get_pet("pet-thread")
+            except Exception as exc:  # pragma: no cover - asserted below
+                result["error"] = exc
+
+        thread = threading.Thread(target=read_pet)
+        thread.start()
+        thread.join()
+
+        self.assertNotIn("error", result)
+        self.assertEqual(result["pet"].name, "Thread Choco")
+
     def test_record_repository_saves_and_reads_sqlite_records(self):
         connection = connect(":memory:")
         repository = RecordRepository(connection=connection)
@@ -135,11 +162,11 @@ class TestDatabaseRepositories(unittest.TestCase):
             needs_confirmation=False,
         )
 
-        saved = repository.save_candidate("pet-1", candidate)
+        saved = repository.save_candidate("pet-1", candidate, source="manual")
 
         self.assertEqual(saved.pet_id, "pet-1")
         self.assertEqual(saved.title, "Morning meal")
-        self.assertEqual(saved.source, "ai_preview")
+        self.assertEqual(saved.source, "manual")
         self.assertEqual(repository.list_recent("pet-1", lookback_days=30), (saved,))
         self.assertEqual(repository.list_by_ids("pet-1", (saved.id,)), (saved,))
         self.assertEqual(repository.list_recent("pet-2", lookback_days=30), ())

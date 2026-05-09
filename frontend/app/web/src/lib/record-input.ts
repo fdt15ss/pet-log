@@ -1,3 +1,5 @@
+import type { RecordCategory, RecordCategoryChoice, StructuredRecord } from "./types";
+
 export type RecordInputMode = "text" | "voice" | "photo";
 
 export type RecordInputModeStatus = "available" | "coming-soon";
@@ -42,6 +44,30 @@ export type BrowserSpeechRecognitionWindow = {
 };
 
 export const recordInputFlow = ["category", "mode", "entry", "ai-preview", "recent-records"] as const;
+
+export const defaultRecordCategoryChoice: RecordCategoryChoice = "all";
+
+export const recordCategoryChoiceOptions = [
+  { icon: "record", label: "AI 자동", value: "all", hint: "내용 기준" },
+  { icon: "meal", label: "식사", value: "meal", hint: "먹은 양" },
+  { icon: "walk", label: "산책", value: "walk", hint: "시간/거리" },
+  { icon: "stool", label: "배변", value: "stool", hint: "횟수/상태" },
+  { icon: "medical", label: "병원/약", value: "medical", hint: "약/진료" },
+  { icon: "behavior", label: "행동", value: "behavior", hint: "감정/반응" },
+] as const satisfies ReadonlyArray<{
+  icon: "record" | RecordCategory;
+  label: string;
+  value: RecordCategoryChoice;
+  hint: string;
+}>;
+
+export function resolveRecordCategoryForSave(choice: RecordCategoryChoice, structured: StructuredRecord): RecordCategory {
+  return choice === "all" ? structured.suggestedCategory : choice;
+}
+
+export function getRecordCategoryChoiceLabel(choice: RecordCategoryChoice): string {
+  return recordCategoryChoiceOptions.find((option) => option.value === choice)?.label ?? "";
+}
 
 const inputModeFeedback: Record<RecordInputMode, RecordInputModeFeedback> = {
   text: {

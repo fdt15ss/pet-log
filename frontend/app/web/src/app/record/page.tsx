@@ -9,22 +9,18 @@ import { Card, CategoryBadge, SectionHeader } from "@/components/ui";
 import { structureRecordPreview, transcribeSpeechAudio } from "@/lib/api-client";
 import { categoryLabels } from "@/lib/mock-data";
 import {
+  defaultRecordCategoryChoice,
   getBrowserSpeechRecognitionConstructor,
   getInputModeFeedback,
+  getRecordCategoryChoiceLabel,
+  recordCategoryChoiceOptions,
+  resolveRecordCategoryForSave,
   type BrowserSpeechRecognition,
   type BrowserSpeechRecognitionConstructor,
   type BrowserSpeechRecognitionResultEvent,
   type RecordInputMode,
 } from "@/lib/record-input";
-import type { RecordCategory, StructuredRecord } from "@/lib/types";
-
-const categoryOptions = [
-  { icon: "meal", label: "식사", value: "meal" },
-  { icon: "walk", label: "산책", value: "walk" },
-  { icon: "stool", label: "배변", value: "stool" },
-  { icon: "medical", label: "병원/약", value: "medical" },
-  { icon: "behavior", label: "행동", value: "behavior" },
-] as const satisfies ReadonlyArray<{ icon: "meal" | "walk" | "stool" | "medical" | "behavior"; label: string; value: RecordCategory }>;
+import type { RecordCategoryChoice, StructuredRecord } from "@/lib/types";
 
 const inputModes: { label: string; value: RecordInputMode }[] = [
   { label: "텍스트", value: "text" },
@@ -42,17 +38,19 @@ const maxLength = 500;
 
 type AiPreviewResult = {
   detail: string;
-  category: RecordCategory;
+  category: RecordCategoryChoice;
   structured: StructuredRecord;
 };
 
-function createPendingPreview(detail: string, category: RecordCategory): StructuredRecord {
+function createPendingPreview(detail: string, category: RecordCategoryChoice): StructuredRecord {
   const sourceText = detail.trim();
   const firstSentence = sourceText.split(/\n|[.!?。]/)[0]?.trim() ?? sourceText;
+  const suggestedCategory = category === "all" ? "meal" : category;
   return {
     sourceText,
     normalizedSummary: firstSentence ? (firstSentence.length > 38 ? `${firstSentence.slice(0, 38)}...` : firstSentence) : "기록 내용을 입력하면 미리보기가 생성됩니다.",
-    suggestedCategory: category,
+    suggestedCategory,
+    detectedCategories: [suggestedCategory],
     confidence: 0.4,
     measurements: [],
     needsConfirmation: true,
@@ -62,7 +60,7 @@ function createPendingPreview(detail: string, category: RecordCategory): Structu
 export default function RecordPage() {
   const { addRecord, records } = usePetLog();
   const [detail, setDetail] = useState("");
-  const [category, setCategory] = useState<RecordCategory>("meal");
+  const [category, setCategory] = useState<RecordCategoryChoice>(defaultRecordCategoryChoice);
   const [inputMode, setInputMode] = useState<RecordInputMode>("voice");
   const [error, setError] = useState("");
   const [savedId, setSavedId] = useState<string | null>(null);
@@ -83,10 +81,14 @@ export default function RecordPage() {
   const fallbackPreview = useMemo(() => createPendingPreview(trimmedDetail, category), [category, trimmedDetail]);
   const activePreview = aiPreview?.detail === trimmedDetail && aiPreview.category === category ? aiPreview.structured : null;
   const displayPreview = activePreview ?? fallbackPreview;
+  const resolvedCategory = resolveRecordCategoryForSave(category, displayPreview);
   const showPreviewLoading = !!trimmedDetail && isPreviewLoading && !activePreview;
   const visiblePreviewError = trimmedDetail ? previewError : "";
   const confidencePercent = Math.round(displayPreview.confidence * 100);
   const modeFeedback = getInputModeFeedback(inputMode);
+  const detectedCategories = displayPreview.detectedCategories?.length
+    ? displayPreview.detectedCategories
+    : [displayPreview.suggestedCategory];
 
   const previewTitle = useMemo(() => {
     if (!trimmedDetail) {
@@ -162,6 +164,16 @@ export default function RecordPage() {
 
     setIsSaving(true);
     try {
+      if (category === "all" && !activePreview) {
+        try {
+          const response = await structureRecordPreview({ detail: trimmedDetail, fallbackCategory: category });
+          setAiPreview({ category, detail: trimmedDetail, structured: response.structured });
+          setPreviewError("");
+        } catch {
+          setPreviewError("AI 미리보기를 불러오지 못해 기본 분류로 저장합니다.");
+        }
+      }
+
       const record = await addRecord({ category, detail: trimmedDetail });
       setSavedId(record.id);
       setError("");
@@ -340,7 +352,7 @@ export default function RecordPage() {
           <div className="mt-4 grid grid-cols-3 gap-2">
             <div className="rounded-2xl bg-white/80 px-3 py-3 text-center">
               <p className="text-[11px] font-bold text-[#778174]">분류</p>
-              <p className="mt-1 truncate text-sm font-black text-[#1f2922]">{categoryLabels[category]}</p>
+              <p className="mt-1 truncate text-sm font-black text-[#1f2922]">{getRecordCategoryChoiceLabel(category)}</p>
             </div>
             <div className="rounded-2xl bg-white/80 px-3 py-3 text-center">
               <p className="text-[11px] font-bold text-[#778174]">AI 신뢰도</p>
@@ -356,7 +368,7 @@ export default function RecordPage() {
         <section>
           <SectionHeader title="빠른 입력" />
           <div className="grid grid-cols-2 gap-2">
-            {categoryOptions.map((item) => {
+            {recordCategoryChoiceOptions.map((item) => {
               const active = item.value === category;
               return (
                 <button
@@ -376,15 +388,7 @@ export default function RecordPage() {
                   <span className="min-w-0">
                     <span className="block">{item.label}</span>
                     <span className={`mt-1 block text-[11px] font-semibold ${active ? "text-white/80" : "text-[#7c8777]"}`}>
-                      {item.value === "meal"
-                        ? "먹은 양"
-                        : item.value === "walk"
-                          ? "시간/거리"
-                          : item.value === "stool"
-                            ? "횟수/상태"
-                            : item.value === "medical"
-                              ? "약/진료"
-                              : "감정/반응"}
+                      {item.hint}
                     </span>
                   </span>
                 </button>
@@ -399,7 +403,13 @@ export default function RecordPage() {
               <h2 className="text-base font-bold text-[#1f2922]">입력 방식</h2>
               <p className="mt-1 text-xs font-semibold text-[#7c8777]">현재 저장은 텍스트 메모 기준으로 동작합니다.</p>
             </div>
-            <CategoryBadge category={category} />
+            {category === "all" ? (
+              <span className="rounded-full bg-[#f1f5ed] px-2.5 py-1 text-xs font-bold text-[#53604f]">
+                {getRecordCategoryChoiceLabel(category)}
+              </span>
+            ) : (
+              <CategoryBadge category={resolvedCategory} />
+            )}
           </div>
           <div className="grid grid-cols-3 gap-2">
             {inputModes.map((mode) => {
@@ -504,7 +514,7 @@ export default function RecordPage() {
                 </div>
                 <span className="text-sm font-bold text-[#16804b]">{categoryLabels[displayPreview.suggestedCategory]}</span>
               </div>
-              {displayPreview.suggestedCategory !== category ? (
+              {category !== "all" && displayPreview.suggestedCategory !== category ? (
                 <button
                   className="pet-log-pressable mt-3 h-10 w-full rounded-xl border border-[#cfe2cd] bg-[#f4faf2] text-sm font-bold text-[#16804b]"
                   onClick={() => setCategory(displayPreview.suggestedCategory)}
@@ -513,6 +523,16 @@ export default function RecordPage() {
                   AI 추천 분류 적용
                 </button>
               ) : null}
+              <div className="mt-3 flex flex-wrap gap-2">
+                {detectedCategories.map((detectedCategory) => (
+                  <span
+                    className="rounded-full bg-[#f4f7f0] px-2.5 py-1 text-xs font-bold text-[#53604f]"
+                    key={detectedCategory}
+                  >
+                    {categoryLabels[detectedCategory]}
+                  </span>
+                ))}
+              </div>
               <div className="mt-3 grid grid-cols-2 gap-2">
                 {displayPreview.measurements.length > 0 ? (
                   displayPreview.measurements.map((measurement) => (

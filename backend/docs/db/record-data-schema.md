@@ -203,7 +203,20 @@ LLM structured output:
 }
 ```
 
-이 결과가 domain의 `StructuredRecordBatch`로 변환되고, 확인이 필요하지 않으면 각 candidate가 `pet_records` row로 저장된다.
+이 결과가 domain의 `StructuredRecordBatch`로 변환된다. `source`가 `ai_preview`이면 미리보기 전용 호출로 보고 후보 신뢰도와 무관하게 저장하지 않는다. 실제 기록 저장은 `source`가 `manual` 또는 `voice`이고 저장 확정 경로를 통과할 때 각 candidate가 `pet_records` row로 저장된다.
+
+미리보기와 저장 분리 확인:
+
+```sql
+SELECT id, pet_id, category, title, detail, status, recorded_at, source
+FROM pet_records
+WHERE pet_id = 'pet_01JCM7V8H9Q2K4N6R8T0A1B2C3'
+ORDER BY created_at DESC
+LIMIT 5;
+```
+
+- 미리보기 호출 후에는 새 row가 늘지 않아야 한다.
+- 저장 호출 후에는 `source`가 `ai_preview`가 아닌 새 row가 추가되어야 한다.
 
 수동 smoke 확인:
 

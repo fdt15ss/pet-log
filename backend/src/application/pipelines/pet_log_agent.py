@@ -46,7 +46,7 @@ class PetLogAgentPipeline(PetLogAgentPipelineInterface):
         context = self._context_analysis_agent.analyze(input.pet, recent_records, due_items)
         safety_notices = self._risk_detection_agent.detect(input.text, recent_records)
 
-        if record_batch.needs_confirmation and not input.confirm:
+        if input.source == "ai_preview" or (record_batch.needs_confirmation and not input.confirm):
             return PetLogAgentResult(
                 candidates=record_batch.candidates,
                 context_analysis=context,
@@ -54,7 +54,7 @@ class PetLogAgentPipeline(PetLogAgentPipelineInterface):
             )
 
         saved_records = tuple(
-            self._record_repository.save_candidate(input.pet.id, candidate)
+            self._record_repository.save_candidate(input.pet.id, candidate, source=input.source)
             for candidate in record_batch.candidates
         )
         suggestions = self._suggestion_agent.suggest(input.pet, context, safety_notices)

@@ -16,7 +16,7 @@ def main() -> None:
     batch = RecordStructurer().structure(
         PetLogAgentInput(
             pet=PetProfile(
-                id="sample-pet-choco",
+                id="pet_01JCM7V8H9Q2K4N6R8T0A1B2C3",
                 name="초코",
                 breed="말티푸",
                 species="companion",

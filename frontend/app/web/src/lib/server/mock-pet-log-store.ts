@@ -9,6 +9,7 @@ import type {
   ChatbotThread,
   PetProfile,
   RecordCategory,
+  RecordCategoryChoice,
   RecordEntry,
   ScheduleCategory,
   StructuredRecord,
@@ -18,12 +19,14 @@ import type { ChatbotMessageResult } from "./pet-log-ai-service";
 
 type NewRecordInput = {
   category: RecordCategory;
+  categoryChoice?: RecordCategoryChoice;
   detail: string;
   structured: StructuredRecord;
 };
 
 type UpdateRecordInput = {
   category: RecordCategory;
+  categoryChoice?: RecordCategoryChoice;
   detail: string;
   structured: StructuredRecord;
 };
@@ -173,6 +176,7 @@ export function createMockRecord(input: NewRecordInput) {
     date: formatDateLabel(now),
     time: formatTimeLabel(now),
     category: input.category,
+    categoryChoice: input.categoryChoice,
     title: createTitle(detail),
     detail,
     status: "normal",
@@ -194,6 +198,7 @@ export function updateMockRecord(id: string, input: UpdateRecordInput) {
     updated = {
       ...record,
       category: input.category,
+      categoryChoice: input.categoryChoice,
       detail,
       title: createTitle(detail),
       structured: input.structured,

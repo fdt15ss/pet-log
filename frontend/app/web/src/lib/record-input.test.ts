@@ -1,7 +1,48 @@
 import { strict as assert } from "node:assert";
-import { getBrowserSpeechRecognitionConstructor, getInputModeFeedback, recordInputFlow, type BrowserSpeechRecognition } from "./record-input";
+import {
+  defaultRecordCategoryChoice,
+  getBrowserSpeechRecognitionConstructor,
+  getInputModeFeedback,
+  getRecordCategoryChoiceLabel,
+  recordCategoryChoiceOptions,
+  recordInputFlow,
+  resolveRecordCategoryForSave,
+  type BrowserSpeechRecognition,
+} from "./record-input";
 
 assert.deepEqual(recordInputFlow, ["category", "mode", "entry", "ai-preview", "recent-records"]);
+assert.equal(defaultRecordCategoryChoice, "all");
+assert.deepEqual(
+  recordCategoryChoiceOptions.slice(0, 2).map((option) => [option.label, option.value]),
+  [
+    ["AI 자동", "all"],
+    ["식사", "meal"],
+  ],
+);
+assert.equal(getRecordCategoryChoiceLabel("all"), "AI 자동");
+assert.equal(getRecordCategoryChoiceLabel("walk"), "산책");
+assert.equal(
+  resolveRecordCategoryForSave("all", {
+    sourceText: "아침 사료를 먹었어",
+    normalizedSummary: "아침 식사",
+    suggestedCategory: "meal",
+    confidence: 0.86,
+    measurements: [],
+    needsConfirmation: false,
+  }),
+  "meal",
+);
+assert.equal(
+  resolveRecordCategoryForSave("walk", {
+    sourceText: "아침 사료를 먹었어",
+    normalizedSummary: "아침 식사",
+    suggestedCategory: "meal",
+    confidence: 0.86,
+    measurements: [],
+    needsConfirmation: false,
+  }),
+  "walk",
+);
 
 const textMode = getInputModeFeedback("text");
 assert.equal(textMode.status, "available");

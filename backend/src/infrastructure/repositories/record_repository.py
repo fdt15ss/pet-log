@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 from application.interfaces import RecordHistoryReaderInterface, RecordRepositoryInterface
+from domain.enums import RecordInputSource
 from domain.models import PetRecord, StructuredRecordCandidate
 from infrastructure.database import initialize_schema
 
@@ -51,7 +52,12 @@ class RecordRepository(RecordHistoryReaderInterface, RecordRepositoryInterface):
         records_by_id = {record.id: record for record in self._records if record.pet_id == pet_id}
         return tuple(records_by_id[record_id] for record_id in record_ids if record_id in records_by_id)
 
-    def save_candidate(self, pet_id: str, candidate: StructuredRecordCandidate) -> PetRecord:
+    def save_candidate(
+        self,
+        pet_id: str,
+        candidate: StructuredRecordCandidate,
+        source: RecordInputSource = "ai_preview",
+    ) -> PetRecord:
         if self._connection is not None:
             record = PetRecord(
                 id=str(uuid4()),
@@ -61,7 +67,7 @@ class RecordRepository(RecordHistoryReaderInterface, RecordRepositoryInterface):
                 detail=candidate.detail,
                 status=candidate.status,
                 recorded_at=_utc_now(),
-                source="ai_preview",
+                source=source,
             )
             self._connection.execute(
                 """
@@ -90,7 +96,7 @@ class RecordRepository(RecordHistoryReaderInterface, RecordRepositoryInterface):
             detail=candidate.detail,
             status=candidate.status,
             recorded_at="",
-            source="ai_preview",
+            source=source,
         )
         self._records.append(record)
         return record

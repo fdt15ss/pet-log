@@ -7,6 +7,7 @@ import type {
   ChatbotThread,
   PetProfile,
   RecordCategory,
+  RecordCategoryChoice,
   RecordEntry,
   ScheduleCategory,
   StructuredRecord,
@@ -38,18 +39,18 @@ export type PetLogSnapshot = {
 };
 
 export type NewRecordInput = {
-  category: RecordCategory;
+  category: RecordCategoryChoice;
   detail: string;
 };
 
 export type UpdateRecordInput = {
-  category: RecordCategory;
+  category: RecordCategoryChoice;
   detail: string;
 };
 
 export type StructureRecordInput = {
   detail: string;
-  fallbackCategory: RecordCategory;
+  fallbackCategory: RecordCategoryChoice;
 };
 
 export type NewScheduleInput = {

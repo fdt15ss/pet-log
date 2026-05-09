@@ -11,4 +11,4 @@ class ReminderPlanner(ReminderPlannerInterface):
         records: tuple[PetRecord, ...],
         due_items: tuple[PlannedReminder, ...],
     ) -> tuple[PlannedReminder, ...]:
-        raise NotImplementedError
+        return due_items

@@ -30,3 +30,25 @@ test("스프린트 4 엣지: 키워드가 부족하면 fallback 분류와 확인
   assert.equal(structured.needsConfirmation, true);
   assert.deepEqual(structured.measurements, []);
 });
+
+test("전체 기본 분류는 식사 자연어를 식사로 자동 인식한다", () => {
+  const structured = structureRecord("아침에 밥을 천천히 먹었어", "all");
+
+  assert.equal(structured.suggestedCategory, "meal");
+  assert.equal(structured.needsConfirmation, false);
+});
+
+test("복합 일상 기록은 문장에 포함된 카테고리들을 함께 감지한다", () => {
+  const structured = structureRecord(
+    "아침 사료는 평소 양의 80% 정도 먹었고, 저녁 산책은 30분 다녀왔으며, 병원 방문은 없었고, 배변은 정상 변 1회, 행동은 평소보다 조금 조용하고 몸무게는 정상",
+    "all",
+  );
+
+  assert.deepEqual(structured.detectedCategories, ["meal", "walk", "medical", "stool", "behavior"]);
+  assert.equal(structured.suggestedCategory, "meal");
+  assert.equal(structured.needsConfirmation, false);
+  assert.deepEqual(
+    structured.measurements.map((measurement) => measurement.value),
+    ["80%", "30분", "1회"],
+  );
+});

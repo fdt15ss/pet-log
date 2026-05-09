@@ -11,7 +11,7 @@ from infrastructure.llm.record_structuring import RecordStructurer
 from infrastructure.repositories import PetProfileRepository, RecordRepository
 
 
-PET_ID = "smoke-pet-choco"
+PET_ID = "pet_01JCM7V8H9Q2K4N6R8T0SM0K3"
 
 
 def seed_smoke_pet(connection) -> None:
