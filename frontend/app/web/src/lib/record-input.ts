@@ -8,6 +8,39 @@ export type RecordInputModeFeedback = {
   detail: string;
 };
 
+export type BrowserSpeechRecognitionResult = {
+  isFinal: boolean;
+  0?: {
+    transcript: string;
+  };
+};
+
+export type BrowserSpeechRecognitionResultEvent = {
+  resultIndex: number;
+  results: {
+    length: number;
+    [index: number]: BrowserSpeechRecognitionResult;
+  };
+};
+
+export type BrowserSpeechRecognition = {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onend: (() => void) | null;
+  onerror: (() => void) | null;
+  onresult: ((event: BrowserSpeechRecognitionResultEvent) => void) | null;
+  start: () => void;
+  stop: () => void;
+};
+
+export type BrowserSpeechRecognitionConstructor = new () => BrowserSpeechRecognition;
+
+export type BrowserSpeechRecognitionWindow = {
+  SpeechRecognition?: BrowserSpeechRecognitionConstructor;
+  webkitSpeechRecognition?: BrowserSpeechRecognitionConstructor;
+};
+
 export const recordInputFlow = ["category", "mode", "entry", "ai-preview", "recent-records"] as const;
 
 const inputModeFeedback: Record<RecordInputMode, RecordInputModeFeedback> = {
@@ -17,9 +50,9 @@ const inputModeFeedback: Record<RecordInputMode, RecordInputModeFeedback> = {
     detail: "자연어로 식사, 산책, 배변, 행동을 한 번에 적으면 AI가 구조화합니다.",
   },
   voice: {
-    status: "coming-soon",
-    label: "준비 중",
-    detail: "음성 녹음은 준비 중입니다. 지금은 말하듯 적은 메모를 저장해주세요.",
+    status: "available",
+    label: "녹음",
+    detail: "마이크로 녹음한 뒤 종료하면 자동으로 텍스트 변환해 기록 입력창에 채웁니다.",
   },
   photo: {
     status: "coming-soon",
@@ -30,4 +63,10 @@ const inputModeFeedback: Record<RecordInputMode, RecordInputModeFeedback> = {
 
 export function getInputModeFeedback(mode: RecordInputMode) {
   return inputModeFeedback[mode];
+}
+
+export function getBrowserSpeechRecognitionConstructor(
+  windowLike: BrowserSpeechRecognitionWindow = globalThis as BrowserSpeechRecognitionWindow,
+) {
+  return windowLike.SpeechRecognition ?? windowLike.webkitSpeechRecognition ?? null;
 }

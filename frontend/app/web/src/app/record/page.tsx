@@ -1,14 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import { PetIcon } from "@/components/pet-icons";
 import { usePetLog } from "@/components/pet-log-provider";
 import { Card, CategoryBadge, SectionHeader } from "@/components/ui";
-import { structureRecordPreview } from "@/lib/api-client";
+import { structureRecordPreview, transcribeSpeechAudio } from "@/lib/api-client";
 import { categoryLabels } from "@/lib/mock-data";
-import { getInputModeFeedback, type RecordInputMode } from "@/lib/record-input";
+import {
+  getBrowserSpeechRecognitionConstructor,
+  getInputModeFeedback,
+  type BrowserSpeechRecognition,
+  type BrowserSpeechRecognitionConstructor,
+  type BrowserSpeechRecognitionResultEvent,
+  type RecordInputMode,
+} from "@/lib/record-input";
 import type { RecordCategory, StructuredRecord } from "@/lib/types";
 
 const categoryOptions = [
@@ -26,12 +33,11 @@ const inputModes: { label: string; value: RecordInputMode }[] = [
 ];
 
 const inputPlaceholders: Record<RecordInputMode, string> = {
-  text: "예: 아침 사료 50g을 먹고 산책 20분을 했어요.",
+  text: "예: 오늘 아침에 50g 사료 먹고, 간식 조금 줬어. 낮에 산책 20분 했고 밤에 배변 1번 했어.",
   voice: "음성으로 남길 내용을 확인하거나 직접 수정해주세요.",
   photo: "사진과 함께 남길 메모를 입력해주세요.",
 };
 
-const defaultDetail = "오늘 아침에 50g 사료 먹고, 간식 조금 줬어. 낮에 산책 20분 했고 밤에 배변 1번 했어.";
 const maxLength = 500;
 
 type AiPreviewResult = {
@@ -55,15 +61,21 @@ function createPendingPreview(detail: string, category: RecordCategory): Structu
 
 export default function RecordPage() {
   const { addRecord, records } = usePetLog();
-  const [detail, setDetail] = useState(defaultDetail);
+  const [detail, setDetail] = useState("");
   const [category, setCategory] = useState<RecordCategory>("meal");
-  const [inputMode, setInputMode] = useState<RecordInputMode>("text");
+  const [inputMode, setInputMode] = useState<RecordInputMode>("voice");
   const [error, setError] = useState("");
   const [savedId, setSavedId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [aiPreview, setAiPreview] = useState<AiPreviewResult | null>(null);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState("");
+  const [isRecording, setIsRecording] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const speechRecognitionRef = useRef<BrowserSpeechRecognition | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
 
   const preview = records.slice(0, 3);
   const trimmedDetail = detail.trim();
@@ -117,6 +129,18 @@ export default function RecordPage() {
     };
   }, [category, trimmedDetail]);
 
+  useEffect(() => {
+    return () => {
+      speechRecognitionRef.current?.stop();
+      stopMediaStream();
+    };
+  }, []);
+
+  function stopMediaStream() {
+    mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+    mediaStreamRef.current = null;
+  }
+
   async function handleSave() {
     if (!trimmedDetail) {
       setError("기록 내용을 입력해주세요.");
@@ -145,6 +169,148 @@ export default function RecordPage() {
     } finally {
       setIsSaving(false);
     }
+  }
+
+  async function transcribeRecordedAudio(audio: Blob) {
+    if (!audio.size) {
+      setError("녹음된 음성이 없습니다. 다시 녹음해주세요.");
+      return;
+    }
+
+    setIsTranscribing(true);
+    setError("");
+    setSavedId(null);
+    try {
+      const fileType = audio.type || "audio/webm";
+      const file = new File([audio], "recording.webm", { type: fileType });
+      const transcription = await transcribeSpeechAudio(file);
+      setDetail(transcription.text);
+    } catch {
+      setError("음성 인식에 실패했습니다. 텍스트로 직접 입력해주세요.");
+    } finally {
+      setIsTranscribing(false);
+    }
+  }
+
+  function applySpeechRecognitionResult(event: BrowserSpeechRecognitionResultEvent) {
+    const transcriptParts: string[] = [];
+    for (let index = event.resultIndex; index < event.results.length; index += 1) {
+      const transcript = event.results[index]?.[0]?.transcript.trim();
+      if (transcript) {
+        transcriptParts.push(transcript);
+      }
+    }
+    const transcript = transcriptParts.join(" ").trim();
+    if (transcript) {
+      setDetail((currentDetail) => {
+        const current = currentDetail.trim();
+        return current ? `${current} ${transcript}` : transcript;
+      });
+    }
+  }
+
+  function startBrowserSpeechRecognition(SpeechRecognition: BrowserSpeechRecognitionConstructor) {
+    const recognition = new SpeechRecognition();
+    recognition.lang = "ko-KR";
+    recognition.continuous = true;
+    recognition.interimResults = false;
+    recognition.onresult = applySpeechRecognitionResult;
+    recognition.onerror = () => {
+      speechRecognitionRef.current = null;
+      setIsRecording(false);
+      setError("브라우저 음성 인식에 실패했습니다. 다시 녹음하거나 텍스트로 입력해주세요.");
+    };
+    recognition.onend = () => {
+      speechRecognitionRef.current = null;
+      setIsRecording(false);
+    };
+
+    speechRecognitionRef.current = recognition;
+    recognition.start();
+    setIsRecording(true);
+  }
+
+  async function startServerRecordingFallback() {
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+      setError("이 브라우저에서는 음성 녹음을 사용할 수 없습니다.");
+      return;
+    }
+
+    setError("");
+    setSavedId(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      mediaStreamRef.current = stream;
+      mediaRecorderRef.current = recorder;
+      audioChunksRef.current = [];
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current = [...audioChunksRef.current, event.data];
+        }
+      };
+      recorder.onstop = () => {
+        const audio = new Blob(audioChunksRef.current, { type: recorder.mimeType || "audio/webm" });
+        mediaRecorderRef.current = null;
+        audioChunksRef.current = [];
+        stopMediaStream();
+        void transcribeRecordedAudio(audio);
+      };
+
+      recorder.start();
+      setIsRecording(true);
+    } catch {
+      stopMediaStream();
+      mediaRecorderRef.current = null;
+      setError("마이크 권한을 확인한 뒤 다시 녹음해주세요.");
+    }
+  }
+
+  async function startRecording() {
+    const SpeechRecognition = getBrowserSpeechRecognitionConstructor();
+    if (SpeechRecognition) {
+      setError("");
+      setSavedId(null);
+      try {
+        startBrowserSpeechRecognition(SpeechRecognition);
+        return;
+      } catch {
+        speechRecognitionRef.current = null;
+        setIsRecording(false);
+      }
+    }
+
+    await startServerRecordingFallback();
+  }
+
+  function stopRecording() {
+    const recognition = speechRecognitionRef.current;
+    if (recognition) {
+      speechRecognitionRef.current = null;
+      setIsRecording(false);
+      recognition.stop();
+      return;
+    }
+
+    const recorder = mediaRecorderRef.current;
+    if (!recorder || recorder.state === "inactive") {
+      setIsRecording(false);
+      stopMediaStream();
+      return;
+    }
+
+    setIsRecording(false);
+    recorder.stop();
+  }
+
+  function handleRecordingButtonClick() {
+    if (isRecording) {
+      stopRecording();
+      return;
+    }
+
+    void startRecording();
   }
 
   return (
@@ -263,6 +429,18 @@ export default function RecordPage() {
             <p className="text-xs font-bold">{modeFeedback.label}</p>
             <p className="mt-1 text-xs leading-5">{modeFeedback.detail}</p>
           </div>
+          {inputMode === "voice" ? (
+            <button
+              className={`pet-log-pressable mt-3 flex min-h-12 w-full items-center justify-center rounded-xl border px-4 text-sm font-bold ${
+                isRecording ? "border-[#be4c3c] bg-[#fff1ee] text-[#be4c3c]" : "border-[#cfe2cd] bg-white text-[#16804b]"
+              }`}
+              disabled={isTranscribing}
+              onClick={handleRecordingButtonClick}
+              type="button"
+            >
+              {isTranscribing ? "음성 변환 중" : isRecording ? "녹음 종료" : "녹음 시작"}
+            </button>
+          ) : null}
         </Card>
 
         <Card motion="rise">

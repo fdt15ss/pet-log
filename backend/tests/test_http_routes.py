@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
@@ -70,6 +71,12 @@ class FakeSpeechToText:
 
 
 class TestHttpRoutes(unittest.TestCase):
+    def test_create_app_loads_dotenv_without_explicit_path(self):
+        with patch("presentation.http.app.load_dotenv") as load_dotenv:
+            create_app(app_context_factory=FakeAppContext)
+
+        load_dotenv.assert_called_once_with(override=False)
+
     def test_health_route_returns_ok(self):
         client = TestClient(create_app(app_context_factory=FakeAppContext))
 
