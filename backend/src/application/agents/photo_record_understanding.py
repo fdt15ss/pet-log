@@ -15,4 +15,4 @@ class PhotoRecordUnderstandingAgent(PhotoRecordUnderstandingAgentInterface):
         content_type: str,
         user_note: str | None = None,
     ) -> StructuredRecordCandidate:
-        raise NotImplementedError
+        return self._image_understanding_provider.understand(pet, image, content_type, user_note)

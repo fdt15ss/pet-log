@@ -1,0 +1,38 @@
+from __future__ import annotations
+
+from domain.models import CareContext
+
+
+def build_care_answer_messages(context: CareContext, question: str) -> list[tuple[str, str]]:
+    return [
+        ("system", care_answer_system_prompt()),
+        ("user", care_answer_user_prompt(context, question)),
+    ]
+
+
+def care_answer_system_prompt() -> str:
+    return (
+        "보호자의 반려동물 케어 질문에 한국어로 답하세요. "
+        "진단을 단정하지 마세요. 위험하거나 의학적 판단이 필요한 내용은 "
+        "병원 상담 가능성을 조심스럽게 안내하세요."
+    )
+
+
+def care_answer_user_prompt(context: CareContext, question: str) -> str:
+    record_lines = "\n".join(
+        f"- {record.recorded_at} {record.category}/{record.status}: {record.title} - {record.detail}"
+        for record in context.recent_records
+    )
+    reminder_lines = "\n".join(
+        f"- {item.due_date}: {item.title} ({item.reason})"
+        for item in context.due_reminders
+    )
+    return (
+        f"pet_name: {context.pet.name}\n"
+        f"species: {context.pet.species or ''}\n"
+        f"breed: {context.pet.breed or ''}\n"
+        f"personality: {context.pet.personality or ''}\n"
+        f"recent_records:\n{record_lines or '- 없음'}\n"
+        f"due_reminders:\n{reminder_lines or '- 없음'}\n"
+        f"question: {question}"
+    )

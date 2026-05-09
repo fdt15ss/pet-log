@@ -7,7 +7,7 @@
 - Modify: `src/application/dto.py`
 - Modify: `src/application/interfaces/agents.py`
 - Modify: `src/application/interfaces/policies.py` 또는 provider contract 위치
-- Test: `tests/test_proactive_question_agent_contract.py`
+- Test: `tests/test_agent_skeletons.py`
 
 ## Planning basis
 
@@ -27,10 +27,10 @@
 - [x] 건강 판단이 필요한 질문은 `CareQuestionPipeline` route로 연결한다.
 - [x] 홈에는 최대 1개 질문만 노출한다.
 
-**구현 상태:** `src/infrastructure/agents/proactive_question_agent.py`, `src/infrastructure/policies/proactive_question/`에 class별 스텁을 추가했다. 실제 질문 선택 로직은 아직 구현하지 않는다.
+**구현 상태:** `src/application/agents/proactive_question.py`, `src/infrastructure/policies/proactive_question/`에 class별 스텁을 추가했다. agent는 policy에 위임하고 실제 질문 선택 로직은 policy 구현체에 둔다.
 
 ## Verification
 
 ```bash
-uv run python -B -m unittest tests.test_proactive_question_agent_contract -v
+uv run python -B -m unittest tests.test_agent_skeletons -v
 ```

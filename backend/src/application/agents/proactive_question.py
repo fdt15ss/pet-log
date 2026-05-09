@@ -16,4 +16,4 @@ class ProactiveQuestionAgent(ProactiveQuestionAgentInterface):
         context: ContextAnalysisResult,
         due_items: tuple[PlannedReminder, ...],
     ) -> ProactiveQuestionResult | None:
-        raise NotImplementedError
+        return self._question_policy.build_question(pet, records, context, due_items)

@@ -7,8 +7,8 @@
 | 파일 | 클래스 | 구현 interface | 현재 상태 |
 | --- | --- | --- | --- |
 | `src/infrastructure/llm/record_structuring/provider.py` | `RecordStructurer` | `RecordStructurerInterface` | LangChain structured output 구현 |
-| `src/infrastructure/llm/care_answer_provider.py` | `CareAnswerProvider` | `CareAnswerProviderInterface` | skeleton |
-| `src/infrastructure/llm/pet_persona_responder.py` | `PetPersonaResponder` | `PetPersonaResponderInterface` | skeleton |
+| `src/infrastructure/llm/care_answer/provider.py` | `CareAnswerProvider` | `CareAnswerProviderInterface` | skeleton |
+| `src/infrastructure/llm/pet_persona/provider.py` | `PetPersonaResponder` | `PetPersonaResponderInterface` | skeleton |
 | `src/infrastructure/speech/speech_to_text.py` | `SpeechToTextProvider` | `SpeechToTextInterface` | skeleton |
 | `src/infrastructure/speech/text_to_speech.py` | `TextToSpeechProvider` | `TextToSpeechInterface` | skeleton |
 | `src/infrastructure/policies/pattern_analyzer.py` | `PatternAnalyzer` | `PatternAnalyzerInterface` | skeleton |

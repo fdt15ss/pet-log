@@ -6,7 +6,7 @@
 - Modify: `src/application/dto.py`
 - Modify: `src/application/interfaces/agents.py`
 - Modify: `src/application/interfaces/composers.py` 또는 provider 계약 위치
-- Test: `tests/test_record_summary_agent_contract.py`
+- Test: `tests/test_record_summary_agent.py`
 
 **기획 근거:**
 - 문제 행동 요약
@@ -23,10 +23,10 @@
 - [x] 위험 신호는 진단 문장이 아니라 `SafetyNotice` 또는 병원 상담 안내로 분리한다.
 - [x] `HospitalSummaryPipeline`이 후속 단계에서 이 summary 계약을 재사용할 수 있게 경계를 명시한다.
 
-**구현 상태:** `src/infrastructure/agents/record_summary_agent.py`, `src/infrastructure/composers/record_summary_composer.py`에 class별 스텁을 추가했다. 실제 요약 로직은 아직 구현하지 않는다.
+**구현 상태:** `src/application/agents/record_summary.py`, `src/infrastructure/composers/record_summary_composer.py`에 class별 스텁을 추가했다. agent는 provider에 위임하고 실제 요약 로직은 provider/composer 구현체에 둔다.
 
 **검증 명령:**
 
 ```bash
-uv run python -B -m unittest tests.test_record_summary_agent_contract -v
+uv run python -B -m unittest tests.test_record_summary_agent -v
 ```
