@@ -3,9 +3,9 @@ from __future__ import annotations
 import unittest
 
 from application.dto import RecordSummaryResult
+from application.agents.record_summary import RecordSummaryAgent
 from application.interfaces import RecordSummaryProviderInterface
 from domain.models import ContextAnalysisResult, PetProfile, PetRecord, PlannedReminder
-from infrastructure.agents.record_summary_agent import RecordSummaryAgent
 
 
 class FakeRecordSummaryProvider(RecordSummaryProviderInterface):

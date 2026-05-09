@@ -16,4 +16,4 @@ class NotificationAgent(NotificationAgentInterface):
         safety_notices: tuple[SafetyNotice, ...],
         due_items: tuple[PlannedReminder, ...],
     ) -> tuple[NotificationCandidate, ...]:
-        raise NotImplementedError
+        return self._notification_policy.plan(pet, context, safety_notices, due_items)

@@ -8,7 +8,7 @@
 - Modify: `src/application/interfaces/agents.py`
 - Modify: `src/application/interfaces/providers.py`
 - Add: `src/infrastructure/llm/image_record_understanding/`
-- Test: `tests/test_photo_record_understanding_agent_contract.py`
+- Test: `tests/test_agent_skeletons.py`
 
 ## Planning basis
 
@@ -27,10 +27,10 @@
 - [x] 건강 상태를 이미지로 단정하지 않는다.
 - [x] 확신이 낮으면 `needs_confirmation=True`로 보호자 확인을 요구한다.
 
-**구현 상태:** `src/infrastructure/agents/photo_record_understanding_agent.py`, `src/infrastructure/llm/image_record_understanding/`에 class별 스텁을 추가했다. 실제 vision 모델 호출은 아직 구현하지 않는다.
+**구현 상태:** `src/application/agents/photo_record_understanding.py`, `src/infrastructure/llm/image_record_understanding/`에 class별 스텁을 추가했다. agent는 provider에 위임하고 provider는 테스트 주입 모델과 OpenAI structured output builder skeleton을 지원한다. 네트워크가 필요한 실제 vision smoke는 기본 unittest에 포함하지 않는다.
 
 ## Verification
 
 ```bash
-uv run python -B -m unittest tests.test_photo_record_understanding_agent_contract -v
+uv run python -B -m unittest tests.test_agent_skeletons -v
 ```
