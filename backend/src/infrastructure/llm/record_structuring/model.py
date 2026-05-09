@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from typing import Protocol
 
 from langchain_openai import ChatOpenAI
@@ -13,6 +13,15 @@ DEFAULT_RECORD_STRUCTURING_MODEL = "gpt-5-mini"
 
 class StructuredRecordBatchModel(Protocol):
     def invoke(self, messages: list[tuple[str, str]]) -> object:
+        raise NotImplementedError
+
+    def with_fallbacks(
+        self,
+        fallbacks: Sequence[StructuredRecordBatchModel],
+        *,
+        exceptions_to_handle: tuple[type[BaseException], ...],
+        exception_key: str | None = None,
+    ) -> StructuredRecordBatchModel:
         raise NotImplementedError
 
 

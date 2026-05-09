@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
+
+from dotenv import load_dotenv
 
 from application.dto import PetLogAgentInput
 from infrastructure.database import connect
@@ -11,19 +12,6 @@ from infrastructure.repositories import PetProfileRepository, RecordRepository
 
 
 PET_ID = "smoke-pet-choco"
-
-
-def load_env_file(path: Path) -> None:
-    if not path.exists():
-        return
-    for raw_line in path.read_text(encoding="utf-8").splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, value = line.split("=", 1)
-        key = key.strip()
-        value = value.strip().strip('"').strip("'")
-        os.environ.setdefault(key, value)
 
 
 def seed_smoke_pet(connection) -> None:
@@ -47,7 +35,7 @@ def seed_smoke_pet(connection) -> None:
 
 def main() -> None:
     backend_root = Path(__file__).resolve().parents[1]
-    load_env_file(backend_root / ".env")
+    load_dotenv(backend_root / ".env", override=False)
 
     connection = connect(":memory:")
     try:

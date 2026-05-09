@@ -7,9 +7,9 @@
 - Test: `tests/test_http_routes.py`
 
 **완료 기준:**
-- [ ] HTTP request dict를 `PetLogAgentInput`으로 변환한다.
-- [ ] `PetLogAgentResult`를 response dict로 변환한다.
-- [ ] application/domain에는 HTTP framework import를 추가하지 않는다.
+- [x] HTTP request dict의 `pet_id`로 서버 저장 pet profile을 조회해 `PetLogAgentInput`으로 변환한다.
+- [x] `PetLogAgentResult`를 response dict로 변환한다.
+- [x] application/domain에는 HTTP framework import를 추가하지 않는다.
 
 **검증 명령:**
 

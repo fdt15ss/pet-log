@@ -3,6 +3,7 @@ from __future__ import annotations
 import unittest
 
 from application.dto import PetLogAgentInput
+from application.pipelines.pet_log_graph import LangGraphPetLogAgentPipeline
 from application.pipelines.pet_log_agent import PetLogAgentPipeline
 from domain.models import (
     ContextAnalysisResult,
@@ -150,6 +151,77 @@ class TestPetLogAgentPipeline(unittest.TestCase):
         self.assertEqual(result.saved_records, ())
         self.assertEqual(repository.saved_candidates, [])
 
+    def test_langgraph_pipeline_matches_linear_pipeline_result(self) -> None:
+        candidate = StructuredRecordCandidate(
+            title="식사",
+            detail="밥을 조금 먹음",
+            category="meal",
+            status="notice",
+            confidence=0.86,
+            needs_confirmation=False,
+        )
+        input = PetLogAgentInput(
+            pet=PetProfile(id="pet-1", name="초코"),
+            text="오늘 밥을 조금 먹었어",
+            source="manual",
+        )
+        batch = StructuredRecordBatch(candidates=(candidate,))
+        linear_repository = FakeRecordRepository()
+        graph_repository = FakeRecordRepository()
+
+        linear_result = self._pipeline(batch, linear_repository).handle(input)
+        graph_result = self._graph_pipeline(batch, graph_repository).handle(input)
+
+        self.assertEqual(graph_result, linear_result)
+        self.assertEqual(graph_repository.saved_candidates, linear_repository.saved_candidates)
+
+    def test_langgraph_pipeline_streams_node_updates(self) -> None:
+        candidate = StructuredRecordCandidate(
+            title="식사",
+            detail="밥을 조금 먹음",
+            category="meal",
+            status="notice",
+            confidence=0.86,
+            needs_confirmation=False,
+        )
+        input = PetLogAgentInput(
+            pet=PetProfile(id="pet-1", name="초코"),
+            text="오늘 밥을 조금 먹었어",
+            source="manual",
+        )
+        pipeline = self._graph_pipeline(StructuredRecordBatch(candidates=(candidate,)), FakeRecordRepository())
+
+        updates = tuple(pipeline.stream_updates(input))
+        updated_nodes = {node_name for update in updates for node_name in update}
+
+        self.assertIn("structure_record", updated_nodes)
+        self.assertIn("load_context", updated_nodes)
+        self.assertIn("build_saved_result", updated_nodes)
+
+    def test_langgraph_pipeline_logs_node_updates_during_handle(self) -> None:
+        candidate = StructuredRecordCandidate(
+            title="식사",
+            detail="밥을 조금 먹음",
+            category="meal",
+            status="notice",
+            confidence=0.86,
+            needs_confirmation=False,
+        )
+        input = PetLogAgentInput(
+            pet=PetProfile(id="pet-1", name="초코"),
+            text="오늘 밥을 조금 먹었어",
+            source="manual",
+        )
+        pipeline = self._graph_pipeline(StructuredRecordBatch(candidates=(candidate,)), FakeRecordRepository())
+
+        with self.assertLogs("application.pipelines.pet_log_graph", level="INFO") as logs:
+            pipeline.handle(input)
+
+        log_output = "\n".join(logs.output)
+        self.assertIn("pet_log_agent_graph_node_completed node=structure_record", log_output)
+        self.assertIn("pet_log_agent_graph_node_completed node=build_saved_result", log_output)
+        self.assertNotIn(input.text, log_output)
+
     def _pipeline(
         self,
         batch: StructuredRecordBatch,
@@ -158,6 +230,24 @@ class TestPetLogAgentPipeline(unittest.TestCase):
     ) -> PetLogAgentPipeline:
         reminder_agent = reminder_agent or FakeReminderAgent()
         return PetLogAgentPipeline(
+            record_structuring_agent=FakeRecordStructuringAgent(batch),
+            record_history_reader=repository,
+            schedule_context_reader=FakeScheduleContextReader(),
+            context_analysis_agent=FakeContextAnalysisAgent(),
+            risk_detection_agent=FakeRiskDetectionAgent(),
+            record_repository=repository,
+            suggestion_agent=FakeSuggestionAgent(),
+            reminder_agent=reminder_agent,
+        )
+
+    def _graph_pipeline(
+        self,
+        batch: StructuredRecordBatch,
+        repository: FakeRecordRepository,
+        reminder_agent: FakeReminderAgent | None = None,
+    ) -> LangGraphPetLogAgentPipeline:
+        reminder_agent = reminder_agent or FakeReminderAgent()
+        return LangGraphPetLogAgentPipeline(
             record_structuring_agent=FakeRecordStructuringAgent(batch),
             record_history_reader=repository,
             schedule_context_reader=FakeScheduleContextReader(),
