@@ -1,5 +1,6 @@
 import json
 import tempfile
+import threading
 import unittest
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
@@ -123,6 +124,32 @@ class TestDatabaseRepositories(unittest.TestCase):
         self.assertEqual(pet.species, "dog")
         self.assertEqual(pet.notes, ("likes walks",))
 
+    def test_sqlite_connection_can_be_used_from_fastapi_worker_thread(self):
+        connection = connect(":memory:")
+        connection.execute(
+            """
+            INSERT INTO pets (id, name, breed, species, age_label, personality, notes)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            ("pet-thread", "Thread Choco", "Poodle", "dog", "3 years", "gentle", json.dumps([])),
+        )
+        connection.commit()
+        repository = PetProfileRepository(connection=connection)
+        result: dict[str, object] = {}
+
+        def read_pet() -> None:
+            try:
+                result["pet"] = repository.get_pet("pet-thread")
+            except Exception as exc:  # pragma: no cover - asserted below
+                result["error"] = exc
+
+        thread = threading.Thread(target=read_pet)
+        thread.start()
+        thread.join()
+
+        self.assertNotIn("error", result)
+        self.assertEqual(result["pet"].name, "Thread Choco")
+
     def test_record_repository_saves_and_reads_sqlite_records(self):
         connection = connect(":memory:")
         repository = RecordRepository(connection=connection)
@@ -135,11 +162,11 @@ class TestDatabaseRepositories(unittest.TestCase):
             needs_confirmation=False,
         )
 
-        saved = repository.save_candidate("pet-1", candidate)
+        saved = repository.save_candidate("pet-1", candidate, source="manual")
 
         self.assertEqual(saved.pet_id, "pet-1")
         self.assertEqual(saved.title, "Morning meal")
-        self.assertEqual(saved.source, "ai_preview")
+        self.assertEqual(saved.source, "manual")
         self.assertEqual(repository.list_recent("pet-1", lookback_days=30), (saved,))
         self.assertEqual(repository.list_by_ids("pet-1", (saved.id,)), (saved,))
         self.assertEqual(repository.list_recent("pet-2", lookback_days=30), ())

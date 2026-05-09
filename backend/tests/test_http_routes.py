@@ -130,6 +130,32 @@ class TestHttpRoutes(unittest.TestCase):
             },
         )
 
+    def test_record_route_logs_pipeline_result_summary(self):
+        context = FakeAppContext()
+
+        with TestClient(create_app(app_context_factory=lambda: context)) as client:
+            with self.assertLogs("presentation.http.pet_log_routes", level="INFO") as logs:
+                response = client.post(
+                    "/api/v1/pet-log/records",
+                    json={
+                        "pet_id": "sample-pet-choco",
+                        "text": "오늘 아침 사료를 조금 남겼어",
+                        "source": "ai_preview",
+                        "confirm": False,
+                    },
+                )
+
+        self.assertEqual(response.status_code, 200)
+        log_output = "\n".join(logs.output)
+        self.assertIn("record.result", log_output)
+        self.assertIn("pet_id=sample-pet-choco", log_output)
+        self.assertIn("source=ai_preview", log_output)
+        self.assertIn("mode=preview", log_output)
+        self.assertIn("confirm=no", log_output)
+        self.assertIn("candidates=1", log_output)
+        self.assertIn("saved=0", log_output)
+        self.assertIn('first="meal: 아침 식사"', log_output)
+
     def test_record_route_rejects_blank_text(self):
         client = TestClient(create_app(app_context_factory=FakeAppContext))
 

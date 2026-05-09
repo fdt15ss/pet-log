@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Protocol
 
 from application.dto import PetLogAgentResult
+from domain.enums import RecordInputSource
 from domain.models import PetProfile, PetRecord, PlannedReminder, StructuredRecordCandidate
 
 
@@ -20,7 +21,12 @@ class RecordHistoryReaderInterface(Protocol):
 
 
 class RecordRepositoryInterface(Protocol):
-    def save_candidate(self, pet_id: str, candidate: StructuredRecordCandidate) -> PetRecord:
+    def save_candidate(
+        self,
+        pet_id: str,
+        candidate: StructuredRecordCandidate,
+        source: RecordInputSource = "ai_preview",
+    ) -> PetRecord:
         raise NotImplementedError
 
 

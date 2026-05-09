@@ -1,8 +1,13 @@
 from __future__ import annotations
 
 import logging
+import warnings
 from collections.abc import Iterator
 from typing import Literal, TypedDict
+
+from langchain_core._api.deprecation import LangChainPendingDeprecationWarning
+
+warnings.simplefilter("ignore", LangChainPendingDeprecationWarning)
 
 from langgraph.graph import END, START, StateGraph
 
@@ -152,7 +157,8 @@ class LangGraphPetLogAgentPipeline(PetLogAgentPipelineInterface):
         }
 
     def _route_after_risk_detection(self, state: PetLogAgentState) -> Literal["confirm", "save"]:
-        if state["record_batch"].needs_confirmation and not state["input"].confirm:
+        input = state["input"]
+        if input.source == "ai_preview" or (state["record_batch"].needs_confirmation and not input.confirm):
             return "confirm"
         return "save"
 
@@ -169,7 +175,7 @@ class LangGraphPetLogAgentPipeline(PetLogAgentPipelineInterface):
         input = state["input"]
         return {
             "saved_records": tuple(
-                self._record_repository.save_candidate(input.pet.id, candidate)
+                self._record_repository.save_candidate(input.pet.id, candidate, source=input.source)
                 for candidate in state["record_batch"].candidates
             )
         }
