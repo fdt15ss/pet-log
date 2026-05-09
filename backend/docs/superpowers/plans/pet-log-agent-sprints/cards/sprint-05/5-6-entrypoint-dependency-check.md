@@ -6,9 +6,9 @@
 - Test: `tests/test_package_structure.py`
 
 **완료 기준:**
-- [ ] application/domain에는 FastAPI import가 없다.
-- [ ] application/domain에는 DB client import가 없다.
-- [ ] application/domain에는 OpenAI SDK import가 없다.
+- [x] application/domain에는 FastAPI import가 없다.
+- [x] application/domain에는 DB client import가 없다.
+- [x] application/domain에는 OpenAI SDK import가 없다.
 
 **검증 명령:**
 

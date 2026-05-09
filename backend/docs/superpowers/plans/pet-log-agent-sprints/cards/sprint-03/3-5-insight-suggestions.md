@@ -4,15 +4,15 @@
 
 **Files:**
 - Modify: `src/infrastructure/policies/suggestion_composer.py`
-- Test: `tests/test_suggestion_reminder_policies.py`
+- Test: `tests/test_policy_fallbacks.py`
 
 **완료 기준:**
-- [ ] insight가 없으면 빈 tuple을 반환한다.
-- [ ] insight가 있으면 `CareSuggestion`을 반환한다.
-- [ ] suggestion의 `source_record_ids`는 insight의 source를 보존한다.
+- [x] insight가 없으면 빈 tuple을 반환한다.
+- [x] insight가 있으면 `CareSuggestion`을 반환한다.
+- [x] suggestion의 `source_record_ids`는 insight의 source를 보존한다.
 
 **검증 명령:**
 
 ```bash
-uv run python -B -m unittest tests.test_suggestion_reminder_policies -v
+uv run python -B -m unittest tests.test_policy_fallbacks -v
 ```
