@@ -23,3 +23,4 @@
 | 6-15 | [6-15-notification-agent-contract.md](cards/sprint-06/6-15-notification-agent-contract.md) | notification agent contract |
 | 6-16 | [6-16-photo-record-understanding-agent-contract.md](cards/sprint-06/6-16-photo-record-understanding-agent-contract.md) | photo record understanding contract |
 | 6-17 | [6-17-langgraph-runtime-decision.md](cards/sprint-06/6-17-langgraph-runtime-decision.md) | LangGraph runtime decision |
+| 6-18 | [6-18-care-knowledge-rag-skeleton.md](cards/sprint-06/6-18-care-knowledge-rag-skeleton.md) | care knowledge RAG skeleton |
