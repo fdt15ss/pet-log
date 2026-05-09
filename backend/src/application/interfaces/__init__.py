@@ -14,6 +14,11 @@ from application.interfaces.agents import (
     SuggestionAgentInterface,
 )
 from application.interfaces.composers import HomeFeedComposerInterface, HospitalReportComposerInterface, RecordSummaryComposerInterface
+from application.interfaces.knowledge import (
+    CareKnowledgeIngestionInterface,
+    CareKnowledgeRetrieverInterface,
+    EmbeddingProviderInterface,
+)
 from application.interfaces.pipelines import (
     CareQuestionPipelineInterface,
     HomeFeedPipelineInterface,
@@ -52,9 +57,12 @@ from application.interfaces.repositories import (
 __all__ = [
     "CareAnswerProviderInterface",
     "CareContextBuilderInterface",
+    "CareKnowledgeIngestionInterface",
+    "CareKnowledgeRetrieverInterface",
     "CareQuestionPipelineInterface",
     "CauseHypothesisPolicyInterface",
     "ContextAnalysisAgentInterface",
+    "EmbeddingProviderInterface",
     "HomeFeedComposerInterface",
     "HomeFeedPipelineInterface",
     "HospitalReportComposerInterface",

@@ -88,3 +88,28 @@ class CareContext:
     pet: PetProfile
     recent_records: tuple[PetRecord, ...] = ()
     due_reminders: tuple[PlannedReminder, ...] = ()
+
+
+@dataclass(frozen=True)
+class CareKnowledgeSource:
+    id: str
+    url: str
+    title: str
+    allowed_domain: str
+    enabled: bool = True
+
+
+@dataclass(frozen=True)
+class CareKnowledgeChunk:
+    id: str
+    source_id: str
+    title: str
+    text: str
+    source_url: str
+    content_hash: str
+
+
+@dataclass(frozen=True)
+class CareKnowledgeHit:
+    chunk: CareKnowledgeChunk
+    score: float
