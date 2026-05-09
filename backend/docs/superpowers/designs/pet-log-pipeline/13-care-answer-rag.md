@@ -1,54 +1,53 @@
 # CareAnswerProvider RAG
 
-`CareAnswerProvider` will answer guardian care questions with two context sources:
+`CareAnswerProvider`는 보호자의 케어 질문에 답할 때 두 가지 context를 사용한다.
 
-- `CareContext`: pet profile, recent records, and due reminders.
-- care knowledge retrieval: administrator-approved external care guide URLs.
+- `CareContext`: 반려동물 프로필, 최근 기록, 예정 리마인더.
+- 케어 지식 검색: 관리자가 승인한 외부 케어 가이드 URL.
 
-This document defines the RAG boundary only. It does not implement URL fetching, HTML parsing, chunking, embedding calls, vector search, or prompt injection into answers.
+이 문서는 RAG 경계만 정의한다. URL fetching, HTML parsing, chunking, embedding 호출, vector search, 답변 prompt 주입은 구현하지 않는다.
 
-## Source Policy
+## Source 정책
 
-- v1 uses an administrator allowlist for external URLs or domains.
-- Arbitrary guardian-submitted URLs are not fetched.
-- Each source keeps its original URL and title so answers can cite where care guidance came from.
-- Medical wording remains constrained: retrieved text can inform general guidance, but answers must not diagnose, prescribe, or claim certainty.
+- v1은 외부 URL 또는 domain에 대해 관리자 허용목록을 사용한다.
+- 보호자가 임의로 제출한 URL은 fetch하지 않는다.
+- 답변이 케어 가이드 출처를 인용할 수 있도록 각 source는 원본 URL과 title을 보존한다.
+- 의료 표현은 제한한다. 검색된 텍스트는 일반 안내에만 사용하고, 답변은 진단, 처방, 확정 표현을 하지 않는다.
 
 ## Data Shape
 
-- `CareKnowledgeSource`: approved external URL metadata.
-- `CareKnowledgeChunk`: normalized text chunk with source URL and content hash.
-- `CareKnowledgeHit`: retrieved chunk plus similarity score.
+- `CareKnowledgeSource`: 승인된 외부 URL metadata.
+- `CareKnowledgeChunk`: source URL과 content hash를 포함한 정규화 텍스트 chunk.
+- `CareKnowledgeHit`: 검색된 chunk와 similarity score.
 
-The MVP storage target is SQLite. Embedding vectors may be stored as JSON or BLOB columns in a future implementation. That storage choice is an implementation detail behind repository and retriever interfaces so it can later move to pgvector or an external vector database.
+MVP 저장 대상은 SQLite다. 향후 구현에서 embedding vector는 JSON 또는 BLOB column으로 저장할 수 있다. 이 저장 방식은 repository/retriever 뒤의 implementation detail로 두어 나중에 pgvector 또는 외부 vector DB로 옮길 수 있게 한다.
 
 ## Flow
 
-1. Admin approves a source URL/domain.
-2. Ingestion fetches the URL, extracts readable text, chunks it, and stores chunks.
-3. Embedding provider creates an OpenAI embedding for each chunk.
-4. Retriever embeds the guardian question and returns the most relevant chunks.
-5. `CareAnswerProvider` includes selected snippets in the answer prompt.
+1. 관리자가 source URL/domain을 승인한다.
+2. ingestion이 URL을 fetch하고, 읽을 수 있는 텍스트를 추출한 뒤 chunk로 나누어 저장한다.
+3. embedding provider가 각 chunk의 OpenAI embedding을 생성한다.
+4. retriever가 보호자 질문을 embedding하고 가장 관련 높은 chunk를 반환한다.
+5. `CareAnswerProvider`가 선택된 snippet을 답변 prompt에 포함한다.
 
-## Skeleton Boundaries
+## Skeleton 경계
 
-- `CareKnowledgeIngestionInterface` owns source-to-chunk ingestion.
-- `EmbeddingProviderInterface` owns OpenAI embeddings.
-- `CareKnowledgeRetrieverInterface` owns question-to-hit retrieval.
-- `CareAnswerProvider` may accept an optional retriever dependency, but answer behavior stays unchanged until retrieval is implemented.
+- skeleton에서 코드 레벨 RAG interface는 `CareKnowledgeRetrieverInterface` 하나만 둔다.
+- `CareAnswerProvider`는 optional retriever dependency를 받을 수 있지만, retrieval 구현 전까지 답변 동작은 바꾸지 않는다.
+- ingestion, embedding, persistence, ranking 구현 세부사항은 해당 구현 sprint 전까지 backlog 문서에만 둔다.
 
 ## Defaults
 
-- Embedding model default: `text-embedding-3-small`.
-- Environment override: `OPENAI_CARE_KNOWLEDGE_EMBEDDING_MODEL`.
-- Existing answer model remains controlled by `OPENAI_CARE_ANSWER_MODEL`.
+- Embedding model 기본값: `text-embedding-3-small`.
+- 환경변수 override: `OPENAI_CARE_KNOWLEDGE_EMBEDDING_MODEL`.
+- 기존 답변 model은 계속 `OPENAI_CARE_ANSWER_MODEL`로 제어한다.
 
 ## Deferred Work
 
-- URL fetching and SSRF protections.
+- URL fetching과 SSRF 보호.
 - HTML readability extraction.
-- Chunking strategy.
+- Chunking 전략.
 - Embedding persistence.
-- Similarity scoring and top-k search.
-- Prompt formatting with citations.
-- RAG quality tests and safety evals.
+- Similarity scoring과 top-k search.
+- Citation 포함 prompt formatting.
+- RAG 품질 테스트와 safety eval.

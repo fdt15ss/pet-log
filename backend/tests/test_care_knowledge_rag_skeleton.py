@@ -3,18 +3,8 @@ from __future__ import annotations
 import unittest
 from pathlib import Path
 
-from application.interfaces import (
-    CareKnowledgeIngestionInterface,
-    CareKnowledgeRetrieverInterface,
-    EmbeddingProviderInterface,
-)
+from application.interfaces import CareKnowledgeRetrieverInterface
 from domain.models import CareKnowledgeChunk, CareKnowledgeHit, CareKnowledgeSource
-from infrastructure.knowledge import (
-    CareKnowledgeRepository,
-    CareKnowledgeRetriever,
-    OpenAIEmbeddingProvider,
-    UrlCareKnowledgeIngestor,
-)
 
 
 class TestCareKnowledgeRagSkeleton(unittest.TestCase):
@@ -41,29 +31,6 @@ class TestCareKnowledgeRagSkeleton(unittest.TestCase):
 
     def test_interfaces_are_exported_with_expected_methods(self) -> None:
         self.assertTrue(hasattr(CareKnowledgeRetrieverInterface, "search"))
-        self.assertTrue(hasattr(CareKnowledgeIngestionInterface, "ingest"))
-        self.assertTrue(hasattr(EmbeddingProviderInterface, "embed"))
-
-    def test_infrastructure_skeletons_do_not_implement_runtime_behavior(self) -> None:
-        source = CareKnowledgeSource(
-            id="source-1",
-            url="https://example.org/care/feeding",
-            title="Feeding guide",
-            allowed_domain="example.org",
-        )
-        repository = CareKnowledgeRepository()
-        embedding_provider = OpenAIEmbeddingProvider(api_key="test-key", model="test-embedding-model")
-        retriever = CareKnowledgeRetriever(repository=repository, embedding_provider=embedding_provider)
-        ingestor = UrlCareKnowledgeIngestor(allowed_domains=("example.org",))
-
-        with self.assertRaises(NotImplementedError):
-            repository.save_source(source)
-        with self.assertRaises(NotImplementedError):
-            embedding_provider.embed("feeding")
-        with self.assertRaises(NotImplementedError):
-            retriever.search("밥을 잘 안 먹어요", limit=3)
-        with self.assertRaises(NotImplementedError):
-            ingestor.ingest(source)
 
     def test_design_doc_and_sprint_card_exist(self) -> None:
         repo_root = Path(__file__).resolve().parents[1]
@@ -74,8 +41,8 @@ class TestCareKnowledgeRagSkeleton(unittest.TestCase):
         )
 
         self.assertIn("CareAnswerProvider", design_doc.read_text())
-        self.assertIn("OpenAI embeddings", design_doc.read_text())
-        self.assertIn("내부 구현 없음", sprint_card.read_text())
+        self.assertIn("OpenAI embedding", design_doc.read_text())
+        self.assertIn("구현 세부사항은 backlog 문서에만 둔다", sprint_card.read_text())
 
 
 if __name__ == "__main__":
