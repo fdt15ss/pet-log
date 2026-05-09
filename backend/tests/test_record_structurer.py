@@ -17,6 +17,48 @@ class FakeStructuredModel:
         return self.response
 
 
+class FakeFallbackCapableStructuredModel(FakeStructuredModel):
+    def __init__(self, response: dict[str, object], error: BaseException | None = None) -> None:
+        super().__init__(response)
+        self.error = error
+        self.fallbacks: tuple[FakeStructuredModel, ...] = ()
+        self.exceptions_to_handle: tuple[type[BaseException], ...] = ()
+
+    def invoke(self, messages: list[tuple[str, str]]) -> dict[str, object]:
+        self.calls.append(messages)
+        if self.error is not None:
+            raise self.error
+        return self.response
+
+    def with_fallbacks(
+        self,
+        fallbacks: list[FakeStructuredModel],
+        *,
+        exceptions_to_handle: tuple[type[BaseException], ...],
+    ) -> FakeStructuredModel:
+        self.fallbacks = tuple(fallbacks)
+        self.exceptions_to_handle = exceptions_to_handle
+        return FakeFallbackStructuredModel(self, self.fallbacks, exceptions_to_handle)
+
+
+class FakeFallbackStructuredModel:
+    def __init__(
+        self,
+        primary: FakeFallbackCapableStructuredModel,
+        fallbacks: tuple[FakeStructuredModel, ...],
+        exceptions_to_handle: tuple[type[BaseException], ...],
+    ) -> None:
+        self.primary = primary
+        self.fallbacks = fallbacks
+        self.exceptions_to_handle = exceptions_to_handle
+
+    def invoke(self, messages: list[tuple[str, str]]) -> dict[str, object]:
+        try:
+            return self.primary.invoke(messages)
+        except self.exceptions_to_handle:
+            return self.fallbacks[0].invoke(messages)
+
+
 class TestRecordStructurer(unittest.TestCase):
     def test_structure_invokes_model_and_maps_batch(self):
         model_output = {
@@ -108,6 +150,55 @@ class TestRecordStructurer(unittest.TestCase):
         )
 
         self.assertEqual(created, [{"model": "test-model", "api_key": "test-key", "timeout": 12.0}])
+
+    def test_structure_uses_fallback_model_when_primary_model_fails(self):
+        created: list[str] = []
+        primary_model = FakeFallbackCapableStructuredModel({"candidates": []}, error=TimeoutError("timed out"))
+        fallback_model = FakeStructuredModel(
+            {
+                "candidates": [
+                    {
+                        "title": "식사",
+                        "detail": "사료를 조금 먹음",
+                        "category": "meal",
+                        "status": "notice",
+                        "confidence": 0.88,
+                        "needs_confirmation": False,
+                        "measurements": [],
+                    }
+                ],
+            }
+        )
+
+        def fake_model_factory(model: str, api_key: str, timeout: float):
+            created.append(model)
+            if model == "primary-model":
+                return primary_model
+            if model == "fallback-model":
+                return fallback_model
+            raise AssertionError(f"Unexpected model: {model}")
+
+        structurer = RecordStructurer(
+            api_key="test-key",
+            model="primary-model",
+            fallback_model="fallback-model",
+            model_factory=fake_model_factory,
+        )
+
+        batch = structurer.structure(
+            PetLogAgentInput(
+                pet=PetProfile(id="pet-1", name="초코"),
+                text="오늘 밥을 조금 먹었어",
+                source="manual",
+            )
+        )
+
+        self.assertEqual(created, ["primary-model", "fallback-model"])
+        self.assertEqual(tuple(candidate.title for candidate in batch.candidates), ("식사",))
+        self.assertEqual(len(primary_model.calls), 1)
+        self.assertEqual(len(fallback_model.calls), 1)
+        self.assertEqual(fallback_model.calls[0], primary_model.calls[0])
+        self.assertIn(TimeoutError, primary_model.exceptions_to_handle)
 
     def test_structure_requires_api_key(self):
         structurer = RecordStructurer(api_key="")

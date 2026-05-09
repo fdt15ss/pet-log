@@ -306,6 +306,7 @@ RecordSummaryAgent
 - `"오늘 밥을 조금 먹고 산책은 못 했어"` 같은 입력이 식사 후보와 산책 후보를 가진 `StructuredRecordBatch`로 변환된다.
 - `OPENAI_API_KEY`가 없으면 `RecordStructurer.structure()`는 실행 시 실패한다.
 - 기본 모델은 `gpt-5-mini`이며, `OPENAI_RECORD_STRUCTURING_MODEL` 환경변수로 교체할 수 있다.
+- 일시적 provider 장애 fallback 모델은 `OPENAI_RECORD_STRUCTURING_FALLBACK_MODEL` 환경변수로 설정한다.
 
 수동 smoke 확인:
 

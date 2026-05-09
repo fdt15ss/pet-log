@@ -124,7 +124,28 @@ curl -F "audio=@recording.webm;type=audio/webm" http://127.0.0.1:8000/api/v1/spe
 
 ## 실제 LLM smoke test
 
-실제 OpenAI API를 호출하는 수동 확인 스크립트다. `backend/.env`의 `OPENAI_API_KEY`를 읽는다.
+실제 OpenAI API를 호출하는 수동 확인 스크립트다. 로컬에서는 `backend/.env`를 `python-dotenv`로 읽고, 이미 설정된 shell 또는 배포 환경변수는 덮어쓰지 않는다.
+
+로컬 예시는 다음 파일에서 시작한다.
+
+```bash
+cp .env.example .env
+```
+
+필수 secret:
+
+```env
+OPENAI_API_KEY=
+```
+
+기록 구조화 모델 fallback 예시:
+
+```env
+OPENAI_RECORD_STRUCTURING_MODEL=gpt-5-mini
+OPENAI_RECORD_STRUCTURING_FALLBACK_MODEL=gpt-5-nano
+```
+
+`.env`는 local secret 파일이므로 git에 커밋하지 않는다. 운영 환경에서는 `.env` 파일 대신 배포 환경변수 또는 secret manager에 같은 키를 등록한다.
 
 자연어 기록 구조화 확인:
 

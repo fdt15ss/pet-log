@@ -13,7 +13,7 @@ from application.interfaces import (
     PetProfileReaderInterface,
     SpeechToTextInterface,
 )
-from application.pipelines.pet_log_agent import PetLogAgentPipeline
+from application.pipelines.pet_log_graph import LangGraphPetLogAgentPipeline
 from infrastructure.database import connect
 from infrastructure.llm.record_structuring import RecordStructurer
 from infrastructure.policies.missing_record_policy import MissingRecordPolicy
@@ -40,7 +40,7 @@ def build_app_context(database_path: str | None = None) -> AppContext:
     record_repository = RecordRepository(connection=database)
     schedule_repository = ScheduleRepository(connection=database)
     pet_profile_reader = PetProfileRepository(connection=database)
-    pipeline = PetLogAgentPipeline(
+    pipeline = LangGraphPetLogAgentPipeline(
         record_structuring_agent=RecordStructuringAgent(RecordStructurer()),
         record_history_reader=record_repository,
         schedule_context_reader=schedule_repository,
@@ -62,7 +62,7 @@ def build_pet_log_agent_pipeline(database_path: str | None = None) -> PetLogAgen
     database = connect(database_path)
     record_repository = RecordRepository(connection=database)
     schedule_repository = ScheduleRepository(connection=database)
-    return PetLogAgentPipeline(
+    return LangGraphPetLogAgentPipeline(
         record_structuring_agent=RecordStructuringAgent(RecordStructurer()),
         record_history_reader=record_repository,
         schedule_context_reader=schedule_repository,
