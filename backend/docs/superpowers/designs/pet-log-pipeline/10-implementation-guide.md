@@ -227,8 +227,8 @@ composition 전략:
 | LangGraph runtime | `AgentRuntimeInterface` 후보 | `src/agent_runtime/runtime.py` | `agent_runtime` 내부 adapter |
 | AI 케어 답변 | `CareAnswerProviderInterface` | `src/infrastructure/llm/care_answer/provider.py` | `CareQuestionPipeline` |
 | 펫 말투 응답 | `PetPersonaResponderInterface` | `src/infrastructure/llm/pet_persona/provider.py` | `PetPersonaAgent` |
-| 음성 입력 STT | `SpeechToTextInterface` | `src/infrastructure/speech/speech_to_text.py` | `presentation`, `tools/speech_tools.py` |
-| 음성 응답 TTS | `TextToSpeechInterface` | `src/infrastructure/speech/text_to_speech.py` | `presentation`, `tools/speech_tools.py` |
+| 음성 입력 STT | `SpeechToTextInterface` | `src/infrastructure/speech/speech_to_text.py` (`whisper medium`) | `presentation`, `tools/speech_tools.py` |
+| 음성 응답 TTS | `TextToSpeechInterface` | `src/infrastructure/speech/text_to_speech.py` (`edge-tts`) | `presentation`, `tools/speech_tools.py` |
 | 홈 화면 카드 조립 | `HomeFeedComposerInterface` | `src/infrastructure/composers/home_feed_composer.py` | `HomeFeedPipeline` |
 | 병원 제출 요약 | `HospitalReportComposerInterface` | `src/infrastructure/composers/hospital_report_composer.py` | `HospitalSummaryPipeline` |
 | 병원 검색/예약/공유 전송 | hospital integration contract 후보 | 별도 bounded context 후보 | hospital integration pipeline 후보 |

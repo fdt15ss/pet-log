@@ -5,8 +5,10 @@ description = "Pet Log backend package"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "edge-tts>=7.2.8",
     "langchain>=1.0,<2.0",
     "langchain-openai>=1.0,<2.0",
+    "openai-whisper>=20250625",
 ]
 
 [build-system]

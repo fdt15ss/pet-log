@@ -9,8 +9,8 @@
 | `src/infrastructure/llm/record_structuring/provider.py` | `RecordStructurer` | `RecordStructurerInterface` | LangChain structured output 구현 |
 | `src/infrastructure/llm/care_answer/provider.py` | `CareAnswerProvider` | `CareAnswerProviderInterface` | skeleton |
 | `src/infrastructure/llm/pet_persona/provider.py` | `PetPersonaResponder` | `PetPersonaResponderInterface` | skeleton |
-| `src/infrastructure/speech/speech_to_text.py` | `SpeechToTextProvider` | `SpeechToTextInterface` | skeleton |
-| `src/infrastructure/speech/text_to_speech.py` | `TextToSpeechProvider` | `TextToSpeechInterface` | skeleton |
+| `src/infrastructure/speech/speech_to_text.py` | `SpeechToTextProvider` | `SpeechToTextInterface` | Whisper medium 구현 |
+| `src/infrastructure/speech/text_to_speech.py` | `TextToSpeechProvider` | `TextToSpeechInterface` | edge-tts 구현 |
 | `src/infrastructure/policies/pattern_analyzer.py` | `PatternAnalyzer` | `PatternAnalyzerInterface` | skeleton |
 | `src/infrastructure/policies/missing_record_policy.py` | `MissingRecordPolicy` | `MissingRecordPolicyInterface` | skeleton |
 | `src/infrastructure/policies/risk_signal_policy.py` | `RiskSignalPolicy` | `RiskSignalPolicyInterface` | skeleton |
