@@ -1,5 +1,6 @@
 import { categoryLabels } from "./mock-data";
-import type { ExtractedMeasurement, RecordCategory, RecordEntry, RecordStatus } from "./types";
+import { getRecordCategoryChoiceLabel } from "./record-input";
+import type { ExtractedMeasurement, RecordCategory, RecordCategoryChoice, RecordEntry, RecordStatus } from "./types";
 
 export type TimelineFilter = "all" | RecordCategory;
 
@@ -36,6 +37,7 @@ function matchesQuery(record: RecordEntry, query: string) {
     record.date,
     record.time,
     categoryLabels[record.category],
+    getRecordCategoryChoiceLabel(getTimelineEditCategory(record)),
     record.structured?.normalizedSummary ?? "",
     ...(record.structured?.measurements.map((measurement) => `${measurement.label} ${measurement.value}`) ?? []),
   ]
@@ -83,12 +85,21 @@ export function getTimelineSummary(records: RecordEntry[], date?: string) {
 
 export function getTimelineDetail(record: RecordEntry) {
   const measurements = extractDetailMeasurements(record);
+  const categoryChoice = getTimelineEditCategory(record);
 
   return {
-    categoryLabel: categoryLabels[record.category],
+    categoryLabel: categoryChoice === "all" ? getRecordCategoryChoiceLabel(categoryChoice) : categoryLabels[categoryChoice],
     statusLabel: statusLabels[record.status],
     statusDetail: statusDetails[record.status],
     measurements,
     aiSummary: record.structured?.normalizedSummary ?? record.title,
   };
+}
+
+export function getTimelineEditCategory(record: RecordEntry): RecordCategoryChoice {
+  if (record.categoryChoice) {
+    return record.categoryChoice;
+  }
+
+  return (record.structured?.detectedCategories?.length ?? 0) > 1 ? "all" : record.category;
 }

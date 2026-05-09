@@ -1,5 +1,7 @@
 export type RecordCategory = "meal" | "walk" | "stool" | "medical" | "behavior";
 
+export type RecordCategoryChoice = RecordCategory | "all";
+
 export type RecordStatus = "normal" | "notice" | "alert";
 
 export type ExtractedMeasurement = {
@@ -11,6 +13,7 @@ export type StructuredRecord = {
   sourceText: string;
   normalizedSummary: string;
   suggestedCategory: RecordCategory;
+  detectedCategories?: RecordCategory[];
   confidence: number;
   measurements: ExtractedMeasurement[];
   needsConfirmation: boolean;
@@ -33,6 +36,7 @@ export type RecordEntry = {
   time: string;
   date: string;
   category: RecordCategory;
+  categoryChoice?: RecordCategoryChoice;
   title: string;
   detail: string;
   status: RecordStatus;
