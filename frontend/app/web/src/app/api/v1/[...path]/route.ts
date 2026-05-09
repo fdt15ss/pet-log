@@ -26,6 +26,7 @@ type RouteContext = {
 };
 
 const recordCategories: RecordCategory[] = ["meal", "walk", "stool", "medical", "behavior"];
+const defaultBackendApiBaseUrl = "http://127.0.0.1:8000";
 
 function ok<T>(data: T, status = 200) {
   return NextResponse.json({ ok: true, data }, { status });
@@ -52,6 +53,42 @@ async function getPath(context: RouteContext) {
   return params.path ?? [];
 }
 
+function isSpeechTranscriptionPath(path: string[]) {
+  return path[0] === "speech" && path[1] === "transcriptions" && path.length === 2;
+}
+
+function backendApiUrl(path: string) {
+  const baseUrl = process.env.PET_LOG_BACKEND_API_BASE_URL ?? defaultBackendApiBaseUrl;
+  return `${baseUrl.replace(/\/$/, "")}${path}`;
+}
+
+async function proxySpeechTranscription(request: NextRequest) {
+  const incomingFormData = await request.formData();
+  const audio = incomingFormData.get("audio");
+  if (!(audio instanceof File)) {
+    return fail("VALIDATION_ERROR", "음성 파일이 필요합니다.", 400);
+  }
+
+  const backendFormData = new FormData();
+  backendFormData.set("audio", audio);
+
+  const response = await fetch(backendApiUrl("/api/v1/speech/transcriptions"), {
+    body: backendFormData,
+    method: "POST",
+  });
+
+  const payload = (await response.json().catch(() => null)) as
+    | { success?: boolean; data?: { text?: unknown }; detail?: unknown }
+    | null;
+
+  if (!response.ok || payload?.success !== true || typeof payload.data?.text !== "string") {
+    const message = typeof payload?.detail === "string" ? payload.detail : "음성 인식을 처리하지 못했습니다.";
+    return fail("SPEECH_TRANSCRIPTION_FAILED", message, response.status || 502);
+  }
+
+  return ok({ text: payload.data.text });
+}
+
 export async function GET(_request: NextRequest, context: RouteContext) {
   const path = await getPath(context);
 
@@ -68,6 +105,10 @@ export async function GET(_request: NextRequest, context: RouteContext) {
 
 export async function POST(request: NextRequest, context: RouteContext) {
   const path = await getPath(context);
+  if (isSpeechTranscriptionPath(path)) {
+    return proxySpeechTranscription(request);
+  }
+
   const body = await readJson(request);
 
   if (path[0] === "me" && path[1] === "pet-log" && path[2] === "reset" && path.length === 3) {

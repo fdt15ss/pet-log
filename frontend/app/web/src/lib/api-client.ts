@@ -88,6 +88,10 @@ export type ChatbotThreadMessageResponse = {
   safetyNotice: string;
 };
 
+export type SpeechTranscriptionResponse = {
+  text: string;
+};
+
 export class PetLogApiError extends Error {
   code: string;
 
@@ -147,6 +151,12 @@ export function createRecord(input: NewRecordInput) {
 
 export function structureRecordPreview(input: StructureRecordInput) {
   return requestData<{ structured: StructuredRecord }>(apiClient.post("/ai/records/structure", input));
+}
+
+export function transcribeSpeechAudio(audio: File) {
+  const formData = new FormData();
+  formData.set("audio", audio);
+  return requestData<SpeechTranscriptionResponse>(axios.post("/api/v1/speech/transcriptions", formData));
 }
 
 export function updateRecord(id: string, input: UpdateRecordInput) {
