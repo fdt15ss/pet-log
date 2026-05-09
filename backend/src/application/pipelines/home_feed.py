@@ -1,22 +1,16 @@
 from __future__ import annotations
 
 from application.dto import HomeFeedResult
-from application.interfaces import (
-    HomeFeedComposerInterface,
-    HomeFeedPipelineInterface,
-    PetLogAgentResultReaderInterface,
-    PetProfileReaderInterface,
-    ScheduleContextReaderInterface,
-)
+from application.interfaces import PetProfileReaderInterface, ScheduleContextReaderInterface
 
 
-class HomeFeedPipeline(HomeFeedPipelineInterface):
+class HomeFeedPipeline:
     def __init__(
         self,
         pet_profile_reader: PetProfileReaderInterface,
-        agent_result_reader: PetLogAgentResultReaderInterface,
+        agent_result_reader,
         schedule_context_reader: ScheduleContextReaderInterface,
-        home_feed_composer: HomeFeedComposerInterface,
+        home_feed_composer,
         days_ahead: int = 14,
     ) -> None:
         self._pet_profile_reader = pet_profile_reader

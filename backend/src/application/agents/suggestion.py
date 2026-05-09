@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from application.interfaces import SuggestionAgentInterface, SuggestionComposerInterface
 from domain.models import CareSuggestion, ContextAnalysisResult, PetProfile, SafetyNotice
 
 
-class SuggestionAgent(SuggestionAgentInterface):
-    def __init__(self, suggestion_composer: SuggestionComposerInterface) -> None:
+class SuggestionAgent:
+    def __init__(self, suggestion_composer) -> None:
         self._suggestion_composer = suggestion_composer
 
     def suggest(

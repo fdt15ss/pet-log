@@ -8,11 +8,7 @@ from application.agents.record_structuring import RecordStructuringAgent
 from application.agents.reminder import ReminderAgent
 from application.agents.risk_detection import RiskDetectionAgent
 from application.agents.suggestion import SuggestionAgent
-from application.interfaces import (
-    PetLogAgentPipelineInterface,
-    PetProfileReaderInterface,
-    SpeechToTextInterface,
-)
+from application.interfaces import PetProfileReaderInterface
 from application.pipelines.pet_log_graph import LangGraphPetLogAgentPipeline
 from infrastructure.database import connect
 from infrastructure.llm.record_structuring import RecordStructurer
@@ -29,9 +25,9 @@ from infrastructure.speech import SpeechToTextProvider
 
 @dataclass(frozen=True)
 class AppContext:
-    pet_log_agent_pipeline: PetLogAgentPipelineInterface
+    pet_log_agent_pipeline: LangGraphPetLogAgentPipeline
     pet_profile_reader: PetProfileReaderInterface
-    speech_to_text: SpeechToTextInterface
+    speech_to_text: SpeechToTextProvider
     close: Callable[[], None] = field(default=lambda: None)
 
 
@@ -58,7 +54,7 @@ def build_app_context(database_path: str | None = None) -> AppContext:
     )
 
 
-def build_pet_log_agent_pipeline(database_path: str | None = None) -> PetLogAgentPipelineInterface:
+def build_pet_log_agent_pipeline(database_path: str | None = None) -> LangGraphPetLogAgentPipeline:
     database = connect(database_path)
     record_repository = RecordRepository(connection=database)
     schedule_repository = ScheduleRepository(connection=database)

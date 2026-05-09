@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from application.dto import PetLogAgentResult
 from domain.enums import RecordInputSource
 from domain.models import PetProfile, PetRecord, PlannedReminder, StructuredRecordCandidate
 
@@ -32,9 +31,4 @@ class RecordRepositoryInterface(Protocol):
 
 class ScheduleContextReaderInterface(Protocol):
     def list_due_items(self, pet_id: str, days_ahead: int) -> tuple[PlannedReminder, ...]:
-        raise NotImplementedError
-
-
-class PetLogAgentResultReaderInterface(Protocol):
-    def get_latest(self, pet_id: str) -> PetLogAgentResult:
         raise NotImplementedError

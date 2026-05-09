@@ -1,13 +1,11 @@
 from __future__ import annotations
 
-from application.interfaces import SpeechToTextInterface, TextToSpeechInterface
-
 
 class SpeechTools:
     def __init__(
         self,
-        speech_to_text: SpeechToTextInterface,
-        text_to_speech: TextToSpeechInterface,
+        speech_to_text,
+        text_to_speech,
     ) -> None:
         self._speech_to_text = speech_to_text
         self._text_to_speech = text_to_speech

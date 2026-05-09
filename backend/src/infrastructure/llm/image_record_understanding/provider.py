@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import os
 
-from application.interfaces import ImageRecordUnderstandingProviderInterface
 from domain.models import PetProfile, StructuredRecordCandidate
 from infrastructure.llm.image_record_understanding.mapper import to_structured_record_candidate
 from infrastructure.llm.image_record_understanding.model import (
@@ -14,7 +13,7 @@ from infrastructure.llm.image_record_understanding.model import (
 from infrastructure.llm.image_record_understanding.prompt import build_image_record_understanding_messages
 
 
-class ImageRecordUnderstandingProvider(ImageRecordUnderstandingProviderInterface):
+class ImageRecordUnderstandingProvider:
     def __init__(
         self,
         *,

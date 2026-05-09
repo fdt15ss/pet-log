@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 from application.dto import NotificationCandidate
-from application.interfaces import NotificationPolicyInterface
 from domain.models import ContextAnalysisResult, PetProfile, PlannedReminder, SafetyNotice
 
 
-class NotificationPolicy(NotificationPolicyInterface):
+class NotificationPolicy:
     def plan(
         self,
         pet: PetProfile,

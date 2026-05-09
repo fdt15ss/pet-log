@@ -8,8 +8,6 @@ from typing import Protocol
 
 import edge_tts
 
-from application.interfaces import TextToSpeechInterface
-
 
 DEFAULT_EDGE_TTS_VOICE = "ko-KR-SunHiNeural"
 
@@ -22,7 +20,7 @@ class EdgeCommunicate(Protocol):
 EdgeCommunicateFactory = Callable[[str, str], EdgeCommunicate]
 
 
-class TextToSpeechProvider(TextToSpeechInterface):
+class TextToSpeechProvider:
     def __init__(
         self,
         *,

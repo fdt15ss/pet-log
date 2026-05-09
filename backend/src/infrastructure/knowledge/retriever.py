@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-from typing import Protocol
-
 from domain.models import CareKnowledgeHit
 
 
-class CareKnowledgeRetrieverInterface(Protocol):
+class CareKnowledgeRetriever:
     def search(self, question: str, limit: int = 3) -> tuple[CareKnowledgeHit, ...]:
-        raise NotImplementedError
+        return ()

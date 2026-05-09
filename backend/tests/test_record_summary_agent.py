@@ -4,11 +4,10 @@ import unittest
 
 from application.dto import RecordSummaryResult
 from application.agents.record_summary import RecordSummaryAgent
-from application.interfaces import RecordSummaryProviderInterface
 from domain.models import ContextAnalysisResult, PetProfile, PetRecord, PlannedReminder
 
 
-class FakeRecordSummaryProvider(RecordSummaryProviderInterface):
+class FakeRecordSummaryProvider:
     def __init__(self, result: RecordSummaryResult) -> None:
         self.result = result
         self.calls: list[

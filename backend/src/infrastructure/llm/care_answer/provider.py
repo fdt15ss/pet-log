@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import os
 
-from application.interfaces import CareAnswerProviderInterface, CareKnowledgeRetrieverInterface
 from domain.models import CareContext
+from infrastructure.knowledge import CareKnowledgeRetriever
 from infrastructure.llm.care_answer.mapper import message_content_to_text
 from infrastructure.llm.care_answer.model import (
     DEFAULT_CARE_ANSWER_MODEL,
@@ -14,7 +14,7 @@ from infrastructure.llm.care_answer.model import (
 from infrastructure.llm.care_answer.prompt import build_care_answer_messages
 
 
-class CareAnswerProvider(CareAnswerProviderInterface):
+class CareAnswerProvider:
     def __init__(
         self,
         *,
@@ -23,7 +23,7 @@ class CareAnswerProvider(CareAnswerProviderInterface):
         timeout: float = 30.0,
         model_factory: CareAnswerModelFactory = build_care_answer_model,
         chat_model: CareAnswerModel | None = None,
-        knowledge_retriever: CareKnowledgeRetrieverInterface | None = None,
+        knowledge_retriever: CareKnowledgeRetriever | None = None,
     ) -> None:
         self._api_key = api_key if api_key is not None else os.environ.get("OPENAI_API_KEY", "")
         self._model = model or os.environ.get("OPENAI_CARE_ANSWER_MODEL", DEFAULT_CARE_ANSWER_MODEL)

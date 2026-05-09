@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from application.interfaces import ReminderPlannerInterface
 from domain.models import PetProfile, PetRecord, PlannedReminder
 
 
-class ReminderPlanner(ReminderPlannerInterface):
+class ReminderPlanner:
     def plan(
         self,
         pet: PetProfile,

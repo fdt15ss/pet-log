@@ -5,7 +5,6 @@ import os
 from openai import APIConnectionError, APITimeoutError, InternalServerError, RateLimitError
 
 from application.dto import PetLogAgentInput
-from application.interfaces import RecordStructurerInterface
 from domain.models import StructuredRecordBatch
 from infrastructure.llm.record_structuring.mapper import to_structured_record_batch
 from infrastructure.llm.record_structuring.model import (
@@ -27,7 +26,7 @@ TRANSIENT_RECORD_STRUCTURING_ERRORS: tuple[type[BaseException], ...] = (
 )
 
 
-class RecordStructurer(RecordStructurerInterface):
+class RecordStructurer:
     def __init__(
         self,
         *,

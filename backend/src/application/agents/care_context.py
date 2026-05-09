@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from application.interfaces import CareContextBuilderInterface, PetProfileReaderInterface, RecordHistoryReaderInterface, ScheduleContextReaderInterface
+from application.interfaces import PetProfileReaderInterface, RecordHistoryReaderInterface, ScheduleContextReaderInterface
 from domain.models import CareContext
 
 
-class CareContextBuilder(CareContextBuilderInterface):
+class CareContextBuilder:
     def __init__(
         self,
         pet_profile_reader: PetProfileReaderInterface,

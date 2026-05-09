@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 from application.dto import ProactiveQuestionResult
-from application.interfaces import ProactiveQuestionPolicyInterface
 from domain.models import ContextAnalysisResult, PetProfile, PetRecord, PlannedReminder
 
 
-class ProactiveQuestionPolicy(ProactiveQuestionPolicyInterface):
+class ProactiveQuestionPolicy:
     def build_question(
         self,
         pet: PetProfile,
