@@ -78,6 +78,50 @@ rg -n "fastapi|openai|sqlalchemy|sqlite|postgres|psycopg" src/application src/do
 
 마지막 명령의 기대 결과는 출력 없음이다.
 
+## FastAPI 실행
+
+```bash
+uv run uvicorn main:app --reload --host 127.0.0.1 --port 8000
+```
+
+기본 확인:
+
+```bash
+curl http://127.0.0.1:8000/health
+```
+
+기록 입력 API:
+
+```text
+POST /api/v1/pet-log/records
+```
+
+요청 body는 pet profile 전체가 아니라 서버에 저장된 `pet_id`만 받는다.
+
+```json
+{
+  "pet_id": "sample-pet-choco",
+  "text": "오늘 아침 사료를 조금 남겼어",
+  "source": "manual",
+  "confirm": false
+}
+```
+
+HTTP 계층은 request/response 변환과 pipeline 호출만 담당한다. FastAPI import는 `src/presentation/http/`와 `main.py`에만 둔다.
+DB-backed repository와 pipeline은 `composition.build_app_context()`에서 만들고, FastAPI `lifespan`에서 열고 닫는다.
+
+음성 STT API:
+
+```text
+POST /api/v1/speech/transcriptions
+```
+
+요청은 `multipart/form-data`의 `audio` 파일 필드로 받는다. 서버는 `composition.build_app_context()`에서 연결된 `SpeechToTextProvider`를 통해 Whisper `medium`으로 변환한다.
+
+```bash
+curl -F "audio=@recording.webm;type=audio/webm" http://127.0.0.1:8000/api/v1/speech/transcriptions
+```
+
 ## 실제 LLM smoke test
 
 실제 OpenAI API를 호출하는 수동 확인 스크립트다. `backend/.env`의 `OPENAI_API_KEY`를 읽는다.

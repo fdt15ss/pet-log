@@ -7,9 +7,9 @@
 - Test: `tests/test_http_routes.py`
 
 **완료 기준:**
-- [ ] route handler 함수는 request를 변환해 pipeline을 호출한다.
-- [ ] route handler 함수는 response dict를 반환한다.
-- [ ] FastAPI 도입 여부는 이 카드 시작 전 확정한다.
+- [x] route handler 함수는 request의 `pet_id`로 pet profile을 조회한 뒤 pipeline을 호출한다.
+- [x] route handler 함수는 response dict를 반환한다.
+- [x] FastAPI 도입 여부는 이 카드 시작 전 확정한다.
 
 **검증 명령:**
 
