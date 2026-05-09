@@ -1,15 +1,14 @@
 from __future__ import annotations
 
 from application.dto import CareQuestionResult
-from application.interfaces import CareAnswerProviderInterface, CareContextBuilderInterface, CareQuestionPipelineInterface, SafetyGuardInterface
 
 
-class CareQuestionPipeline(CareQuestionPipelineInterface):
+class CareQuestionPipeline:
     def __init__(
         self,
-        context_builder: CareContextBuilderInterface,
-        safety_guard: SafetyGuardInterface,
-        answer_provider: CareAnswerProviderInterface,
+        context_builder,
+        safety_guard,
+        answer_provider,
         lookback_days: int = 30,
     ) -> None:
         self._context_builder = context_builder

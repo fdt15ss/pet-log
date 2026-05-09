@@ -32,7 +32,7 @@ MVP 저장 대상은 SQLite다. 향후 구현에서 embedding vector는 JSON 또
 
 ## Skeleton 경계
 
-- skeleton에서 코드 레벨 RAG interface는 `CareKnowledgeRetrieverInterface` 하나만 둔다.
+- skeleton에서 코드 레벨 RAG 경계는 Protocol interface가 아니라 `CareKnowledgeRetriever` 구체 skeleton 클래스로 둔다.
 - `CareAnswerProvider`는 optional retriever dependency를 받을 수 있지만, retrieval 구현 전까지 답변 동작은 바꾸지 않는다.
 - ingestion, embedding, persistence, ranking 구현 세부사항은 해당 구현 sprint 전까지 backlog 문서에만 둔다.
 

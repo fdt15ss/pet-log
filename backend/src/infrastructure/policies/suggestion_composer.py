@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from application.interfaces import SuggestionComposerInterface
 from domain.models import CareInsight, CareSuggestion, PetProfile
 
 
-class SuggestionComposer(SuggestionComposerInterface):
+class SuggestionComposer:
     def compose(self, pet: PetProfile, insights: tuple[CareInsight, ...]) -> tuple[CareSuggestion, ...]:
         return tuple(
             CareSuggestion(

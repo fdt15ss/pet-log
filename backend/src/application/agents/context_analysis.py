@@ -1,14 +1,13 @@
 from __future__ import annotations
 
-from application.interfaces import ContextAnalysisAgentInterface, MissingRecordPolicyInterface, PatternAnalyzerInterface
 from domain.models import ContextAnalysisResult, PetProfile, PetRecord, PlannedReminder
 
 
-class ContextAnalysisAgent(ContextAnalysisAgentInterface):
+class ContextAnalysisAgent:
     def __init__(
         self,
-        pattern_analyzer: PatternAnalyzerInterface,
-        missing_record_policy: MissingRecordPolicyInterface,
+        pattern_analyzer,
+        missing_record_policy,
     ) -> None:
         self._pattern_analyzer = pattern_analyzer
         self._missing_record_policy = missing_record_policy

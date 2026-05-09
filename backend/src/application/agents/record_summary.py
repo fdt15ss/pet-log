@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 from application.dto import RecordSummaryResult
-from application.interfaces import RecordSummaryAgentInterface, RecordSummaryProviderInterface
 from domain.models import ContextAnalysisResult, PetProfile, PetRecord, PlannedReminder
 
 
-class RecordSummaryAgent(RecordSummaryAgentInterface):
-    def __init__(self, summary_provider: RecordSummaryProviderInterface) -> None:
+class RecordSummaryAgent:
+    def __init__(self, summary_provider) -> None:
         self._summary_provider = summary_provider
 
     def summarize(

@@ -3,18 +3,13 @@ from __future__ import annotations
 import unittest
 
 from application.dto import NotificationCandidate, ProactiveQuestionResult
-from application.interfaces import (
-    ImageRecordUnderstandingProviderInterface,
-    NotificationPolicyInterface,
-    ProactiveQuestionPolicyInterface,
-)
 from application.agents.notification import NotificationAgent
 from application.agents.photo_record_understanding import PhotoRecordUnderstandingAgent
 from application.agents.proactive_question import ProactiveQuestionAgent
 from domain.models import ContextAnalysisResult, PetProfile, PlannedReminder, SafetyNotice, StructuredRecordCandidate
 
 
-class FakeProactiveQuestionPolicy(ProactiveQuestionPolicyInterface):
+class FakeProactiveQuestionPolicy:
     def __init__(self, result: ProactiveQuestionResult | None) -> None:
         self.result = result
         self.calls: list[tuple[PetProfile, tuple[object, ...], ContextAnalysisResult, tuple[PlannedReminder, ...]]] = []
@@ -30,7 +25,7 @@ class FakeProactiveQuestionPolicy(ProactiveQuestionPolicyInterface):
         return self.result
 
 
-class FakeNotificationPolicy(NotificationPolicyInterface):
+class FakeNotificationPolicy:
     def __init__(self, candidates: tuple[NotificationCandidate, ...]) -> None:
         self.candidates = candidates
         self.calls: list[tuple[PetProfile, ContextAnalysisResult, tuple[SafetyNotice, ...], tuple[PlannedReminder, ...]]] = []
@@ -46,7 +41,7 @@ class FakeNotificationPolicy(NotificationPolicyInterface):
         return self.candidates
 
 
-class FakeImageRecordUnderstandingProvider(ImageRecordUnderstandingProviderInterface):
+class FakeImageRecordUnderstandingProvider:
     def __init__(self, candidate: StructuredRecordCandidate) -> None:
         self.candidate = candidate
         self.calls: list[tuple[PetProfile, bytes, str, str | None]] = []

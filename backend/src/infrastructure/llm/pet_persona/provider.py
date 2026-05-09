@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import os
 
-from application.interfaces import PetPersonaResponderInterface
 from domain.models import CareContext
 from infrastructure.llm.pet_persona.mapper import message_content_to_text
 from infrastructure.llm.pet_persona.model import (
@@ -14,7 +13,7 @@ from infrastructure.llm.pet_persona.model import (
 from infrastructure.llm.pet_persona.prompt import build_pet_persona_messages
 
 
-class PetPersonaResponder(PetPersonaResponderInterface):
+class PetPersonaResponder:
     def __init__(
         self,
         *,

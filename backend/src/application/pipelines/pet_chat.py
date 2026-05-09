@@ -1,15 +1,14 @@
 from __future__ import annotations
 
 from application.dto import PetChatResult
-from application.interfaces import CareContextBuilderInterface, PetChatPipelineInterface, PetPersonaAgentInterface, SafetyGuardInterface
 
 
-class PetChatPipeline(PetChatPipelineInterface):
+class PetChatPipeline:
     def __init__(
         self,
-        context_builder: CareContextBuilderInterface,
-        safety_guard: SafetyGuardInterface,
-        pet_persona_agent: PetPersonaAgentInterface,
+        context_builder,
+        safety_guard,
+        pet_persona_agent,
         lookback_days: int = 30,
     ) -> None:
         self._context_builder = context_builder

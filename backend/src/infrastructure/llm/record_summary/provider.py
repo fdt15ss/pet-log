@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 
 from application.dto import RecordSummaryResult
-from application.interfaces import RecordSummaryProviderInterface
 from domain.models import ContextAnalysisResult, PetProfile, PetRecord, PlannedReminder
 from infrastructure.llm.record_summary.mapper import to_record_summary_result
 from infrastructure.llm.record_summary.model import (
@@ -15,7 +14,7 @@ from infrastructure.llm.record_summary.model import (
 from infrastructure.llm.record_summary.prompt import build_record_summary_messages
 
 
-class RecordSummaryProvider(RecordSummaryProviderInterface):
+class RecordSummaryProvider:
     def __init__(
         self,
         *,

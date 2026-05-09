@@ -7,8 +7,6 @@ from typing import Protocol
 
 import whisper
 
-from application.interfaces import SpeechToTextInterface
-
 
 DEFAULT_WHISPER_MODEL = "medium"
 DEFAULT_TRANSCRIBE_OPTIONS: dict[str, object] = {"fp16": False}
@@ -22,7 +20,7 @@ class WhisperModel(Protocol):
 WhisperModelLoader = Callable[..., WhisperModel]
 
 
-class SpeechToTextProvider(SpeechToTextInterface):
+class SpeechToTextProvider:
     def __init__(
         self,
         *,

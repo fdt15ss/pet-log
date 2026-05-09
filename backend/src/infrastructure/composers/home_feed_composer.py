@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 from application.dto import HomeFeedResult, PetLogAgentResult
-from application.interfaces import HomeFeedComposerInterface
 from domain.models import PetProfile, PlannedReminder
 
 
-class HomeFeedComposer(HomeFeedComposerInterface):
+class HomeFeedComposer:
     def compose(
         self,
         pet: PetProfile,

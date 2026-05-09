@@ -3,8 +3,8 @@ from __future__ import annotations
 import unittest
 from pathlib import Path
 
-from application.interfaces import CareKnowledgeRetrieverInterface
 from domain.models import CareKnowledgeChunk, CareKnowledgeHit, CareKnowledgeSource
+from infrastructure.knowledge.retriever import CareKnowledgeRetriever
 
 
 class TestCareKnowledgeRagSkeleton(unittest.TestCase):
@@ -29,8 +29,10 @@ class TestCareKnowledgeRagSkeleton(unittest.TestCase):
         self.assertEqual(hit.chunk.source_url, source.url)
         self.assertEqual(hit.score, 0.91)
 
-    def test_interfaces_are_exported_with_expected_methods(self) -> None:
-        self.assertTrue(hasattr(CareKnowledgeRetrieverInterface, "search"))
+    def test_retriever_concrete_skeleton_has_search_method(self) -> None:
+        retriever = CareKnowledgeRetriever()
+
+        self.assertEqual(retriever.search("밥을 갑자기 안 먹어요"), ())
 
     def test_design_doc_and_sprint_card_exist(self) -> None:
         repo_root = Path(__file__).resolve().parents[1]

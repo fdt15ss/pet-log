@@ -6,11 +6,6 @@ class TestPackageStructure(unittest.TestCase):
     def test_target_architecture_packages_are_importable(self):
         modules = (
             "application.interfaces",
-            "application.interfaces.agents",
-            "application.interfaces.composers",
-            "application.interfaces.pipelines",
-            "application.interfaces.policies",
-            "application.interfaces.providers",
             "application.interfaces.repositories",
             "application.agents.care_context",
             "application.agents.context_analysis",
@@ -61,6 +56,7 @@ class TestPackageStructure(unittest.TestCase):
             "infrastructure.llm.care_answer.model",
             "infrastructure.llm.care_answer.prompt",
             "infrastructure.llm.care_answer.provider",
+            "infrastructure.knowledge.retriever",
             "infrastructure.llm.pet_persona",
             "infrastructure.llm.pet_persona.mapper",
             "infrastructure.llm.pet_persona.model",
@@ -85,17 +81,30 @@ class TestPackageStructure(unittest.TestCase):
             with self.subTest(module=module):
                 importlib.import_module(module)
 
-    def test_interface_names_use_interface_suffix(self):
+    def test_interface_module_exports_only_polymorphic_ports(self):
         interfaces = importlib.import_module("application.interfaces")
 
-        self.assertTrue(hasattr(interfaces, "PetLogAgentPipelineInterface"))
-        self.assertTrue(hasattr(interfaces, "RecordSummaryAgentInterface"))
-        self.assertTrue(hasattr(interfaces, "RecordSummaryProviderInterface"))
-        self.assertTrue(hasattr(interfaces, "ProactiveQuestionAgentInterface"))
-        self.assertTrue(hasattr(interfaces, "NotificationAgentInterface"))
-        self.assertTrue(hasattr(interfaces, "PhotoRecordUnderstandingAgentInterface"))
-        self.assertTrue(hasattr(interfaces, "RecordStructurerInterface"))
-        self.assertTrue(hasattr(interfaces, "ImageRecordUnderstandingProviderInterface"))
-        self.assertTrue(hasattr(interfaces, "SpeechToTextInterface"))
-        self.assertTrue(hasattr(interfaces, "TextToSpeechInterface"))
+        expected_ports = {
+            "PetProfileReaderInterface",
+            "RecordHistoryReaderInterface",
+            "RecordRepositoryInterface",
+            "ScheduleContextReaderInterface",
+        }
+        self.assertEqual(set(interfaces.__all__), expected_ports)
+        for port_name in expected_ports:
+            with self.subTest(port_name=port_name):
+                self.assertTrue(hasattr(interfaces, port_name))
+
+        self.assertFalse(hasattr(interfaces, "PetLogAgentPipelineInterface"))
+        self.assertFalse(hasattr(interfaces, "RecordSummaryAgentInterface"))
+        self.assertFalse(hasattr(interfaces, "RecordSummaryProviderInterface"))
+        self.assertFalse(hasattr(interfaces, "ProactiveQuestionAgentInterface"))
+        self.assertFalse(hasattr(interfaces, "NotificationAgentInterface"))
+        self.assertFalse(hasattr(interfaces, "PhotoRecordUnderstandingAgentInterface"))
+        self.assertFalse(hasattr(interfaces, "ImageRecordUnderstandingProviderInterface"))
+        self.assertFalse(hasattr(interfaces, "TextToSpeechInterface"))
+        self.assertFalse(hasattr(interfaces, "CareAnswerProviderInterface"))
+        self.assertFalse(hasattr(interfaces, "RecordStructurerInterface"))
+        self.assertFalse(hasattr(interfaces, "SpeechToTextInterface"))
+        self.assertFalse(hasattr(interfaces, "CareKnowledgeRetrieverInterface"))
         self.assertFalse(hasattr(interfaces, "PetLogAgentPipelinePort"))

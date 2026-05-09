@@ -86,11 +86,11 @@ composition
 
 `CareContext`에 RAG를 붙이는 방향은 맞다. 다만 구현 전에 ingestion, embedding, repository, retriever 인터페이스를 모두 만들면 구조가 먼저 커진다.
 
-현재 단계의 최소 경계는 `CareKnowledgeRetrieverInterface` 하나면 충분하다.
+현재 단계의 최소 경계는 Protocol interface가 아니라 `CareKnowledgeRetriever` 구체 skeleton 클래스 하나면 충분하다.
 
 ```text
 CareAnswerProvider
--> CareKnowledgeRetrieverInterface
+-> CareKnowledgeRetriever
 -> tuple[CareKnowledgeHit, ...]
 ```
 
@@ -121,7 +121,7 @@ CareAnswerProvider
 2. 단순 provider 위임만 하는 wrapper agent를 제거하거나 pipeline 내부 호출로 접는다.
 3. `agent_runtime`, `tools`, `middleware`는 실제 실행 경로가 생기기 전까지 experimental 또는 docs-only로 표시한다.
 4. 구현 없는 future skeleton은 문서 backlog로 옮긴다.
-5. RAG는 `CareKnowledgeRetrieverInterface` 최소 경계만 유지하고 ingestion/embedding/repository는 구현 단계에서 도입한다.
+5. RAG는 `CareKnowledgeRetriever` 구체 skeleton만 유지하고 ingestion/embedding/repository는 구현 단계에서 도입한다.
 
 ## 현재 결론
 

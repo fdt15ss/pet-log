@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 from application.dto import RecordSummaryResult
-from application.interfaces import RecordSummaryComposerInterface
 from domain.models import ContextAnalysisResult, PetProfile, PetRecord, PlannedReminder
 
 
-class RecordSummaryComposer(RecordSummaryComposerInterface):
+class RecordSummaryComposer:
     def compose(
         self,
         pet: PetProfile,
