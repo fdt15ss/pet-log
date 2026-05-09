@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from contextlib import asynccontextmanager
 
+from dotenv import load_dotenv
 from fastapi import FastAPI
 
 from composition import AppContext, build_app_context
@@ -13,6 +14,8 @@ def create_app(
     app_context: AppContext | None = None,
     app_context_factory: Callable[[], AppContext] = build_app_context,
 ) -> FastAPI:
+    load_dotenv(override=False)
+
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         context = app_context or app_context_factory()
