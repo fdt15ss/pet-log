@@ -1,10 +1,19 @@
 from __future__ import annotations
 
 import unittest
+import warnings
 
 from application.dto import PetLogAgentInput
 from domain.models import PetProfile
 from infrastructure.llm.record_structuring import RecordStructurer
+from infrastructure.llm.record_structuring.mapper import to_structured_record_batch
+from infrastructure.llm.record_structuring.schema import StructuredRecordBatchOutput
+
+
+class NoisyStructuredRecordBatchOutput(StructuredRecordBatchOutput):
+    def model_dump(self, *args, **kwargs):
+        warnings.warn("model_dump called", UserWarning, stacklevel=2)
+        return super().model_dump(*args, **kwargs)
 
 
 class FakeStructuredModel:
@@ -60,6 +69,28 @@ class FakeFallbackStructuredModel:
 
 
 class TestRecordStructurer(unittest.TestCase):
+    def test_maps_pydantic_structured_output_without_serialization_warnings(self):
+        model_output = NoisyStructuredRecordBatchOutput(
+            candidates=[
+                {
+                    "title": "식사",
+                    "detail": "사료를 조금 남김",
+                    "category": "meal",
+                    "status": "notice",
+                    "confidence": 0.91,
+                    "needs_confirmation": False,
+                    "measurements": ["사료 조금 남김"],
+                }
+            ]
+        )
+
+        with warnings.catch_warnings(record=True) as captured:
+            warnings.simplefilter("always")
+            batch = to_structured_record_batch(model_output)
+
+        self.assertEqual(tuple(candidate.title for candidate in batch.candidates), ("식사",))
+        self.assertEqual(captured, [])
+
     def test_structure_invokes_model_and_maps_batch(self):
         model_output = {
             "candidates": [
