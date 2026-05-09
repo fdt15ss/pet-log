@@ -35,3 +35,8 @@ include = [
     "presentation*",
     "tools*",
 ]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.15.12",
+]

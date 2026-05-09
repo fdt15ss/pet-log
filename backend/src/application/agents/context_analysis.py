@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from application.interfaces import ContextAnalysisAgentInterface, MissingRecordPolicyInterface, PatternAnalyzerInterface
-from domain.models import CareInsight, ContextAnalysisResult, PetProfile, PetRecord, PlannedReminder
+from domain.models import ContextAnalysisResult, PetProfile, PetRecord, PlannedReminder
 
 
 class ContextAnalysisAgent(ContextAnalysisAgentInterface):

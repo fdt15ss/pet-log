@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from application.interfaces import SuggestionAgentInterface, SuggestionComposerInterface
-from domain.models import CareInsight, CareSuggestion, ContextAnalysisResult, PetProfile, SafetyNotice
+from domain.models import CareSuggestion, ContextAnalysisResult, PetProfile, SafetyNotice
 
 
 class SuggestionAgent(SuggestionAgentInterface):
