@@ -49,4 +49,5 @@
 - 위험 신호는 병원 상담 권장 또는 케어 질문 연결로 제한된다.
 - 원인 추정은 진단이 아니라 "가능한 맥락" 또는 "확인할 질문" 수준으로 제한된다.
 - `기획.md`에 있지만 아직 코드 계약이 없는 agent 후보는 [11-agent-gap-analysis.md](11-agent-gap-analysis.md)에 추적한다.
+- MVP 단계에서 과한 추상화와 skeleton 누적 위험은 [15-architecture-refactoring-notes.md](15-architecture-refactoring-notes.md)에 따라 줄인다.
 - 현재 단계는 폴더, interface 파일, infrastructure/runtime skeleton import까지 검증되어야 한다.
