@@ -88,6 +88,7 @@ Keep this file short and repo-wide. Put workflow details in repo-local skills an
 - Use `_workspace/` markdown handoffs for product, UX, AI, build, and QA artifacts.
 - Prefer repo-local Pet Log skills under `.agents/skills/` before generic planning or implementation workflows.
 - Web commands run from `frontend/app/web` at repo root, or `app/web` when already inside `frontend`: `npm run dev`, `npm run lint`, `npm run typecheck`, and `npm run build`.
+- HTTP/API 통신은 `axios`를 사용한다. 브라우저 클라이언트, Next Route Handler의 서버 간 요청, 통신 경계 테스트 모두 `fetch` 직접 호출보다 기존 axios 경계를 우선한다.
 
 ## md 파일 작성 규칙
 - 한글로 작성할것
