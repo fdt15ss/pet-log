@@ -70,3 +70,6 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 ## git 규칙
 - main 브랜치에 checkout 되어 있을경우 새 브랜치 생성
+
+## 코딩 규칙
+- 구현하지말고 패키지 최대한 사용
