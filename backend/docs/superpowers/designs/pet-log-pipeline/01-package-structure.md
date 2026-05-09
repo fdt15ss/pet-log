@@ -16,9 +16,9 @@
 | `src/application/agents/` | application | 제품 기능을 맡는 LLM agent 역할 단위 | 함수 호출 구성만 |
 | `src/application/pipelines/` | application | core/surface pipeline shell | 함수 호출 구성만 |
 | `src/application/errors.py` | application | pipeline error 계약 | 타입만 |
-| `src/agent_runtime/` | agent runtime | LLM 실행 loop, prompt 조립, tool registry, memory | skeleton만 |
-| `src/middleware/` | middleware | safety, logging, tracing, retry, validation | skeleton만 |
-| `src/tools/` | tools | agent가 호출 가능한 schema-first tool 정의 | skeleton만 |
+| `src/agent_runtime/` | agent runtime | LLM 실행 loop, prompt 조립, node/agent별 tool/middleware registry, memory | 일부 구현 |
+| `src/middleware/` | middleware | LangChain/LangGraph middleware factory, safety, logging, tracing, retry, validation | 일부 구현 |
+| `src/tools/` | tools | agent가 호출 가능한 schema-first LangChain tool factory | 일부 구현 |
 | `src/infrastructure/llm/` | infrastructure | OpenAI/local model provider 구현체 뼈대 | skeleton만 |
 | `src/infrastructure/speech/` | infrastructure | STT/TTS provider 구현체 뼈대 | skeleton만 |
 | `src/infrastructure/policies/` | infrastructure | rule/policy 구현체 뼈대 | skeleton만 |

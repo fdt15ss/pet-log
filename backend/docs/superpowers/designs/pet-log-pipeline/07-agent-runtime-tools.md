@@ -10,10 +10,10 @@ agent_runtime/
   = agent를 어떻게 실행하는가
 
 middleware/
-  = agent 실행 전후에 끼워 넣는 공통 처리
+  = LangChain/LangGraph에 붙일 middleware factory
 
 tools/
-  = agent가 호출할 수 있는 행동
+  = agent가 호출할 수 있는 LangChain tool adapter
 
 infrastructure/
   = 실제 외부 시스템 구현
@@ -25,7 +25,7 @@ infrastructure/
 | --- | --- |
 | `src/agent_runtime/runtime.py` | LLM 호출 loop와 tool calling 실행기 |
 | `src/agent_runtime/prompts.py` | system/developer prompt 조립 |
-| `src/agent_runtime/tool_registry.py` | tool 등록, 조회, schema 노출 |
+| `src/agent_runtime/tool_registry.py` | node/agent별 tool bundle과 middleware bundle 구성 |
 | `src/agent_runtime/memory.py` | 단기 context와 향후 memory hook |
 
 ## LangGraph/LangChain 선택
@@ -107,6 +107,7 @@ LangGraphPetLogAgentPipeline
 | `application/interfaces/` | application port 계약 | 의존하지 않음 |
 | `infrastructure/llm/` | 실제 model, structured output, fallback, retry | LangChain 의존 허용 |
 | `tools/` | agent가 호출할 수 있는 기능 wrapper | LangChain tool adapter 허용 |
+| `middleware/` | LangChain/LangGraph middleware factory | LangChain middleware 의존 허용 |
 
 `create_agent`는 기본값이 아니다. 다음 조건이 생길 때만 특정 capability의 infrastructure adapter 안에서 도입한다.
 
@@ -122,10 +123,28 @@ LangGraphPetLogAgentPipeline
 | 파일 | 책임 |
 | --- | --- |
 | `src/middleware/safety.py` | 위험 질문/금지 응답/병원 상담 안내 guard |
-| `src/middleware/logging.py` | 실행 로그 |
+| `src/middleware/logging.py` | agent/tool call debug log middleware factory |
 | `src/middleware/tracing.py` | agent/tool call 추적 |
 | `src/middleware/retry.py` | 안전한 retry 정책 |
 | `src/middleware/validation.py` | 입력/출력 schema 검증 |
+
+`middleware/`는 자체 middleware 실행 프레임워크가 아니다. LangChain/LangGraph가 제공하는 lifecycle hook을 프로젝트 규칙에 맞게 감싸는 factory 위치다.
+
+예:
+
+```text
+middleware/logging.py
+  -> build_agent_debug_middleware(...)
+     -> langchain.agents.middleware.wrap_tool_call
+
+middleware/retry.py
+  -> build_tool_retry_middleware(...)
+     -> package retry/fallback 기능 조합
+
+middleware/validation.py
+  -> build_tool_validation_middleware(...)
+     -> tool input/output boundary 검증
+```
 
 ### Middleware 등록 위치
 
@@ -144,6 +163,25 @@ workflow 관찰
 특정 tool retry
   -> ToolRetryMiddleware(tools=[...]) 또는 tool adapter
 ```
+
+현재 `pet_log`에서는 node별 wiring에서 필요한 middleware만 명시한다.
+
+```text
+build_pet_log_node_wiring(...)
+  structure_record
+    tools=[]
+    middleware=[]
+
+  load_context
+    tools=[get_pet_profile, list_recent_records]
+    middleware=[agent_debug_log]
+
+  save_records
+    tools=[save_pet_record]
+    middleware=[agent_debug_log]
+```
+
+디버깅 로그 middleware도 agent/tool 내부 관찰 목적이면 graph 전역이 아니라 해당 node 또는 agent adapter에 붙인다. graph stream log는 workflow 진행 관찰용으로만 사용한다.
 
 #### Graph-level
 
@@ -229,11 +267,29 @@ middleware = [
 
 | 파일 | 책임 |
 | --- | --- |
-| `src/tools/record_tools.py` | 기록 조회, 후보 저장, 기록 ID 조회 |
-| `src/tools/profile_tools.py` | 펫 프로필 조회 |
+| `src/tools/record_tools.py` | `list_recent_records`, `save_pet_record` 같은 기록 tool factory |
+| `src/tools/profile_tools.py` | `get_pet_profile` 같은 프로필 tool factory |
 | `src/tools/schedule_tools.py` | 일정/리마인더 조회 |
 | `src/tools/care_tools.py` | 케어 답변 보조 기능 |
 | `src/tools/speech_tools.py` | STT/TTS tool wrapper |
+
+현재 관리 방식:
+
+```text
+tools/
+  개별 LangChain tool factory
+  repository/provider/usecase를 호출하는 얇은 adapter
+
+agent_runtime/tool_registry.py
+  node/agent별 tool bundle 구성
+  read tool과 write tool을 분리
+
+middleware/
+  LangChain/LangGraph middleware factory
+
+application/pipelines/pet_log_graph.py
+  StateGraph workflow와 node wiring
+```
 
 ## Tool 설계 기준
 
@@ -280,17 +336,18 @@ record_lookup_tool = StructuredTool.from_function(
 registry는 전체 tool 목록을 들고 있지만 agent에는 필요한 tool만 주입한다.
 
 ```text
-ToolRegistry
-  -> record_lookup
-  -> schedule_lookup
-  -> save_record_candidate
-  -> speech_to_text
+build_context_tools(...)
+  -> get_pet_profile
+  -> list_recent_records
 
-Care answer agent
-  -> record_lookup, schedule_lookup
+build_record_write_tools(...)
+  -> save_pet_record
 
-Voice record flow
-  -> speech_to_text, save_record_candidate
+load_context node
+  -> build_context_tools(...)
+
+save_records node
+  -> build_record_write_tools(...)
 ```
 
 등록 규칙:

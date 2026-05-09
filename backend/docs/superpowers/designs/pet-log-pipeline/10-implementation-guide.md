@@ -5,14 +5,14 @@
 ## 한 줄 요약
 
 ```text
-presentation -> application pipeline -> application agents -> interfaces -> infrastructure/tools/agent_runtime
+presentation -> application pipeline -> application agents -> interfaces -> infrastructure/tools/middleware/agent_runtime
 ```
 
 - `presentation`은 외부 요청이 들어오는 입구다.
 - `application`은 제품 기능 흐름을 조립한다.
 - `interfaces`는 application이 필요로 하는 계약이다.
 - `infrastructure`는 DB, LLM, rule 같은 실제 구현체다.
-- `agent_runtime`, `middleware`, `tools`는 LLM agent 실행을 위한 공통 계층이다.
+- `tools`는 LangChain tool adapter, `middleware`는 LangChain/LangGraph middleware factory, `agent_runtime`은 node/agent별 wiring을 맡는 공통 계층이다.
 
 ## 먼저 읽을 파일
 
@@ -128,7 +128,8 @@ LLM agent 실행 공통 계층이다.
 
 예:
 - prompt 조립
-- tool registry
+- node/agent별 tool registry
+- node/agent별 middleware wiring
 - tool calling loop
 - memory hook
 - LangGraph adapter 후보
@@ -141,7 +142,7 @@ LLM agent 실행 공통 계층이다.
 
 ### `src/middleware/`
 
-agent 실행 전후 공통 처리다.
+LangChain/LangGraph에 붙일 middleware factory 위치다. 자체 middleware chain framework를 만들지 않는다.
 
 예:
 - safety
@@ -151,22 +152,27 @@ agent 실행 전후 공통 처리다.
 - validation
 
 수정 기준:
-- 여러 agent에 공통으로 적용할 처리만 넣는다.
+- 여러 node/agent에 재사용할 middleware factory만 넣는다.
 - 특정 기능 하나만을 위한 로직은 agent나 infrastructure에 둔다.
+- raw 보호자 입력, prompt 전문, tool args 전문, secret/env 값은 로그에 남기지 않는다.
+- graph 진행 로그는 `stream_mode="updates"`에서 처리하고, agent/tool 내부 디버깅은 해당 node/agent에 middleware로 붙인다.
 
 ### `src/tools/`
 
-LLM agent가 호출할 수 있는 기능 묶음이다.
+LLM agent가 호출할 수 있는 LangChain tool adapter 묶음이다.
 
 예:
-- 기록 조회
-- 프로필 조회
+- 기록 조회: `list_recent_records`
+- 기록 저장: `save_pet_record`
+- 프로필 조회: `get_pet_profile`
 - 일정 조회
 - 케어 답변 보조 기능
 - STT/TTS 보조 기능
 
 수정 기준:
 - agent_runtime의 tool calling에서 사용할 기능을 schema-first로 만들 때 구현한다.
+- tool은 business logic을 직접 갖지 않고 repository/provider/usecase를 호출하는 얇은 wrapper로 둔다.
+- 읽기 tool과 쓰기 tool은 registry 단계에서 분리한다.
 
 ### `src/presentation/`
 
