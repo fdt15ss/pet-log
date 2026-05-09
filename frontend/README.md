@@ -123,7 +123,7 @@ uv run uvicorn main:app --reload --host 127.0.0.1 --port 8000
 
 ```env
 PET_LOG_BACKEND_API_BASE_URL=http://127.0.0.1:8000
-PET_LOG_BACKEND_PET_ID=sample-pet-choco
+PET_LOG_BACKEND_PET_ID=pet_01JCM7V8H9Q2K4N6R8T0A1B2C3
 ```
 
 브라우저는 `/api/v1/records`와 `/api/v1/ai/records/structure`만 호출하고, Next Route Handler가 서버에서 FastAPI로 프록시합니다.

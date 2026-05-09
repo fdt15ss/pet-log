@@ -210,7 +210,7 @@ LLM structured output:
 ```sql
 SELECT id, pet_id, category, title, detail, status, recorded_at, source
 FROM pet_records
-WHERE pet_id = 'sample-pet-choco'
+WHERE pet_id = 'pet_01JCM7V8H9Q2K4N6R8T0A1B2C3'
 ORDER BY created_at DESC
 LIMIT 5;
 ```

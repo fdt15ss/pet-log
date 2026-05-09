@@ -5,8 +5,8 @@ import sqlite3
 from datetime import date, datetime, time, timedelta
 from pathlib import Path
 
-SAMPLE_PET_ID = "sample-pet-choco"
-SAMPLE_PET_IDS = ("sample-pet-choco", "sample-pet-nabi", "sample-pet-ddang")
+SAMPLE_PET_ID = "pet_01JCM7V8H9Q2K4N6R8T0A1B2C3"
+SAMPLE_PET_IDS = ("pet_01JCM7V8H9Q2K4N6R8T0A1B2C3", "pet_01JCM7V8H9Q2K4N6R8T0D4E5F6", "pet_01JCM7V8H9Q2K4N6R8T0G7H8J9")
 
 
 def seed_database(database_path: str | Path | None = None, today: date | None = None) -> None:
@@ -28,7 +28,7 @@ def seed_default_data(connection: sqlite3.Connection, today: date | None = None)
         """,
         (
             (
-                "sample-pet-choco",
+                "pet_01JCM7V8H9Q2K4N6R8T0A1B2C3",
                 "초코",
                 "말티푸",
                 "dog",
@@ -37,7 +37,7 @@ def seed_default_data(connection: sqlite3.Connection, today: date | None = None)
                 json.dumps(["아침 식사는 천천히 먹는 편", "알러지 의심 간식은 피하기"], ensure_ascii=False),
             ),
             (
-                "sample-pet-nabi",
+                "pet_01JCM7V8H9Q2K4N6R8T0D4E5F6",
                 "나비",
                 "코리안숏헤어",
                 "cat",
@@ -46,7 +46,7 @@ def seed_default_data(connection: sqlite3.Connection, today: date | None = None)
                 json.dumps(["물그릇 위치가 바뀌면 잘 안 마심", "습식 간식을 좋아함"], ensure_ascii=False),
             ),
             (
-                "sample-pet-ddang",
+                "pet_01JCM7V8H9Q2K4N6R8T0G7H8J9",
                 "땅콩",
                 "포메라니안",
                 "dog",
@@ -64,7 +64,7 @@ def seed_default_data(connection: sqlite3.Connection, today: date | None = None)
         (
             (
                 "sample-record-meal",
-                "sample-pet-choco",
+                "pet_01JCM7V8H9Q2K4N6R8T0A1B2C3",
                 "meal",
                 "아침 식사",
                 "사료를 평소보다 조금 더 남겼어요.",
@@ -74,7 +74,7 @@ def seed_default_data(connection: sqlite3.Connection, today: date | None = None)
             ),
             (
                 "sample-record-walk",
-                "sample-pet-choco",
+                "pet_01JCM7V8H9Q2K4N6R8T0A1B2C3",
                 "walk",
                 "저녁 산책",
                 "공원에서 25분 정도 걸었고 컨디션은 좋아 보였어요.",
@@ -84,7 +84,7 @@ def seed_default_data(connection: sqlite3.Connection, today: date | None = None)
             ),
             (
                 "sample-record-stool",
-                "sample-pet-choco",
+                "pet_01JCM7V8H9Q2K4N6R8T0A1B2C3",
                 "stool",
                 "배변 상태",
                 "변이 평소보다 조금 무른 편이라 내일까지 지켜보기로 했어요.",
@@ -94,7 +94,7 @@ def seed_default_data(connection: sqlite3.Connection, today: date | None = None)
             ),
             (
                 "sample-record-medical",
-                "sample-pet-choco",
+                "pet_01JCM7V8H9Q2K4N6R8T0A1B2C3",
                 "medical",
                 "귀 상태 확인",
                 "오른쪽 귀를 자주 긁어서 붉은기가 있는지 확인했어요.",
@@ -104,7 +104,7 @@ def seed_default_data(connection: sqlite3.Connection, today: date | None = None)
             ),
             (
                 "sample-record-behavior",
-                "sample-pet-choco",
+                "pet_01JCM7V8H9Q2K4N6R8T0A1B2C3",
                 "behavior",
                 "낯선 소리 반응",
                 "초인종 소리에 잠깐 짖었지만 금방 보호자 옆에서 진정했어요.",
@@ -114,7 +114,7 @@ def seed_default_data(connection: sqlite3.Connection, today: date | None = None)
             ),
             (
                 "sample-record-nabi-meal",
-                "sample-pet-nabi",
+                "pet_01JCM7V8H9Q2K4N6R8T0D4E5F6",
                 "meal",
                 "습식 급여",
                 "습식 사료는 잘 먹었지만 물은 평소보다 적게 마셨어요.",
@@ -124,7 +124,7 @@ def seed_default_data(connection: sqlite3.Connection, today: date | None = None)
             ),
             (
                 "sample-record-nabi-behavior",
-                "sample-pet-nabi",
+                "pet_01JCM7V8H9Q2K4N6R8T0D4E5F6",
                 "behavior",
                 "숨는 행동",
                 "청소기 소리가 난 뒤 침대 밑에 30분 정도 숨어 있었어요.",
@@ -134,7 +134,7 @@ def seed_default_data(connection: sqlite3.Connection, today: date | None = None)
             ),
             (
                 "sample-record-ddang-walk",
-                "sample-pet-ddang",
+                "pet_01JCM7V8H9Q2K4N6R8T0G7H8J9",
                 "walk",
                 "짧은 산책",
                 "아침에 12분 정도 산책했고 다른 강아지를 보고 흥분했어요.",
@@ -144,7 +144,7 @@ def seed_default_data(connection: sqlite3.Connection, today: date | None = None)
             ),
             (
                 "sample-record-ddang-medical",
-                "sample-pet-ddang",
+                "pet_01JCM7V8H9Q2K4N6R8T0G7H8J9",
                 "medical",
                 "예방접종 후 관찰",
                 "접종 부위를 만지면 살짝 예민해했지만 식욕은 괜찮았어요.",
@@ -162,7 +162,7 @@ def seed_default_data(connection: sqlite3.Connection, today: date | None = None)
         (
             (
                 "sample-schedule-checkup",
-                "sample-pet-choco",
+                "pet_01JCM7V8H9Q2K4N6R8T0A1B2C3",
                 "checkup",
                 "정기 검진",
                 (base_date + timedelta(days=7)).isoformat(),
@@ -172,7 +172,7 @@ def seed_default_data(connection: sqlite3.Connection, today: date | None = None)
             ),
             (
                 "sample-schedule-grooming",
-                "sample-pet-choco",
+                "pet_01JCM7V8H9Q2K4N6R8T0A1B2C3",
                 "grooming",
                 "미용 예약",
                 (base_date + timedelta(days=3)).isoformat(),
@@ -182,7 +182,7 @@ def seed_default_data(connection: sqlite3.Connection, today: date | None = None)
             ),
             (
                 "sample-schedule-nabi-checkup",
-                "sample-pet-nabi",
+                "pet_01JCM7V8H9Q2K4N6R8T0D4E5F6",
                 "checkup",
                 "음수량 상담",
                 (base_date + timedelta(days=5)).isoformat(),
@@ -192,7 +192,7 @@ def seed_default_data(connection: sqlite3.Connection, today: date | None = None)
             ),
             (
                 "sample-schedule-ddang-vaccination",
-                "sample-pet-ddang",
+                "pet_01JCM7V8H9Q2K4N6R8T0G7H8J9",
                 "vaccination",
                 "추가 접종 확인",
                 (base_date + timedelta(days=10)).isoformat(),

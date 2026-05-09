@@ -29,7 +29,7 @@ type RouteContext = {
 const recordCategories: RecordCategory[] = ["meal", "walk", "stool", "medical", "behavior"];
 const recordStatuses: RecordStatus[] = ["normal", "notice", "alert"];
 const defaultBackendApiBaseUrl = "http://127.0.0.1:8000";
-const defaultBackendPetId = "sample-pet-choco";
+const defaultBackendPetId = "pet_01JCM7V8H9Q2K4N6R8T0A1B2C3";
 const defaultBackendTimeoutMs = 1200;
 
 type BackendPetLogCandidate = {

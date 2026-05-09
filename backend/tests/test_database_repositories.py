@@ -41,9 +41,9 @@ class TestDatabaseRepositories(unittest.TestCase):
         }
 
         self.assertEqual(tuple(sorted(pets)), tuple(sorted(SAMPLE_PET_IDS)))
-        self.assertEqual(pets["sample-pet-choco"], ("초코", "말티푸", "dog"))
-        self.assertEqual(pets["sample-pet-nabi"], ("나비", "코리안숏헤어", "cat"))
-        self.assertEqual(pets["sample-pet-ddang"], ("땅콩", "포메라니안", "dog"))
+        self.assertEqual(pets["pet_01JCM7V8H9Q2K4N6R8T0A1B2C3"], ("초코", "말티푸", "dog"))
+        self.assertEqual(pets["pet_01JCM7V8H9Q2K4N6R8T0D4E5F6"], ("나비", "코리안숏헤어", "cat"))
+        self.assertEqual(pets["pet_01JCM7V8H9Q2K4N6R8T0G7H8J9"], ("땅콩", "포메라니안", "dog"))
 
     def test_seed_default_data_uses_run_date_relative_dates(self):
         connection = connect(":memory:")

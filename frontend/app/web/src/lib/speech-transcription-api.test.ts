@@ -86,7 +86,7 @@ test("기록 미리보기 API는 FastAPI 기록 파이프라인을 저장 없이
   const previousPetId = process.env.PET_LOG_BACKEND_PET_ID;
   const previousAdapter = axios.defaults.adapter;
   process.env.PET_LOG_BACKEND_API_BASE_URL = "http://127.0.0.1:8000";
-  process.env.PET_LOG_BACKEND_PET_ID = "sample-pet-choco";
+  process.env.PET_LOG_BACKEND_PET_ID = "pet_01JCM7V8H9Q2K4N6R8T0A1B2C3";
 
   axios.defaults.adapter = (async (config) => {
     assert.equal(config.url, "http://127.0.0.1:8000/api/v1/pet-log/records");
@@ -95,7 +95,7 @@ test("기록 미리보기 API는 FastAPI 기록 파이프라인을 저장 없이
     assert.deepEqual(
       JSON.parse(String(config.data)),
       {
-        pet_id: "sample-pet-choco",
+        pet_id: "pet_01JCM7V8H9Q2K4N6R8T0A1B2C3",
         text: "아침 사료 45g 먹고 산책 20분 했어요.",
         source: "ai_preview",
         confirm: false,
@@ -171,13 +171,13 @@ test("기록 미리보기 API는 전체 기본 분류를 허용하고 서버 추
   const previousPetId = process.env.PET_LOG_BACKEND_PET_ID;
   const previousAdapter = axios.defaults.adapter;
   process.env.PET_LOG_BACKEND_API_BASE_URL = "http://127.0.0.1:8000";
-  process.env.PET_LOG_BACKEND_PET_ID = "sample-pet-choco";
+  process.env.PET_LOG_BACKEND_PET_ID = "pet_01JCM7V8H9Q2K4N6R8T0A1B2C3";
 
   axios.defaults.adapter = (async (config) => {
     assert.deepEqual(
       JSON.parse(String(config.data)),
       {
-        pet_id: "sample-pet-choco",
+        pet_id: "pet_01JCM7V8H9Q2K4N6R8T0A1B2C3",
         text: "아침에 밥을 천천히 먹었어",
         source: "ai_preview",
         confirm: false,
@@ -238,13 +238,13 @@ test("기록 미리보기 API는 FastAPI 복수 후보의 카테고리를 구조
   const detail =
     "아침 사료는 평소 양의 80% 정도 먹었고, 저녁 산책은 30분 다녀왔으며, 병원 방문은 없었고, 배변은 정상 변 1회, 행동은 평소보다 조금 조용하고 몸무게는 정상";
   process.env.PET_LOG_BACKEND_API_BASE_URL = "http://127.0.0.1:8000";
-  process.env.PET_LOG_BACKEND_PET_ID = "sample-pet-choco";
+  process.env.PET_LOG_BACKEND_PET_ID = "pet_01JCM7V8H9Q2K4N6R8T0A1B2C3";
 
   axios.defaults.adapter = (async (config) => {
     assert.deepEqual(
       JSON.parse(String(config.data)),
       {
-        pet_id: "sample-pet-choco",
+        pet_id: "pet_01JCM7V8H9Q2K4N6R8T0A1B2C3",
         text: detail,
         source: "ai_preview",
         confirm: false,
@@ -339,7 +339,7 @@ test("기록 생성 API는 FastAPI 기록 파이프라인을 확정 저장으로
   const previousPetId = process.env.PET_LOG_BACKEND_PET_ID;
   const previousAdapter = axios.defaults.adapter;
   process.env.PET_LOG_BACKEND_API_BASE_URL = "http://127.0.0.1:8000";
-  process.env.PET_LOG_BACKEND_PET_ID = "sample-pet-choco";
+  process.env.PET_LOG_BACKEND_PET_ID = "pet_01JCM7V8H9Q2K4N6R8T0A1B2C3";
 
   axios.defaults.adapter = (async (config) => {
     assert.equal(config.url, "http://127.0.0.1:8000/api/v1/pet-log/records");
@@ -348,7 +348,7 @@ test("기록 생성 API는 FastAPI 기록 파이프라인을 확정 저장으로
     assert.deepEqual(
       JSON.parse(String(config.data)),
       {
-        pet_id: "sample-pet-choco",
+        pet_id: "pet_01JCM7V8H9Q2K4N6R8T0A1B2C3",
         text: "저녁 산책 20분 했어요.",
         source: "manual",
         confirm: true,
@@ -374,7 +374,7 @@ test("기록 생성 API는 FastAPI 기록 파이프라인을 확정 저장으로
           saved_records: [
             {
               id: "record-server-1",
-              pet_id: "sample-pet-choco",
+              pet_id: "pet_01JCM7V8H9Q2K4N6R8T0A1B2C3",
               category: "walk",
               title: "저녁 산책",
               detail: "저녁 산책 20분 했어요.",

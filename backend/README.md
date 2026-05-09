@@ -100,7 +100,7 @@ POST /api/v1/pet-log/records
 
 ```json
 {
-  "pet_id": "sample-pet-choco",
+  "pet_id": "pet_01JCM7V8H9Q2K4N6R8T0A1B2C3",
   "text": "오늘 아침 사료를 조금 남겼어",
   "source": "manual",
   "confirm": false
