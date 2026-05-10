@@ -121,7 +121,45 @@ Browser
   - `GEMMA_PRELOAD=1`이면 `/v1/chat/completions` ping으로 로컬 모델을 메모리에 preload
   - `GEMMA_MODEL`은 Ollama tag 또는 HuggingFace ID이며, HuggingFace ID는 `infrastructure.llm.local_settings.OLLAMA_GEMMA_MODEL_ALIASES`로 정규화
 
-## Slide 8. RAG 설계
+## Slide 8. Middleware와 Tool 사용
+
+**핵심 메시지:** LangChain middleware와 tool을 agent node별로 분리해 읽기 작업, 쓰기 작업, 안전 제어, 관측 가능성을 독립적으로 관리합니다.
+
+### Middleware
+
+| 분류 | 구현 | 역할 |
+| --- | --- | --- |
+| Debug logging | `build_agent_debug_middleware` | tool 실행 중 예외를 `ToolMessage`로 정규화하고 raw args 노출을 방지 |
+| Model retry | `build_model_retry_middleware` | model 호출 실패 시 보수적인 retry 정책 적용 |
+| Tool retry | `build_tool_retry_middleware` | 지정 tool 실패 시 제한된 retry 적용 |
+| Human approval | `build_tool_approval_middleware` | `save_pet_record` 같은 쓰기 tool에 approve/reject interrupt 적용 가능 |
+| Call limit | `build_tool_call_limit_middleware` | tool별 run/thread 호출 횟수 제한 |
+| PII validation | `build_pii_validation_middleware` | 입력 PII를 기본 `redact` 전략으로 처리 |
+
+### Tool
+
+| 분류 | Tool 이름 | 구현 위치 | 역할 |
+| --- | --- | --- | --- |
+| Profile read | `get_pet_profile` | `tools.profile_tools` | pet profile 조회 |
+| Record read | `list_recent_records` | `tools.record_tools` | 최근 기록 조회 |
+| Record write | `save_pet_record` | `tools.record_tools` | 구조화된 기록 저장 |
+| Schedule read | `list_due_reminders` | `tools.schedule_tools` | 예정된 reminder 조회 |
+| Care context | care context tool | `tools.care_tools` | 케어 답변용 pet context 구성 |
+| Speech | `SpeechTools` | `tools.speech_tools` | STT/TTS provider 기능 노출 |
+
+### Node wiring
+
+| Agent node | Tools | Middleware |
+| --- | --- | --- |
+| `structure_record` | 없음 | 없음 |
+| `load_context` | `get_pet_profile`, `list_recent_records` | `agent_debug_log` |
+| `save_records` | `save_pet_record` | `agent_debug_log` |
+
+- `ToolRegistry`는 duplicate tool name을 거부해 agent action space 충돌을 방지
+- 읽기 tool과 쓰기 tool을 분리해 context loading과 record persistence 책임을 분명히 함
+- middleware factory는 LangChain 구현체를 감싸고, node wiring은 `agent_runtime.tool_registry`에 집중
+
+## Slide 9. RAG 설계
 
 **핵심 메시지:** 케어 질문 답변은 반려동물 컨텍스트와 승인된 케어 지식 검색 결과를 함께 사용하는 RAG 구조로 확장할 수 있게 설계했습니다.
 
@@ -144,7 +182,7 @@ Approved care URL
 - 안전 정책: 진단, 처방, 확정 표현 금지, 위험 증상은 병원 상담 안내 유지
 - 확장 작업: URL fetching, SSRF 보호, chunking, embedding persistence, similarity search, citation prompt
 
-## Slide 9. 주요 폴더 구조
+## Slide 10. 주요 폴더 구조
 
 **핵심 메시지:** 프런트는 화면과 클라이언트 도메인 로직을 분리하고, 백엔드는 계층형 agent backend 구조를 따릅니다.
 
@@ -164,7 +202,7 @@ backend/
 └── src/presentation/    # FastAPI HTTP and CLI boundary
 ```
 
-## Slide 10. 실행과 검증
+## Slide 11. 실행과 검증
 
 **핵심 메시지:** 프런트와 백엔드는 각각 독립 실행과 검증이 가능하며, 통합 시 Next.js가 FastAPI로 요청을 프록시합니다.
 
@@ -192,7 +230,7 @@ rg -n "fastapi|openai|sqlalchemy|sqlite|postgres|psycopg" src/application src/do
 
 마지막 명령은 출력이 없는 상태가 기대값입니다.
 
-## Slide 11. 환경변수
+## Slide 12. 환경변수
 
 **핵심 메시지:** secret은 코드에 두지 않고 로컬 `.env` 또는 배포 환경변수로 분리합니다.
 
@@ -238,7 +276,7 @@ EDGE_TTS_VOICE=ko-KR-SunHiNeural
 
 `LOCAL_LLM_AUTOSTART=1`이면 backend startup에서 `LOCAL_LLM_RUNTIME=ollama` 기준 `ollama serve`를 자동 기동합니다. `LOCAL_LLM_ROLE=primary` (기본값)이면 Gemma가 primary이고 GPT는 fallback이며, `LOCAL_LLM_ROLE=fallback`이면 하이브리드 모드로 GPT가 primary이고 Gemma는 last fallback입니다. `LLM_EAGER_LOAD=1`이면 configured LLM provider도 모두 생성합니다. `GEMMA_AUTO_PULL=1`이면 모델 생성 전 `ollama pull <GEMMA_MODEL>`을 실행하고, `GEMMA_PRELOAD=1`이면 `/v1/chat/completions` ping으로 모델을 메모리에 올립니다. `GEMMA_MODEL`은 Ollama endpoint에서 노출하는 실제 모델 이름으로 맞추거나, HuggingFace ID로 입력하면 자동 정규화됩니다. `OPENAI_API_KEY`가 있으면 GPT 모델이 사용 가능합니다.
 
-## Slide 12. 발표 요약
+## Slide 13. 발표 요약
 
 **핵심 메시지:** Pet Log는 모바일 우선 프런트, 계층형 AI backend, LangGraph agent orchestration, LangChain provider adapter, RAG 확장 설계를 결합한 AI 반려동물 관리 서비스입니다.
 
