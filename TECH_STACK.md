@@ -82,13 +82,13 @@ Browser
 | 사용 영역 | 모델 또는 provider | 현재 상태 |
 | --- | --- | --- |
 | 프런트 서버 AI service | `gpt-4o-mini` 기본값, `PET_LOG_OPENAI_MODEL`로 변경 | Next.js Route Handler 내부 OpenAI Responses API 호출 |
-| 백엔드 primary LLM | 로컬 Gemma 3n E4B endpoint | `LLM_EAGER_LOAD`, `LOCAL_LLM_AUTOSTART`, `LOCAL_LLM_RUNTIME`, `GEMMA_AUTO_PULL`, `GEMMA_PRELOAD`, `GEMMA_BASE_URL`, `GEMMA_MODEL`, `GEMMA_API_KEY` |
-| 기록 구조화 GPT fallback | `gpt-5-mini` 기본값 | `OPENAI_RECORD_STRUCTURING_MODEL` |
-| 기록 구조화 fallback | `gpt-5-nano` | `OPENAI_RECORD_STRUCTURING_FALLBACK_MODEL` |
-| 기록 요약 GPT fallback | `gpt-5-mini` | `OPENAI_RECORD_SUMMARY_MODEL` |
-| 케어 답변 GPT fallback | `gpt-5-mini` | `OPENAI_CARE_ANSWER_MODEL` |
-| 펫 페르소나 GPT fallback | `gpt-5-mini` | `OPENAI_PET_PERSONA_MODEL` |
-| 이미지 기록 이해 GPT fallback | `gpt-5-mini` | `OPENAI_IMAGE_RECORD_UNDERSTANDING_MODEL` |
+| 백엔드 primary LLM | 로컬 Gemma 3n E4B (Ollama) | `LOCAL_LLM_AUTOSTART`, `LOCAL_LLM_ROLE`, `LOCAL_LLM_RUNTIME`, `GEMMA_AUTO_PULL`, `GEMMA_PRELOAD`, `GEMMA_BASE_URL`, `GEMMA_MODEL`, `GEMMA_API_KEY` |
+| 기록 구조화 primary | `OPENAI_RECORD_STRUCTURING_MODEL` 또는 Gemma | `OPENAI_RECORD_STRUCTURING_MODEL` |
+| 기록 구조화 fallback | `OPENAI_RECORD_STRUCTURING_FALLBACK_MODEL` 또는 Gemma | `OPENAI_RECORD_STRUCTURING_FALLBACK_MODEL` |
+| 기록 요약 primary | `OPENAI_RECORD_SUMMARY_MODEL` 또는 Gemma | `OPENAI_RECORD_SUMMARY_MODEL` |
+| 케어 답변 primary | `OPENAI_CARE_ANSWER_MODEL` 또는 Gemma | `OPENAI_CARE_ANSWER_MODEL` |
+| 펫 페르소나 primary | `OPENAI_PET_PERSONA_MODEL` 또는 Gemma | `OPENAI_PET_PERSONA_MODEL` |
+| 이미지 기록 이해 primary | `OPENAI_IMAGE_RECORD_UNDERSTANDING_MODEL` 또는 Gemma | `OPENAI_IMAGE_RECORD_UNDERSTANDING_MODEL` |
 | 음성 인식 STT | Whisper `medium` | `WHISPER_MODEL` |
 | 음성 합성 TTS | edge-tts `ko-KR-SunHiNeural` | `EDGE_TTS_VOICE` |
 | RAG embedding | `text-embedding-3-small` | `OPENAI_CARE_KNOWLEDGE_EMBEDDING_MODEL` 설계 기본값 |
@@ -116,8 +116,10 @@ Browser
   - `LLM_EAGER_LOAD=1`이면 backend startup에서 configured provider를 모두 생성
   - `LOCAL_LLM_AUTOSTART=1`이면 백엔드 코드가 Ollama 서버를 자동 기동
   - `LOCAL_LLM_RUNTIME=ollama`이면 `ollama serve`와 기본 endpoint `http://127.0.0.1:11434/v1` 사용
+  - `LOCAL_LLM_ROLE=primary` (기본값)이면 Gemma primary + GPT fallback, `fallback`이면 GPT primary + Gemma last fallback
   - `GEMMA_AUTO_PULL=1`이면 `ollama pull <GEMMA_MODEL>`로 모델을 준비
   - `GEMMA_PRELOAD=1`이면 `/v1/chat/completions` ping으로 로컬 모델을 메모리에 preload
+  - `GEMMA_MODEL`은 Ollama tag 또는 HuggingFace ID이며, HuggingFace ID는 `infrastructure.llm.local_settings.OLLAMA_GEMMA_MODEL_ALIASES`로 정규화
 
 ## Slide 8. RAG 설계
 
@@ -213,6 +215,7 @@ OPENAI_API_KEY=
 LLM_EAGER_LOAD=1
 LOCAL_LLM_AUTOSTART=1
 LOCAL_LLM_RUNTIME=ollama
+LOCAL_LLM_ROLE=primary
 GEMMA_AUTO_PULL=1
 GEMMA_PRELOAD=1
 GEMMA_BASE_URL=
@@ -233,7 +236,7 @@ WHISPER_MODEL=medium
 EDGE_TTS_VOICE=ko-KR-SunHiNeural
 ```
 
-`LOCAL_LLM_AUTOSTART=1`이면 backend startup에서 `LOCAL_LLM_RUNTIME=ollama` 기준 `ollama serve`를 자동 기동합니다. `LLM_EAGER_LOAD=1`이면 이어서 configured LLM provider도 모두 생성합니다. `GEMMA_AUTO_PULL=1`이면 모델 생성 전 `ollama pull <GEMMA_MODEL>`을 실행하고, `GEMMA_PRELOAD=1`이면 `/v1/chat/completions` ping으로 모델을 메모리에 올립니다. `GEMMA_MODEL`은 로컬 LLM 런타임이 OpenAI-compatible endpoint에서 노출하는 실제 모델 이름으로 맞춥니다. `OPENAI_API_KEY`가 있으면 GPT fallback이 활성화됩니다.
+`LOCAL_LLM_AUTOSTART=1`이면 backend startup에서 `LOCAL_LLM_RUNTIME=ollama` 기준 `ollama serve`를 자동 기동합니다. `LOCAL_LLM_ROLE=primary` (기본값)이면 Gemma가 primary이고 GPT는 fallback이며, `LOCAL_LLM_ROLE=fallback`이면 하이브리드 모드로 GPT가 primary이고 Gemma는 last fallback입니다. `LLM_EAGER_LOAD=1`이면 configured LLM provider도 모두 생성합니다. `GEMMA_AUTO_PULL=1`이면 모델 생성 전 `ollama pull <GEMMA_MODEL>`을 실행하고, `GEMMA_PRELOAD=1`이면 `/v1/chat/completions` ping으로 모델을 메모리에 올립니다. `GEMMA_MODEL`은 Ollama endpoint에서 노출하는 실제 모델 이름으로 맞추거나, HuggingFace ID로 입력하면 자동 정규화됩니다. `OPENAI_API_KEY`가 있으면 GPT 모델이 사용 가능합니다.
 
 ## Slide 12. 발표 요약
 

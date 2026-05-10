@@ -120,23 +120,24 @@ PET_LOG_OPENAI_MODEL=
 PET_LOG_OPENAI_RESPONSES_URL=
 ```
 
-백엔드 LLM provider는 `LOCAL_LLM_AUTOSTART=1` 또는 `GEMMA_BASE_URL`이 설정되면 로컬 OpenAI-compatible Gemma 3n E4B endpoint를 primary로 사용하고, `OPENAI_API_KEY`가 있으면 GPT 모델로 fallback합니다.
+백엔드 LLM provider는 Ollama를 로컬 런타임으로 사용합니다. `LOCAL_LLM_AUTOSTART=1`이 설정되면 Ollama 서버를 자동으로 기동하고, `LOCAL_LLM_ROLE`로 primary/fallback 모드를 선택할 수 있습니다.
 
 ```text
 LLM_EAGER_LOAD=1
 LOCAL_LLM_AUTOSTART=1
-LOCAL_LLM_RUNTIME=vllm
+LOCAL_LLM_RUNTIME=ollama
+LOCAL_LLM_ROLE=primary
 GEMMA_AUTO_PULL=1
 GEMMA_PRELOAD=1
 GEMMA_BASE_URL=
-GEMMA_MODEL=google/gemma-3n-E4B-it
+GEMMA_MODEL=gemma3n:e4b
 GEMMA_API_KEY=local-gemma
 OPENAI_API_KEY=
 OPENAI_RECORD_STRUCTURING_MODEL=gpt-5-mini
 OPENAI_RECORD_STRUCTURING_FALLBACK_MODEL=gpt-5-nano
 ```
 
-`LLM_EAGER_LOAD=1`이면 백엔드 실행 시 configured LLM provider를 미리 생성합니다. `LOCAL_LLM_AUTOSTART=1`이면 백엔드가 모델 생성 전에 `LOCAL_LLM_RUNTIME`에 따라 `vllm serve` 또는 `llama-server`를 자동으로 시작합니다. vLLM 기본 endpoint는 `http://127.0.0.1:8000/v1`, llama.cpp 기본 endpoint는 `http://127.0.0.1:8080/v1`입니다. `GEMMA_AUTO_PULL=1`이면 `huggingface-cli download`로 모델을 준비하고, `GEMMA_PRELOAD=1`이면 `/v1/chat/completions` ping으로 모델을 메모리에 올립니다.
+`LLM_EAGER_LOAD=1`이면 백엔드 실행 시 configured LLM provider를 미리 생성합니다. `LOCAL_LLM_AUTOSTART=1`이면 백엔드가 `ollama serve`를 자동으로 시작합니다. Ollama 기본 endpoint는 `http://127.0.0.1:11434/v1`입니다. `LOCAL_LLM_ROLE=primary` (기본값)이면 Gemma가 primary이고 GPT는 fallback이며, `LOCAL_LLM_ROLE=fallback`이면 GPT가 primary이고 Gemma는 last fallback입니다. `GEMMA_AUTO_PULL=1`이면 `ollama pull <GEMMA_MODEL>`로 모델을 준비하고, `GEMMA_PRELOAD=1`이면 `/v1/chat/completions` ping으로 모델을 메모리에 올립니다. `GEMMA_MODEL`은 Ollama tag 또는 HuggingFace ID이며, HuggingFace ID는 자동으로 Ollama 형식으로 정규화됩니다.
 
 ## 백엔드 실행 및 검증
 
