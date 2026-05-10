@@ -142,49 +142,33 @@ LLM provider 타입 경계는 `infrastructure.llm.model_factory.LLMModel`과 `Mo
 cp .env.example .env
 ```
 
-vLLM을 코드에서 자동 기동하는 예시:
+Ollama를 코드에서 자동 기동하는 예시:
 
 ```env
 LLM_EAGER_LOAD=1
 LOCAL_LLM_AUTOSTART=1
-LOCAL_LLM_RUNTIME=vllm
+LOCAL_LLM_RUNTIME=ollama
 GEMMA_AUTO_PULL=1
 GEMMA_PRELOAD=1
 GEMMA_BASE_URL=
-GEMMA_MODEL=google/gemma-3n-E4B-it
+GEMMA_MODEL=gemma3n:e4b
 GEMMA_API_KEY=local-gemma
 ```
 
-이 설정에서는 백엔드가 실행 시점에 모든 configured LLM provider를 생성하고, 모델 생성 전에 `huggingface-cli download google/gemma-3n-E4B-it`와 `vllm serve google/gemma-3n-E4B-it`를 실행한 뒤 `/v1/chat/completions` ping으로 로컬 모델을 메모리에 올린다. 기본 endpoint는 `http://127.0.0.1:8000/v1`이다. `GEMMA_AUTO_PULL=1`은 대용량 모델 다운로드가 발생할 수 있으므로 자동 다운로드를 원하지 않으면 비워 둔다. 이미 별도 OpenAI-compatible 서버를 켜 둔 경우에는 `LOCAL_LLM_AUTOSTART`를 비우고 `GEMMA_BASE_URL`을 직접 지정한다.
+이 설정에서는 백엔드 startup 시 `ollama serve`를 함께 실행한다. `GEMMA_AUTO_PULL=1`이면 모델 생성 전에 `ollama pull gemma3n:e4b`도 실행하고, `GEMMA_PRELOAD=1`이면 `/v1/chat/completions` ping으로 로컬 모델을 메모리에 올린다. Ollama 기본 endpoint는 `http://127.0.0.1:11434/v1`이다. `GEMMA_AUTO_PULL=1`은 모델 다운로드가 발생할 수 있으므로 자동 다운로드를 원하지 않으면 비워 둔다. 이미 별도 OpenAI-compatible 서버를 켜 둔 경우에는 `LOCAL_LLM_AUTOSTART`를 비우고 `GEMMA_BASE_URL`을 직접 지정한다.
 
-llama.cpp를 사용할 때는 GGUF 모델 정보를 함께 지정한다.
-
-```env
-LLM_EAGER_LOAD=1
-LOCAL_LLM_AUTOSTART=1
-LOCAL_LLM_RUNTIME=llama_cpp
-GEMMA_AUTO_PULL=1
-GEMMA_PRELOAD=1
-GEMMA_BASE_URL=
-GEMMA_MODEL=google/gemma-3n-E4B-it
-GEMMA_API_KEY=local-gemma
-LLAMA_CPP_HF_REPO=ggml-org/gemma-3n-E4B-it-GGUF
-LLAMA_CPP_HF_FILE=gemma-3n-E4B-it-Q8_0.gguf
-```
-
-llama.cpp 기본 endpoint는 `http://127.0.0.1:8080/v1`이다. 서버는 `llama-server --hf-repo ... --hf-file ... --alias google/gemma-3n-E4B-it` 형태로 시작되어 LangChain 호출부의 모델명은 vLLM과 동일하게 유지된다.
+Ollama 모델명은 `gemma3n:e4b`, `gemma4:e4b` 같은 Ollama tag를 사용한다. 기존 Hugging Face ID인 `google/gemma-3n-E4B-it`, `google/gemma-4-E4B-it`가 들어오면 각각 `gemma3n:e4b`, `gemma4:e4b`로 정규화한다.
 
 ```env
 GEMMA_BASE_URL=http://127.0.0.1:1234/v1
-GEMMA_MODEL=google/gemma-3n-E4B-it
+GEMMA_MODEL=gemma3n:e4b
 GEMMA_API_KEY=local-gemma
 ```
 
-자동 다운로드를 사용하지 않을 때는 모델을 로컬 런타임별 명령으로 미리 준비한다.
+자동 다운로드를 사용하지 않을 때는 모델을 미리 준비한다.
 
 ```bash
-huggingface-cli download google/gemma-3n-E4B-it
-huggingface-cli download ggml-org/gemma-3n-E4B-it-GGUF gemma-3n-E4B-it-Q8_0.gguf
+ollama pull gemma3n:e4b
 ```
 
 GPT fallback 예시:

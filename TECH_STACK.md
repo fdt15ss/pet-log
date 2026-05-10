@@ -103,7 +103,7 @@ Browser
   - node update streaming과 pipeline contract 테스트 보유
   - 상태 기반 graph orchestration에 적합
 - LangChain
-  - `ChatOpenAI` 기반 local Gemma 3n E4B primary와 GPT fallback provider 구현
+  - `ChatOpenAI` 기반 OpenAI-compatible local Gemma primary와 GPT fallback provider 구현
   - `StructuredTool`, `BaseTool` 기반 agent tool registry 구성
   - retry, tracing, safety, validation middleware 구성
 - 설계 원칙
@@ -114,10 +114,9 @@ Browser
   - 단순 chat provider는 `build_chat_openai_model`을 직접 주입하고, structured output provider만 기능별 `model.py` builder를 유지
   - 공통 GPT 기본 모델 상수는 `infrastructure.llm.constants`에서 관리
   - `LLM_EAGER_LOAD=1`이면 backend startup에서 configured provider를 모두 생성
-  - `LOCAL_LLM_AUTOSTART=1`이면 백엔드 코드가 vLLM 또는 llama.cpp 서버를 자동 기동
-  - `LOCAL_LLM_RUNTIME=vllm`이면 `vllm serve <GEMMA_MODEL>`와 기본 endpoint `http://127.0.0.1:8000/v1` 사용
-  - `LOCAL_LLM_RUNTIME=llama_cpp`이면 `llama-server`와 GGUF 모델을 사용하고 기본 endpoint `http://127.0.0.1:8080/v1` 사용
-  - `GEMMA_AUTO_PULL=1`이면 `huggingface-cli download`로 모델을 준비
+  - `LOCAL_LLM_AUTOSTART=1`이면 백엔드 코드가 Ollama 서버를 자동 기동
+  - `LOCAL_LLM_RUNTIME=ollama`이면 `ollama serve`와 기본 endpoint `http://127.0.0.1:11434/v1` 사용
+  - `GEMMA_AUTO_PULL=1`이면 `ollama pull <GEMMA_MODEL>`로 모델을 준비
   - `GEMMA_PRELOAD=1`이면 `/v1/chat/completions` ping으로 로컬 모델을 메모리에 preload
 
 ## Slide 8. RAG 설계
@@ -213,14 +212,12 @@ OPENAI_API_KEY=
 OPENAI_API_KEY=
 LLM_EAGER_LOAD=1
 LOCAL_LLM_AUTOSTART=1
-LOCAL_LLM_RUNTIME=vllm
+LOCAL_LLM_RUNTIME=ollama
 GEMMA_AUTO_PULL=1
 GEMMA_PRELOAD=1
 GEMMA_BASE_URL=
-GEMMA_MODEL=google/gemma-3n-E4B-it
+GEMMA_MODEL=gemma3n:e4b
 GEMMA_API_KEY=local-gemma
-LLAMA_CPP_HF_REPO=ggml-org/gemma-3n-E4B-it-GGUF
-LLAMA_CPP_HF_FILE=gemma-3n-E4B-it-Q8_0.gguf
 OPENAI_RECORD_STRUCTURING_MODEL=gpt-5-mini
 OPENAI_RECORD_STRUCTURING_FALLBACK_MODEL=gpt-5-nano
 OPENAI_RECORD_SUMMARY_MODEL=gpt-5-mini
@@ -236,7 +233,7 @@ WHISPER_MODEL=medium
 EDGE_TTS_VOICE=ko-KR-SunHiNeural
 ```
 
-`LLM_EAGER_LOAD=1`이면 backend startup에서 configured LLM provider를 모두 생성합니다. `LOCAL_LLM_AUTOSTART=1`이면 백엔드가 `LOCAL_LLM_RUNTIME`에 따라 `vllm serve` 또는 `llama-server`를 자동 기동합니다. `GEMMA_AUTO_PULL=1`이면 모델 생성 전 `huggingface-cli download`를 실행하고, `GEMMA_PRELOAD=1`이면 `/v1/chat/completions` ping으로 모델을 메모리에 올립니다. `GEMMA_MODEL`은 로컬 LLM 런타임이 OpenAI-compatible endpoint에서 노출하는 실제 모델 이름으로 맞춥니다. `OPENAI_API_KEY`가 있으면 GPT fallback이 활성화됩니다.
+`LOCAL_LLM_AUTOSTART=1`이면 backend startup에서 `LOCAL_LLM_RUNTIME=ollama` 기준 `ollama serve`를 자동 기동합니다. `LLM_EAGER_LOAD=1`이면 이어서 configured LLM provider도 모두 생성합니다. `GEMMA_AUTO_PULL=1`이면 모델 생성 전 `ollama pull <GEMMA_MODEL>`을 실행하고, `GEMMA_PRELOAD=1`이면 `/v1/chat/completions` ping으로 모델을 메모리에 올립니다. `GEMMA_MODEL`은 로컬 LLM 런타임이 OpenAI-compatible endpoint에서 노출하는 실제 모델 이름으로 맞춥니다. `OPENAI_API_KEY`가 있으면 GPT fallback이 활성화됩니다.
 
 ## Slide 12. 발표 요약
 
