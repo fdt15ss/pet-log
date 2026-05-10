@@ -69,7 +69,7 @@ Browser
 | API | FastAPI `>=0.136.1` | HTTP API, health check, 기록 입력, STT API |
 | Server | Uvicorn standard `>=0.46.0` | ASGI 개발 및 실행 서버 |
 | Agent Graph | LangGraph `>=1.1,<2.0` | 상태 기반 pipeline graph orchestration |
-| LLM Adapter | LangChain `>=1.0,<2.0`, LangChain OpenAI `>=1.0,<2.0` | local Gemma 3n E4B, GPT fallback, tool, middleware adapter |
+| LLM Adapter | LangChain `>=1.0,<2.0`, LangChain OpenAI `>=1.0,<2.0` | Gemma(Ollama) + GPT 하이브리드, tool, middleware adapter |
 | Storage | SQLite via `sqlite3` | 현재 repository 구현체의 로컬 저장소 |
 | Speech | OpenAI Whisper, edge-tts | STT와 TTS provider |
 | Test/Lint | `unittest`, Ruff | 백엔드 검증과 정적 분석 |
@@ -77,12 +77,12 @@ Browser
 
 ## Slide 6. AI와 사용 모델
 
-**핵심 메시지:** 백엔드 LLM은 로컬 Gemma 3n E4B를 primary로 사용하고, 장애나 timeout이 나면 GPT 모델로 fallback할 수 있게 공통 인터페이스를 맞췄습니다.
+**핵심 메시지:** 백엔드 LLM은 Gemma primary / GPT fallback, 또는 GPT primary / Gemma fallback(하이브리드) 두 가지 운용 방식을 지원하며, `LOCAL_LLM_ROLE` 하나로 전환합니다.
 
 | 사용 영역 | 모델 또는 provider | 현재 상태 |
 | --- | --- | --- |
 | 프런트 서버 AI service | `gpt-4o-mini` 기본값, `PET_LOG_OPENAI_MODEL`로 변경 | Next.js Route Handler 내부 OpenAI Responses API 호출 |
-| 백엔드 primary LLM | 로컬 Gemma 3n E4B (Ollama) | `LOCAL_LLM_AUTOSTART`, `LOCAL_LLM_ROLE`, `LOCAL_LLM_RUNTIME`, `GEMMA_AUTO_PULL`, `GEMMA_PRELOAD`, `GEMMA_BASE_URL`, `GEMMA_MODEL`, `GEMMA_API_KEY` |
+| 백엔드 LLM (하이브리드) | Gemma(Ollama) + GPT — `LOCAL_LLM_ROLE`로 primary/fallback 전환 | `LOCAL_LLM_AUTOSTART`, `LOCAL_LLM_ROLE`, `LOCAL_LLM_RUNTIME`, `GEMMA_AUTO_PULL`, `GEMMA_PRELOAD`, `GEMMA_BASE_URL`, `GEMMA_MODEL`, `GEMMA_API_KEY` |
 | 기록 구조화 primary | `OPENAI_RECORD_STRUCTURING_MODEL` 또는 Gemma | `OPENAI_RECORD_STRUCTURING_MODEL` |
 | 기록 구조화 fallback | `OPENAI_RECORD_STRUCTURING_FALLBACK_MODEL` 또는 Gemma | `OPENAI_RECORD_STRUCTURING_FALLBACK_MODEL` |
 | 기록 요약 primary | `OPENAI_RECORD_SUMMARY_MODEL` 또는 Gemma | `OPENAI_RECORD_SUMMARY_MODEL` |
@@ -244,6 +244,6 @@ EDGE_TTS_VOICE=ko-KR-SunHiNeural
 
 - 프런트: Next.js, React, TypeScript, Tailwind, Axios
 - 백엔드: Python, FastAPI, LangChain, LangGraph, SQLite
-- AI 모델: 로컬 Gemma 3n E4B primary, `gpt-5-mini`/`gpt-5-nano` fallback, `gpt-4o-mini`, Whisper `medium`, `text-embedding-3-small`
+- AI 모델: Gemma 4 E4B(Ollama) + GPT 하이브리드(`LOCAL_LLM_ROLE`로 전환), `gpt-4o-mini`, Whisper `medium`, `text-embedding-3-small`
 - 개발 방식: 하네스 엔지니어링 기반 기획, UX, AI, 구현, QA gate
 - 확장성: RAG, speech, image understanding, provider 교체 가능 구조
