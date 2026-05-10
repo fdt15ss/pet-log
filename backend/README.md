@@ -130,30 +130,78 @@ POST /api/v1/speech/transcriptions
 curl -F "audio=@recording.webm;type=audio/webm" http://127.0.0.1:8000/api/v1/speech/transcriptions
 ```
 
-## 실제 LLM smoke test
+## 로컬 Gemma 3n E4B와 GPT fallback
 
-실제 OpenAI API를 호출하는 수동 확인 스크립트다. 로컬에서는 `backend/.env`를 `python-dotenv`로 읽고, 이미 설정된 shell 또는 배포 환경변수는 덮어쓰지 않는다.
+백엔드 LLM provider는 공통 factory를 통해 OpenAI-compatible chat model interface를 사용한다. `LOCAL_LLM_AUTOSTART=1` 또는 `GEMMA_BASE_URL`이 설정되면 로컬 Gemma 3n E4B endpoint를 primary로 호출하고, `OPENAI_API_KEY`가 있으면 transient failure 시 GPT 모델로 fallback한다.
 
-로컬 예시는 다음 파일에서 시작한다.
+로컬 예시는 다음 파일에서 시작한다. `GEMMA_MODEL`은 로컬 런타임이 노출하는 실제 모델 이름으로 맞춘다.
 
 ```bash
 cp .env.example .env
 ```
 
-필수 secret:
+vLLM을 코드에서 자동 기동하는 예시:
+
+```env
+LLM_EAGER_LOAD=1
+LOCAL_LLM_AUTOSTART=1
+LOCAL_LLM_RUNTIME=vllm
+GEMMA_AUTO_PULL=1
+GEMMA_PRELOAD=1
+GEMMA_BASE_URL=
+GEMMA_MODEL=google/gemma-3n-E4B-it
+GEMMA_API_KEY=local-gemma
+```
+
+이 설정에서는 백엔드가 실행 시점에 모든 configured LLM provider를 생성하고, 모델 생성 전에 `huggingface-cli download google/gemma-3n-E4B-it`와 `vllm serve google/gemma-3n-E4B-it`를 실행한 뒤 `/v1/chat/completions` ping으로 로컬 모델을 메모리에 올린다. 기본 endpoint는 `http://127.0.0.1:8000/v1`이다. `GEMMA_AUTO_PULL=1`은 대용량 모델 다운로드가 발생할 수 있으므로 자동 다운로드를 원하지 않으면 비워 둔다. 이미 별도 OpenAI-compatible 서버를 켜 둔 경우에는 `LOCAL_LLM_AUTOSTART`를 비우고 `GEMMA_BASE_URL`을 직접 지정한다.
+
+llama.cpp를 사용할 때는 GGUF 모델 정보를 함께 지정한다.
+
+```env
+LLM_EAGER_LOAD=1
+LOCAL_LLM_AUTOSTART=1
+LOCAL_LLM_RUNTIME=llama_cpp
+GEMMA_AUTO_PULL=1
+GEMMA_PRELOAD=1
+GEMMA_BASE_URL=
+GEMMA_MODEL=google/gemma-3n-E4B-it
+GEMMA_API_KEY=local-gemma
+LLAMA_CPP_HF_REPO=ggml-org/gemma-3n-E4B-it-GGUF
+LLAMA_CPP_HF_FILE=gemma-3n-E4B-it-Q8_0.gguf
+```
+
+llama.cpp 기본 endpoint는 `http://127.0.0.1:8080/v1`이다. 서버는 `llama-server --hf-repo ... --hf-file ... --alias google/gemma-3n-E4B-it` 형태로 시작되어 LangChain 호출부의 모델명은 vLLM과 동일하게 유지된다.
+
+```env
+GEMMA_BASE_URL=http://127.0.0.1:1234/v1
+GEMMA_MODEL=google/gemma-3n-E4B-it
+GEMMA_API_KEY=local-gemma
+```
+
+자동 다운로드를 사용하지 않을 때는 모델을 로컬 런타임별 명령으로 미리 준비한다.
+
+```bash
+huggingface-cli download google/gemma-3n-E4B-it
+huggingface-cli download ggml-org/gemma-3n-E4B-it-GGUF gemma-3n-E4B-it-Q8_0.gguf
+```
+
+GPT fallback 예시:
 
 ```env
 OPENAI_API_KEY=
-```
-
-기록 구조화 모델 fallback 예시:
-
-```env
 OPENAI_RECORD_STRUCTURING_MODEL=gpt-5-mini
 OPENAI_RECORD_STRUCTURING_FALLBACK_MODEL=gpt-5-nano
+OPENAI_RECORD_SUMMARY_MODEL=gpt-5-mini
+OPENAI_CARE_ANSWER_MODEL=gpt-5-mini
+OPENAI_PET_PERSONA_MODEL=gpt-5-mini
+OPENAI_IMAGE_RECORD_UNDERSTANDING_MODEL=gpt-5-mini
 ```
 
-`.env`는 local secret 파일이므로 git에 커밋하지 않는다. 운영 환경에서는 `.env` 파일 대신 배포 환경변수 또는 secret manager에 같은 키를 등록한다.
+`OPENAI_*_FALLBACK_MODEL`을 따로 지정하지 않은 provider는 같은 GPT 작업 모델을 fallback으로 사용한다. `.env`는 local secret 파일이므로 git에 커밋하지 않는다. 운영 환경에서는 `.env` 파일 대신 배포 환경변수 또는 secret manager에 같은 키를 등록한다.
+
+## 실제 LLM smoke test
+
+실제 LLM을 호출하는 수동 확인 스크립트다. 로컬에서는 `backend/.env`를 `python-dotenv`로 읽고, 이미 설정된 shell 또는 배포 환경변수는 덮어쓰지 않는다.
 
 자연어 기록 구조화 확인:
 

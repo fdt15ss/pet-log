@@ -120,6 +120,24 @@ PET_LOG_OPENAI_MODEL=
 PET_LOG_OPENAI_RESPONSES_URL=
 ```
 
+백엔드 LLM provider는 `LOCAL_LLM_AUTOSTART=1` 또는 `GEMMA_BASE_URL`이 설정되면 로컬 OpenAI-compatible Gemma 3n E4B endpoint를 primary로 사용하고, `OPENAI_API_KEY`가 있으면 GPT 모델로 fallback합니다.
+
+```text
+LLM_EAGER_LOAD=1
+LOCAL_LLM_AUTOSTART=1
+LOCAL_LLM_RUNTIME=vllm
+GEMMA_AUTO_PULL=1
+GEMMA_PRELOAD=1
+GEMMA_BASE_URL=
+GEMMA_MODEL=google/gemma-3n-E4B-it
+GEMMA_API_KEY=local-gemma
+OPENAI_API_KEY=
+OPENAI_RECORD_STRUCTURING_MODEL=gpt-5-mini
+OPENAI_RECORD_STRUCTURING_FALLBACK_MODEL=gpt-5-nano
+```
+
+`LLM_EAGER_LOAD=1`이면 백엔드 실행 시 configured LLM provider를 미리 생성합니다. `LOCAL_LLM_AUTOSTART=1`이면 백엔드가 모델 생성 전에 `LOCAL_LLM_RUNTIME`에 따라 `vllm serve` 또는 `llama-server`를 자동으로 시작합니다. vLLM 기본 endpoint는 `http://127.0.0.1:8000/v1`, llama.cpp 기본 endpoint는 `http://127.0.0.1:8080/v1`입니다. `GEMMA_AUTO_PULL=1`이면 `huggingface-cli download`로 모델을 준비하고, `GEMMA_PRELOAD=1`이면 `/v1/chat/completions` ping으로 모델을 메모리에 올립니다.
+
 ## 백엔드 실행 및 검증
 
 백엔드는 Python 3.12 이상과 `uv` 기준으로 구성되어 있습니다.
