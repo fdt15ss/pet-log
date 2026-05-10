@@ -4,25 +4,21 @@ from domain.models import CareContext
 from infrastructure.knowledge import CareKnowledgeRetriever
 from infrastructure.llm.base_provider import BaseLLMProvider
 from infrastructure.llm.care_answer.mapper import message_content_to_text
-from infrastructure.llm.care_answer.model import (
-    DEFAULT_CARE_ANSWER_MODEL,
-    CareAnswerModel,
-    CareAnswerModelFactory,
-    build_care_answer_model,
-)
 from infrastructure.llm.care_answer.prompt import build_care_answer_messages
+from infrastructure.llm.constants import DEFAULT_CARE_ANSWER_MODEL
+from infrastructure.llm.model_factory import LLMModel, ModelFactory, build_chat_openai_model
 from infrastructure.llm.provider_config import LLMProviderConfig
 
 
-class CareAnswerProvider(BaseLLMProvider[CareAnswerModel]):
+class CareAnswerProvider(BaseLLMProvider[LLMModel]):
     def __init__(
         self,
         *,
         api_key: str | None = None,
         model: str | None = None,
         timeout: float = 30.0,
-        model_factory: CareAnswerModelFactory = build_care_answer_model,
-        chat_model: CareAnswerModel | None = None,
+        model_factory: ModelFactory[LLMModel] = build_chat_openai_model,
+        chat_model: LLMModel | None = None,
         knowledge_retriever: CareKnowledgeRetriever | None = None,
     ) -> None:
         super().__init__(
