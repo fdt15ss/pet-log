@@ -5,23 +5,22 @@ from infrastructure.llm.base_provider import BaseLLMProvider
 from infrastructure.llm.image_record_understanding.mapper import to_structured_record_candidate
 from infrastructure.llm.image_record_understanding.model import (
     DEFAULT_IMAGE_RECORD_UNDERSTANDING_MODEL,
-    ImageRecordUnderstandingModel,
-    ImageRecordUnderstandingModelFactory,
     build_image_record_understanding_model,
 )
 from infrastructure.llm.image_record_understanding.prompt import build_image_record_understanding_messages
+from infrastructure.llm.model_factory import LLMModel, ModelFactory
 from infrastructure.llm.provider_config import LLMProviderConfig
 
 
-class ImageRecordUnderstandingProvider(BaseLLMProvider[ImageRecordUnderstandingModel]):
+class ImageRecordUnderstandingProvider(BaseLLMProvider[LLMModel]):
     def __init__(
         self,
         *,
         api_key: str | None = None,
         model: str | None = None,
         timeout: float = 30.0,
-        model_factory: ImageRecordUnderstandingModelFactory = build_image_record_understanding_model,
-        structured_model: ImageRecordUnderstandingModel | None = None,
+        model_factory: ModelFactory[LLMModel] = build_image_record_understanding_model,
+        structured_model: LLMModel | None = None,
     ) -> None:
         super().__init__(
             config=LLMProviderConfig.from_env(

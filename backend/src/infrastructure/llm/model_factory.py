@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Callable, Sequence
-from typing import Protocol, TypeVar
+from typing import Protocol, TypeVar, cast
 
 from openai import APIConnectionError, APITimeoutError, InternalServerError, RateLimitError
 
@@ -24,18 +24,21 @@ TRANSIENT_LLM_ERRORS: tuple[type[BaseException], ...] = (
 )
 
 
-class FallbackCapableModel(Protocol):
+class LLMModel(Protocol):
+    def invoke(self, messages: list[object]) -> object:
+        raise NotImplementedError
+
     def with_fallbacks(
         self,
         fallbacks: Sequence[object],
         *,
         exceptions_to_handle: tuple[type[BaseException], ...],
         exception_key: str | None = None,
-    ) -> object:
+    ) -> LLMModel:
         raise NotImplementedError
 
 
-ModelT = TypeVar("ModelT", bound=FallbackCapableModel)
+ModelT = TypeVar("ModelT", bound=LLMModel)
 ModelFactory = Callable[[str, str, float], ModelT]
 
 
@@ -84,16 +87,22 @@ def build_primary_with_gpt_fallback(
         gpt_model = fallback_model or provider_model
         if not gpt_model or not gpt_fallback_api_key():
             return primary_model
-        return primary_model.with_fallbacks(
-            [model_factory(gpt_model, gpt_fallback_api_key(), timeout)],
-            exceptions_to_handle=TRANSIENT_LLM_ERRORS,
+        return cast(
+            ModelT,
+            primary_model.with_fallbacks(
+                [model_factory(gpt_model, gpt_fallback_api_key(), timeout)],
+                exceptions_to_handle=TRANSIENT_LLM_ERRORS,
+            ),
         )
 
     primary_model = model_factory(provider_model, provider_api_key, timeout)
     if not fallback_model:
         return primary_model
 
-    return primary_model.with_fallbacks(
-        [model_factory(fallback_model, provider_api_key, timeout)],
-        exceptions_to_handle=TRANSIENT_LLM_ERRORS,
+    return cast(
+        ModelT,
+        primary_model.with_fallbacks(
+            [model_factory(fallback_model, provider_api_key, timeout)],
+            exceptions_to_handle=TRANSIENT_LLM_ERRORS,
+        ),
     )
