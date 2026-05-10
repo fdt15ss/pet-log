@@ -9,7 +9,7 @@ from openai import APIConnectionError, APITimeoutError, InternalServerError, Rat
 from langchain_openai import ChatOpenAI
 
 from infrastructure.llm.local_runtime import ensure_local_gemma_runtime, local_gemma_base_url
-from infrastructure.llm.local_settings import local_gemma_api_key, local_gemma_model
+from infrastructure.llm.local_settings import local_gemma_api_key, local_gemma_model, normalize_local_gemma_model
 
 
 DEFAULT_GPT_FALLBACK_MODEL = "gpt-5-mini"
@@ -46,18 +46,26 @@ def is_local_gemma_enabled() -> bool:
     return bool(os.environ.get("GEMMA_BASE_URL") or os.environ.get("LOCAL_LLM_AUTOSTART"))
 
 
+def is_local_gemma_primary() -> bool:
+    """True when Gemma is the primary model; False in hybrid/fallback mode (LOCAL_LLM_ROLE=fallback)."""
+    return is_local_gemma_enabled() and os.environ.get("LOCAL_LLM_ROLE", "primary").lower() != "fallback"
+
+
 def gpt_fallback_api_key() -> str:
     return os.environ.get("OPENAI_API_KEY", "")
 
 
 def require_local_or_gpt_api_key(provider_name: str, provider_api_key: str = "") -> None:
-    if is_local_gemma_enabled():
+    if is_local_gemma_primary():
         return
     if not provider_api_key and not gpt_fallback_api_key():
         raise RuntimeError(f"OPENAI_API_KEY is required to use {provider_name}.")
 
 
 def build_chat_openai_model(model: str, api_key: str, timeout: float) -> ChatOpenAI:
+    if is_local_gemma_primary():
+        model = normalize_local_gemma_model(model)
+
     kwargs: dict[str, object] = {
         "model": model,
         "api_key": api_key,
@@ -82,7 +90,8 @@ def build_primary_with_gpt_fallback(
     timeout: float,
     model_factory: ModelFactory[ModelT],
 ) -> ModelT:
-    if is_local_gemma_enabled():
+    if is_local_gemma_primary():
+        # Gemma primary → GPT fallback
         primary_model = model_factory(local_gemma_model(), local_gemma_api_key(), timeout)
         gpt_model = fallback_model or provider_model
         if not gpt_model or not gpt_fallback_api_key():
@@ -95,6 +104,19 @@ def build_primary_with_gpt_fallback(
             ),
         )
 
+    if is_local_gemma_enabled():
+        # Hybrid: GPT primary → (env fallback_model if set) → Gemma fallback
+        primary_model = model_factory(provider_model, provider_api_key, timeout)
+        fallbacks: list[ModelT] = []
+        if fallback_model:
+            fallbacks.append(model_factory(fallback_model, provider_api_key, timeout))
+        fallbacks.append(model_factory(local_gemma_model(), local_gemma_api_key(), timeout))
+        return cast(
+            ModelT,
+            primary_model.with_fallbacks(fallbacks, exceptions_to_handle=TRANSIENT_LLM_ERRORS),
+        )
+
+    # GPT only
     primary_model = model_factory(provider_model, provider_api_key, timeout)
     if not fallback_model:
         return primary_model
