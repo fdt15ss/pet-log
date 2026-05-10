@@ -3,12 +3,11 @@ from __future__ import annotations
 import json
 import sqlite3
 
-from application.interfaces import PetProfileReaderInterface
 from domain.models import PetProfile
 from infrastructure.database import initialize_schema
 
 
-class PetProfileRepository(PetProfileReaderInterface):
+class PetProfileRepository:
     def __init__(self, pets: tuple[PetProfile, ...] = (), connection: sqlite3.Connection | None = None) -> None:
         self._connection = connection
         if self._connection is not None:

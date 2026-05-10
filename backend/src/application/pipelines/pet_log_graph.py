@@ -12,7 +12,6 @@ warnings.simplefilter("ignore", LangChainPendingDeprecationWarning)
 from langgraph.graph import END, START, StateGraph  # noqa: E402
 
 from application.dto import PetLogAgentInput, PetLogAgentResult  # noqa: E402
-from application.interfaces import RecordHistoryReaderInterface, RecordRepositoryInterface, ScheduleContextReaderInterface  # noqa: E402
 from domain.models import (  # noqa: E402
     CareSuggestion,
     ContextAnalysisResult,
@@ -21,6 +20,7 @@ from domain.models import (  # noqa: E402
     SafetyNotice,
     StructuredRecordBatch,
 )
+from infrastructure.repositories import RecordRepository, ScheduleRepository  # noqa: E402
 
 
 logger = logging.getLogger(__name__)
@@ -43,11 +43,11 @@ class LangGraphPetLogAgentPipeline:
     def __init__(
         self,
         record_structuring_agent,
-        record_history_reader: RecordHistoryReaderInterface,
-        schedule_context_reader: ScheduleContextReaderInterface,
+        record_history_reader: RecordRepository,
+        schedule_context_reader: ScheduleRepository,
         context_analysis_agent,
         risk_detection_agent,
-        record_repository: RecordRepositoryInterface,
+        record_repository: RecordRepository,
         suggestion_agent,
         reminder_agent,
         lookback_days: int = 30,

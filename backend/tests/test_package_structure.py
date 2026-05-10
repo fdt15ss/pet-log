@@ -5,8 +5,6 @@ import unittest
 class TestPackageStructure(unittest.TestCase):
     def test_target_architecture_packages_are_importable(self):
         modules = (
-            "application.interfaces",
-            "application.interfaces.repositories",
             "application.agents.care_context",
             "application.agents.context_analysis",
             "application.agents.notification",
@@ -81,30 +79,6 @@ class TestPackageStructure(unittest.TestCase):
             with self.subTest(module=module):
                 importlib.import_module(module)
 
-    def test_interface_module_exports_only_polymorphic_ports(self):
-        interfaces = importlib.import_module("application.interfaces")
-
-        expected_ports = {
-            "PetProfileReaderInterface",
-            "RecordHistoryReaderInterface",
-            "RecordRepositoryInterface",
-            "ScheduleContextReaderInterface",
-        }
-        self.assertEqual(set(interfaces.__all__), expected_ports)
-        for port_name in expected_ports:
-            with self.subTest(port_name=port_name):
-                self.assertTrue(hasattr(interfaces, port_name))
-
-        self.assertFalse(hasattr(interfaces, "PetLogAgentPipelineInterface"))
-        self.assertFalse(hasattr(interfaces, "RecordSummaryAgentInterface"))
-        self.assertFalse(hasattr(interfaces, "RecordSummaryProviderInterface"))
-        self.assertFalse(hasattr(interfaces, "ProactiveQuestionAgentInterface"))
-        self.assertFalse(hasattr(interfaces, "NotificationAgentInterface"))
-        self.assertFalse(hasattr(interfaces, "PhotoRecordUnderstandingAgentInterface"))
-        self.assertFalse(hasattr(interfaces, "ImageRecordUnderstandingProviderInterface"))
-        self.assertFalse(hasattr(interfaces, "TextToSpeechInterface"))
-        self.assertFalse(hasattr(interfaces, "CareAnswerProviderInterface"))
-        self.assertFalse(hasattr(interfaces, "RecordStructurerInterface"))
-        self.assertFalse(hasattr(interfaces, "SpeechToTextInterface"))
-        self.assertFalse(hasattr(interfaces, "CareKnowledgeRetrieverInterface"))
-        self.assertFalse(hasattr(interfaces, "PetLogAgentPipelinePort"))
+    def test_interface_package_is_removed(self):
+        with self.assertRaises(ModuleNotFoundError):
+            importlib.import_module("application.interfaces")

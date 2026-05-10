@@ -1,18 +1,18 @@
 from __future__ import annotations
 
 from application.dto import PetLogAgentInput, PetLogAgentResult
-from application.interfaces import RecordHistoryReaderInterface, RecordRepositoryInterface, ScheduleContextReaderInterface
+from infrastructure.repositories import RecordRepository, ScheduleRepository
 
 
 class PetLogAgentPipeline:
     def __init__(
         self,
         record_structuring_agent,
-        record_history_reader: RecordHistoryReaderInterface,
-        schedule_context_reader: ScheduleContextReaderInterface,
+        record_history_reader: RecordRepository,
+        schedule_context_reader: ScheduleRepository,
         context_analysis_agent,
         risk_detection_agent,
-        record_repository: RecordRepositoryInterface,
+        record_repository: RecordRepository,
         suggestion_agent,
         reminder_agent,
         lookback_days: int = 30,

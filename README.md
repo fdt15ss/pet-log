@@ -133,7 +133,7 @@ uv run python -B -m unittest discover -s tests -v
 
 ```bash
 cd backend
-uv run python -B -c "import application.interfaces, agent_runtime, middleware, tools, infrastructure, presentation, composition; print('target imports ok')"
+uv run python -B -c "import application, agent_runtime, middleware, tools, infrastructure, presentation, composition; print('target imports ok')"
 ```
 
 `application`과 `domain` 계층은 DB, HTTP framework, LLM SDK에 직접 의존하지 않아야 합니다.

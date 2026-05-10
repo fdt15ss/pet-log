@@ -6,11 +6,11 @@
 
 ```text
 HomeFeedInput
-  -> PetLogAgentResultReaderInterface
-  -> NotificationReaderInterface
-  -> ScheduleContextReaderInterface
+  -> PetLogAgentResultRepository
+  -> notification infrastructure 후보
+  -> ScheduleRepository
   -> ProactiveQuestionAgent 후보
-  -> HomeFeedComposerInterface
+  -> HomeFeedComposer
   -> HomeFeedResult
 ```
 
@@ -25,13 +25,13 @@ HomeFeedInput
 
 ## ProactiveQuestionAgent 후보
 
-`기획.md`의 홈 요구에는 "AI가 먼저 질문하는 한줄 구간"이 있다. 이 책임은 단순 홈 화면 조립보다 agent 성격이 강하므로 `HomeFeedComposerInterface` 안에 숨기기보다 별도 agent 또는 composer 계약으로 분리한다.
+`기획.md`의 홈 요구에는 "AI가 먼저 질문하는 한줄 구간"이 있다. 이 책임은 단순 홈 화면 조립보다 agent 성격이 강하므로 `HomeFeedComposer` 안에 숨기기보다 별도 agent 또는 composer 계약으로 분리한다.
 
 후속 구현 후보:
 
 ```text
 PetProfile + recent records + context insights + due schedules
-  -> ProactiveQuestionPolicyInterface 또는 ProactiveQuestionProviderInterface
+  -> ProactiveQuestionPolicy 또는 ProactiveQuestionProvider
   -> ProactiveQuestionResult
 ```
 
@@ -43,13 +43,13 @@ PetProfile + recent records + context insights + due schedules
 
 ## NotificationAgent 후보
 
-홈과 알림 탭에는 이상 징후 알림, 행동 변화 알림, 일정 알림, 기록 누락 알림이 필요하다. 현재 설계에는 `NotificationReaderInterface`가 언급되어 있지만, 알림 후보를 생성하는 agent 계약은 아직 없다.
+홈과 알림 탭에는 이상 징후 알림, 행동 변화 알림, 일정 알림, 기록 누락 알림이 필요하다. 알림 후보를 저장/조회하는 구체 repository 또는 notification infrastructure는 후속 단계에서 정한다.
 
 후속 구현 후보:
 
 ```text
 PetProfile + context insights + safety notices + due schedules
-  -> NotificationPolicyInterface
+  -> NotificationPolicy
   -> NotificationCandidate tuple
 ```
 
@@ -62,6 +62,6 @@ PetProfile + context insights + safety notices + due schedules
 ## 결정
 
 - 홈 화면은 core agent 결과를 재해석하지 않는다.
-- 홈 화면용 문구와 카드 조립은 `HomeFeedComposerInterface` 뒤에 둔다.
+- 홈 화면용 문구와 카드 조립은 `HomeFeedComposer`에 둔다.
 - 선제 질문 생성과 알림 후보 생성은 composer 안에 숨기지 않고 후속 agent 계약으로 분리한다.
 - 알림/일정 소스는 후속 단계에서 repository 또는 notification infrastructure로 구체화한다.

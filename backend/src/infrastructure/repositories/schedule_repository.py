@@ -3,12 +3,11 @@ from __future__ import annotations
 import sqlite3
 from datetime import UTC, datetime, timedelta
 
-from application.interfaces import ScheduleContextReaderInterface
 from domain.models import PlannedReminder
 from infrastructure.database import initialize_schema
 
 
-class ScheduleRepository(ScheduleContextReaderInterface):
+class ScheduleRepository:
     def __init__(
         self,
         due_items_by_pet_id: dict[str, tuple[PlannedReminder, ...]] | None = None,

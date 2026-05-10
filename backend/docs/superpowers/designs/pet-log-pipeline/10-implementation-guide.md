@@ -5,12 +5,11 @@
 ## 한 줄 요약
 
 ```text
-presentation -> application pipeline -> application agents -> interfaces -> infrastructure/tools/middleware/agent_runtime
+presentation -> application pipeline -> application agents -> infrastructure/tools/middleware/agent_runtime
 ```
 
 - `presentation`은 외부 요청이 들어오는 입구다.
 - `application`은 제품 기능 흐름을 조립한다.
-- `interfaces`는 application이 필요로 하는 계약이다.
 - `infrastructure`는 DB, LLM, rule 같은 실제 구현체다.
 - `tools`는 LangChain tool adapter, `middleware`는 LangChain/LangGraph middleware factory, `agent_runtime`은 node/agent별 wiring을 맡는 공통 계층이다.
 
@@ -20,8 +19,8 @@ presentation -> application pipeline -> application agents -> interfaces -> infr
 | --- | --- | --- |
 | 1 | `docs/superpowers/designs/pet-log-pipeline-interface-design.md` | 전체 설계 인덱스 |
 | 2 | `docs/superpowers/designs/pet-log-pipeline/01-package-structure.md` | 폴더별 책임 |
-| 3 | `docs/superpowers/designs/pet-log-pipeline/08-contracts.md` | DTO와 interface 이름 |
-| 4 | `src/application/interfaces/` | 구현체가 맞춰야 하는 실제 Protocol |
+| 3 | `docs/superpowers/designs/pet-log-pipeline/08-contracts.md` | DTO와 class 계약 |
+| 4 | `src/infrastructure/` | DB, LLM, speech, policy, composer 구현체 |
 | 5 | `src/composition.py` | 구현체를 조립할 위치 |
 
 ## 폴더별 역할
@@ -56,17 +55,7 @@ pipeline의 입력과 출력 객체가 있는 곳이다.
 수정 기준:
 - 화면/API/agent 흐름에서 새 입력 또는 결과 필드가 필요할 때 수정한다.
 
-### `src/application/interfaces/`
-
-application이 외부에 기대하는 계약이다. 실제 동작 구현은 없다.
-
-예:
-- `pipelines.py`: pipeline 흐름 계약
-- `agents.py`: application agent 계약
-- `repositories.py`: 저장소/reader 계약
-- `providers.py`: LLM/STT/TTS provider 계약
-- `policies.py`: rule/policy 계약
-- `composers.py`: 화면/리포트 조립 계약
+`src/application/interfaces/` 패키지는 제거했다. 구현 없는 `Protocol`을 먼저 만들기보다 현재 제품 경로에서 호출되는 concrete class와 테스트 계약을 기준으로 작업한다.
 
 수정 기준:
 - agent나 pipeline이 새 능력을 필요로 할 때 먼저 interface를 정의한다.
@@ -213,34 +202,34 @@ composition 전략:
 
 ## 기능별 구현 위치
 
-| 만들 기능 | 먼저 볼 interface | 구현 위치 | 연결 위치 |
+| 만들 기능 | 먼저 볼 class | 구현 위치 | 연결 위치 |
 | --- | --- | --- | --- |
-| 자연어 기록 구조화 | `RecordStructurerInterface` | `src/infrastructure/llm/record_structuring/provider.py` | `RecordStructuringAgent` |
-| 사진 기록 이해 | `ImageRecordUnderstandingProviderInterface` | `src/infrastructure/llm/image_record_understanding/` 스텁 | `PhotoRecordUnderstandingAgent` |
-| 펫 프로필 조회 | `PetProfileReaderInterface` | `src/infrastructure/repositories/pet_profile_repository.py` | `CareContextBuilder`, pipeline |
-| 최근 기록 조회 | `RecordHistoryReaderInterface` | `src/infrastructure/repositories/record_repository.py` | `ContextAnalysisAgent`, `CareContextBuilder` |
-| 기록 저장 | `RecordRepositoryInterface` | `src/infrastructure/repositories/record_repository.py` | `PetLogAgentPipeline` |
-| 일정 조회 | `ScheduleContextReaderInterface` | `src/infrastructure/repositories/schedule_repository.py` | `CareContextBuilder`, `ReminderAgent` |
-| 위험 신호 감지 | `RiskSignalPolicyInterface` | `src/infrastructure/policies/risk_signal_policy.py` | `RiskDetectionAgent` |
-| 기록 누락 감지 | `MissingRecordPolicyInterface` | `src/infrastructure/policies/missing_record_policy.py` | `ContextAnalysisAgent` |
-| 원인 추정 제한 | `CauseHypothesisPolicyInterface` | `src/infrastructure/policies/cause_hypothesis_policy.py` 스텁 | `ContextAnalysisAgent` 또는 `SuggestionAgent` |
-| 행동 제안 생성 | `SuggestionComposerInterface` | `src/infrastructure/policies/suggestion_composer.py` | `SuggestionAgent` |
-| 리마인더 생성 | `ReminderPlannerInterface` | `src/infrastructure/policies/reminder_planner.py` | `ReminderAgent` |
-| 기록 요약 생성 | `RecordSummaryProviderInterface` | `src/infrastructure/llm/record_summary/provider.py` | `RecordSummaryAgent` |
-| 기록 요약 fallback/포맷팅 | `RecordSummaryComposerInterface` | `src/infrastructure/composers/record_summary_composer.py` 스텁 | `RecordSummaryAgent` |
-| 홈 선제 질문 생성 | `ProactiveQuestionPolicyInterface` | `src/infrastructure/policies/proactive_question/` 스텁 | `ProactiveQuestionAgent` |
-| 알림 후보 생성 | `NotificationPolicyInterface` | `src/infrastructure/notifications/policy.py` 스텁 | `NotificationAgent` |
-| LangGraph runtime | `AgentRuntimeInterface` 후보 | `src/agent_runtime/runtime.py` | `agent_runtime` 내부 adapter |
-| AI 케어 답변 | `CareAnswerProviderInterface` | `src/infrastructure/llm/care_answer/provider.py` | `CareQuestionPipeline` |
-| 펫 말투 응답 | `PetPersonaResponderInterface` | `src/infrastructure/llm/pet_persona/provider.py` | `PetPersonaAgent` |
-| 음성 입력 STT | `SpeechToTextInterface` | `src/infrastructure/speech/speech_to_text.py` (`whisper medium`) | `presentation`, `tools/speech_tools.py` |
-| 음성 응답 TTS | `TextToSpeechInterface` | `src/infrastructure/speech/text_to_speech.py` (`edge-tts`) | `presentation`, `tools/speech_tools.py` |
-| 홈 화면 카드 조립 | `HomeFeedComposerInterface` | `src/infrastructure/composers/home_feed_composer.py` | `HomeFeedPipeline` |
-| 병원 제출 요약 | `HospitalReportComposerInterface` | `src/infrastructure/composers/hospital_report_composer.py` | `HospitalSummaryPipeline` |
+| 자연어 기록 구조화 | `RecordStructurer` | `src/infrastructure/llm/record_structuring/provider.py` | `RecordStructuringAgent` |
+| 사진 기록 이해 | `ImageRecordUnderstandingProvider` | `src/infrastructure/llm/image_record_understanding/` | `PhotoRecordUnderstandingAgent` |
+| 펫 프로필 조회 | `PetProfileRepository` | `src/infrastructure/repositories/pet_profile_repository.py` | `CareContextBuilder`, pipeline |
+| 최근 기록 조회 | `RecordRepository` | `src/infrastructure/repositories/record_repository.py` | `ContextAnalysisAgent`, `CareContextBuilder` |
+| 기록 저장 | `RecordRepository` | `src/infrastructure/repositories/record_repository.py` | `PetLogAgentPipeline` |
+| 일정 조회 | `ScheduleRepository` | `src/infrastructure/repositories/schedule_repository.py` | `CareContextBuilder`, `ReminderAgent` |
+| 위험 신호 감지 | `RiskSignalPolicy` | `src/infrastructure/policies/risk_signal_policy.py` | `RiskDetectionAgent` |
+| 기록 누락 감지 | `MissingRecordPolicy` | `src/infrastructure/policies/missing_record_policy.py` | `ContextAnalysisAgent` |
+| 원인 추정 제한 | `CauseHypothesisPolicy` | `src/infrastructure/policies/cause_hypothesis_policy.py` | `ContextAnalysisAgent` 또는 `SuggestionAgent` |
+| 행동 제안 생성 | `SuggestionComposer` | `src/infrastructure/policies/suggestion_composer.py` | `SuggestionAgent` |
+| 리마인더 생성 | `ReminderPlanner` | `src/infrastructure/policies/reminder_planner.py` | `ReminderAgent` |
+| 기록 요약 생성 | `RecordSummaryProvider` | `src/infrastructure/llm/record_summary/provider.py` | `RecordSummaryAgent` |
+| 기록 요약 fallback/포맷팅 | `RecordSummaryComposer` | `src/infrastructure/composers/record_summary_composer.py` | `RecordSummaryAgent` |
+| 홈 선제 질문 생성 | `ProactiveQuestionPolicy` | `src/infrastructure/policies/proactive_question/` | `ProactiveQuestionAgent` |
+| 알림 후보 생성 | `NotificationPolicy` | `src/infrastructure/notifications/policy.py` | `NotificationAgent` |
+| LangGraph runtime | `PetLogAgentRuntime` | `src/agent_runtime/runtime.py` | `agent_runtime` 내부 adapter |
+| AI 케어 답변 | `CareAnswerProvider` | `src/infrastructure/llm/care_answer/provider.py` | `CareQuestionPipeline` |
+| 펫 말투 응답 | `PetPersonaResponder` | `src/infrastructure/llm/pet_persona/provider.py` | `PetPersonaAgent` |
+| 음성 입력 STT | `SpeechToTextProvider` | `src/infrastructure/speech/speech_to_text.py` (`whisper medium`) | `presentation`, `tools/speech_tools.py` |
+| 음성 응답 TTS | `TextToSpeechProvider` | `src/infrastructure/speech/text_to_speech.py` (`edge-tts`) | `presentation`, `tools/speech_tools.py` |
+| 홈 화면 카드 조립 | `HomeFeedComposer` | `src/infrastructure/composers/home_feed_composer.py` | `HomeFeedPipeline` |
+| 병원 제출 요약 | `HospitalReportComposer` | `src/infrastructure/composers/hospital_report_composer.py` | `HospitalSummaryPipeline` |
 | 병원 검색/예약/공유 전송 | hospital integration contract 후보 | 별도 bounded context 후보 | hospital integration pipeline 후보 |
 | 공동 관리 | shared care contract 후보 | 별도 bounded context 후보 | shared care pipeline 후보 |
 | IoT/디바이스 수집 | device ingestion contract 후보 | 별도 bounded context 후보 | device ingestion pipeline 후보 |
-| HTTP API | pipeline interfaces | `src/presentation/http/` | `src/composition.py` |
+| HTTP API | presentation route | `src/presentation/http/` | `src/composition.py` |
 
 ## 모델 기반 요약 구현 원칙
 
@@ -255,19 +244,19 @@ ContextAnalysisAgent
 
 RecordSummaryAgent
   -> 요약 대상과 분석 결과 조립
-  -> RecordSummaryProviderInterface 호출
+  -> RecordSummaryProvider 호출
   -> RecordSummaryResult 반환
 ```
 
 구현 규칙:
 
 - `RecordSummaryAgent`는 OpenAI SDK, LangChain, LangGraph 타입을 직접 import하지 않는다.
-- 실제 GPT 또는 로컬 모델 호출은 `RecordSummaryProviderInterface` 구현체가 담당한다.
+- 실제 GPT 또는 로컬 모델 호출은 `RecordSummaryProvider` 구현체가 담당한다.
 - 현재 `RecordSummaryProvider`는 LangChain `ChatOpenAI.with_structured_output()`을 사용하는 infrastructure 구현체다.
 - `OPENAI_API_KEY`가 없으면 `RecordSummaryProvider.summarize()`는 실행 시 실패한다.
 - 기본 모델은 `gpt-5-mini`이며, `OPENAI_RECORD_SUMMARY_MODEL` 환경변수로 교체할 수 있다.
 - structured output은 LangChain structured model call과 Pydantic schema로 `RecordSummaryResult` 형태에 맞춘다.
-- `RecordSummaryComposerInterface`는 모델을 쓰지 않는 fallback, 테스트용 deterministic 요약, 모델 결과 포맷팅에만 사용한다.
+- `RecordSummaryComposer`는 모델을 쓰지 않는 fallback, 테스트용 deterministic 요약, 모델 결과 포맷팅에만 사용한다.
 - LangGraph를 붙일 때는 `RecordSummaryAgent.summarize()`를 node로 감싸고, provider/composer/policy 구현체를 직접 node로 등록하지 않는다.
 - 요약 문장은 진단처럼 보이면 안 되며, 위험 신호는 `SafetyNotice` 또는 병원 상담 안내로 분리한다.
 
@@ -376,7 +365,7 @@ mock/rule 기반 흐름이 검증된 뒤 실제 LLM을 붙인다.
 
 ## 구현할 때 지켜야 할 방향
 
-- 새 기능은 먼저 `application/interfaces/`의 계약을 확인한다.
+- 새 기능은 먼저 `application/dto.py`, 관련 pipeline/agent, `infrastructure/` 구현체 계약을 확인한다.
 - application layer에서 DB, FastAPI, OpenAI SDK를 직접 import하지 않는다.
 - 실제 동작은 `infrastructure` 또는 `agent_runtime/tools`에 둔다.
 - pipeline은 흐름을 조립하고, 세부 판단 로직을 과하게 들고 있지 않는다.
@@ -387,7 +376,7 @@ mock/rule 기반 흐름이 검증된 뒤 실제 LLM을 붙인다.
 
 ### 자연어 기록 구조화를 구현한다면
 
-1. `RecordStructurerInterface`를 확인한다.
+1. `RecordStructurer`를 확인한다.
 2. `src/infrastructure/llm/record_structuring/` 하위 파일을 확인한다.
 3. `RecordStructuringAgent`가 해당 구현체를 호출하는지 확인한다.
 4. `src/composition.py`에서 구현체를 agent에 주입한다.
@@ -395,7 +384,7 @@ mock/rule 기반 흐름이 검증된 뒤 실제 LLM을 붙인다.
 
 ### DB 저장을 구현한다면
 
-1. `RecordRepositoryInterface`를 확인한다.
+1. `RecordRepository`를 확인한다.
 2. `src/infrastructure/repositories/record_repository.py`를 구현한다.
 3. domain model과 DB row 매핑은 repository 안에 둔다.
 4. `PetLogAgentPipeline`에서 저장 흐름이 호출되는지 확인한다.
@@ -406,7 +395,7 @@ mock/rule 기반 흐름이 검증된 뒤 실제 LLM을 붙인다.
 1. `기획.md`의 기록 기반 요구를 확인한다: 문제 행동 요약, 최근 변화 정리, 주간/월간 리포트, 병원 제출용 요약.
 2. `ContextAnalysisAgent`가 이미 만든 insight와 missing-record insight를 재사용한다.
 3. 새 책임은 `RecordSummaryAgent` 또는 `CareReportAgent`로 분리하고, 단순 패턴 감지는 기존 policy에 남긴다.
-4. summary 결과 DTO를 `application/dto.py`에 추가하고, 계약은 `application/interfaces/agents.py` 또는 `application/interfaces/composers.py`에 둔다.
+4. summary 결과 DTO를 `application/dto.py`에 추가하고, 호출 계약은 관련 agent/provider/composer class와 테스트에 둔다.
 5. 실제 문장 생성은 rule composer 또는 LLM provider를 `infrastructure/` 뒤에 둔다.
 6. `HospitalSummaryPipeline`은 공통 summary를 받아 병원 제출용 포맷으로 재구성한다.
 7. 의료 판단 단정 표현이 없는지 테스트한다.

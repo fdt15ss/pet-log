@@ -4,13 +4,12 @@ import sqlite3
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from application.interfaces import RecordHistoryReaderInterface, RecordRepositoryInterface
 from domain.enums import RecordInputSource
 from domain.models import PetRecord, StructuredRecordCandidate
 from infrastructure.database import initialize_schema
 
 
-class RecordRepository(RecordHistoryReaderInterface, RecordRepositoryInterface):
+class RecordRepository:
     def __init__(self, records: tuple[PetRecord, ...] = (), connection: sqlite3.Connection | None = None) -> None:
         self._connection = connection
         if self._connection is not None:

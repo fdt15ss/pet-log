@@ -9,7 +9,7 @@ PetLogAgentInput
   -> RecordStructuringAgent
   -> ContextAnalysisAgent
   -> RiskDetectionAgent
-  -> RecordRepositoryInterface
+  -> RecordRepository
   -> SuggestionAgent
   -> ReminderAgent
   -> PetLogAgentResult
@@ -23,7 +23,7 @@ PetLogAgentInput
 
 ```text
 PetLogAgentInput
-  -> RecordStructurerInterface
+  -> RecordStructurer
   -> StructuredRecordBatch
 ```
 
@@ -35,8 +35,8 @@ PetLogAgentInput
 
 ```text
 PetProfile + recent records + due schedules
-  -> PatternAnalyzerInterface
-  -> MissingRecordPolicyInterface
+  -> PatternAnalyzer
+  -> MissingRecordPolicy
   -> ContextAnalysisResult
 ```
 
@@ -55,7 +55,7 @@ PetRecord tuple
 
 PetProfile + records + ContextAnalysisResult + due schedules
   -> RecordSummaryAgent
-  -> RecordSummaryProviderInterface
+  -> RecordSummaryProvider
   -> RecordSummaryResult
 ```
 
@@ -63,8 +63,8 @@ PetProfile + records + ContextAnalysisResult + due schedules
 
 - `ContextAnalysisAgent`: 누적 기록에서 패턴, 변화, 누락, 위험 맥락을 분석한다.
 - `RecordSummaryAgent`: 어떤 기록과 분석 결과를 요약할지 결정하고 provider 호출을 조립한다.
-- `RecordSummaryProviderInterface`: GPT, 로컬 모델, LangChain adapter 등 실제 모델 호출을 숨긴다.
-- `RecordSummaryComposerInterface`: 모델을 쓰지 않는 규칙 기반 fallback 또는 모델 결과 포맷팅에만 사용한다.
+- `RecordSummaryProvider`: GPT, 로컬 모델, LangChain adapter 등 실제 모델 호출을 숨긴다.
+- `RecordSummaryComposer`: 모델을 쓰지 않는 규칙 기반 fallback 또는 모델 결과 포맷팅에만 사용한다.
 - `RecordSummaryResult`: 홈, 분석 리포트, 병원 제출용 요약에서 재사용할 공통 결과다.
 
 책임 범위:
@@ -81,7 +81,7 @@ PetProfile + records + ContextAnalysisResult + due schedules
 
 ```text
 input text + recent records
-  -> RiskSignalPolicyInterface
+  -> RiskSignalPolicy
   -> SafetyNotice tuple
 ```
 
@@ -91,7 +91,7 @@ context insight와 safety notice를 행동 제안으로 바꾼다.
 
 ```text
 PetProfile + insights + safety notices
-  -> SuggestionComposerInterface
+  -> SuggestionComposer
   -> CareSuggestion tuple
 ```
 
@@ -101,7 +101,7 @@ PetProfile + insights + safety notices
 
 ```text
 PetProfile + records + due schedules
-  -> ReminderPlannerInterface
+  -> ReminderPlanner
   -> PlannedReminder tuple
 ```
 
@@ -110,5 +110,5 @@ PetProfile + records + due schedules
 - 보호자 확인이 필요한 구조화 후보 묶음은 저장 전 수정 요청으로 돌린다.
 - 저장 이후에 제안과 리마인더를 만든다.
 - `ContextAnalysisAgent`는 insight 산출까지 담당하고, 누적 기록을 문장형 리포트로 정리하는 책임은 후속 `RecordSummaryAgent` 계열로 분리한다.
-- 모델 기반 요약은 `RecordSummaryAgent`가 직접 LLM SDK를 호출하지 않고 `RecordSummaryProviderInterface` 뒤로 숨긴다.
+- 모델 기반 요약은 `RecordSummaryAgent`가 직접 LLM SDK를 호출하지 않고 `RecordSummaryProvider`에 둔다.
 - 의료 판단은 하지 않고 위험 신호 notice만 만든다.

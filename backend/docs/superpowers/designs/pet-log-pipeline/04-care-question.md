@@ -7,8 +7,8 @@
 ```text
 CareQuestionInput
   -> CareContextBuilder
-  -> SafetyGuardInterface
-  -> CareAnswerProviderInterface
+  -> SafetyGuard
+  -> CareAnswerProvider
   -> CareQuestionResult
 ```
 
@@ -17,7 +17,7 @@ CareQuestionInput
 - 최근 기록, 프로필, 일정 정보를 `CareContext`로 모은다.
 - 위험 신호가 포함되면 병원 상담 안내를 우선한다.
 - 건강 상태를 단정하지 않는다.
-- 답변 생성은 `CareAnswerProviderInterface` 뒤로 숨긴다.
+- 답변 생성은 `CareAnswerProvider`에 둔다.
 
 ## 후속 결정
 

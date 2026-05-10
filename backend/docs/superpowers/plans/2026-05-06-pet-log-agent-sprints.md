@@ -48,7 +48,7 @@ uv run python -B -m unittest discover -s tests -v
 - [ ] 목표 패키지 import가 통과한다.
 
 ```bash
-uv run python -B -c "import application.interfaces, agent_runtime, middleware, tools, infrastructure, presentation, composition; print('target imports ok')"
+uv run python -B -c "import application, agent_runtime, middleware, tools, infrastructure, presentation, composition; print('target imports ok')"
 ```
 
 - [ ] application/domain에서 금지 의존성을 import하지 않는다.
