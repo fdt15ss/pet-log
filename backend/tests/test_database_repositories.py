@@ -31,6 +31,23 @@ class TestDatabaseRepositories(unittest.TestCase):
         self.assertEqual(second_pet_count, 3)
         self.assertEqual(second_record_count, 9)
 
+    def test_connect_seeds_existing_file_when_default_sample_pet_is_missing(self):
+        with tempfile.TemporaryDirectory() as directory:
+            database_path = Path(directory) / "pet_log.sqlite3"
+            connection = connect(database_path)
+            connection.execute("DELETE FROM pets WHERE id = ?", (SAMPLE_PET_ID,))
+            connection.commit()
+            connection.close()
+
+            seeded_connection = connect(database_path)
+            sample_pet = seeded_connection.execute(
+                "SELECT id FROM pets WHERE id = ?",
+                (SAMPLE_PET_ID,),
+            ).fetchone()
+            seeded_connection.close()
+
+        self.assertIsNotNone(sample_pet)
+
     def test_seed_default_data_adds_three_korean_sample_pets(self):
         connection = connect(":memory:")
         seed_default_data(connection, today=date(2026, 5, 7))
