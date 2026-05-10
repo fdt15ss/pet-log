@@ -1,12 +1,16 @@
 from __future__ import annotations
 
-from domain.models import CareContext
+from domain.models import CareContext, CareKnowledgeHit
 
 
-def build_care_answer_messages(context: CareContext, question: str) -> list[tuple[str, str]]:
+def build_care_answer_messages(
+    context: CareContext,
+    question: str,
+    knowledge_hits: tuple[CareKnowledgeHit, ...] = (),
+) -> list[tuple[str, str]]:
     return [
         ("system", care_answer_system_prompt()),
-        ("user", care_answer_user_prompt(context, question)),
+        ("user", care_answer_user_prompt(context, question, knowledge_hits)),
     ]
 
 
@@ -18,7 +22,11 @@ def care_answer_system_prompt() -> str:
     )
 
 
-def care_answer_user_prompt(context: CareContext, question: str) -> str:
+def care_answer_user_prompt(
+    context: CareContext,
+    question: str,
+    knowledge_hits: tuple[CareKnowledgeHit, ...] = (),
+) -> str:
     record_lines = "\n".join(
         f"- {record.recorded_at} {record.category}/{record.status}: {record.title} - {record.detail}"
         for record in context.recent_records
@@ -27,6 +35,14 @@ def care_answer_user_prompt(context: CareContext, question: str) -> str:
         f"- {item.due_date}: {item.title} ({item.reason})"
         for item in context.due_reminders
     )
+    knowledge_section = ""
+    if knowledge_hits:
+        knowledge_lines = "\n".join(
+            f"- {hit.chunk.title} ({hit.chunk.source_url}): {hit.chunk.text}"
+            for hit in knowledge_hits
+        )
+        knowledge_section = f"care_knowledge:\n{knowledge_lines}\n"
+
     return (
         f"pet_name: {context.pet.name}\n"
         f"species: {context.pet.species or ''}\n"
@@ -34,5 +50,6 @@ def care_answer_user_prompt(context: CareContext, question: str) -> str:
         f"personality: {context.pet.personality or ''}\n"
         f"recent_records:\n{record_lines or '- 없음'}\n"
         f"due_reminders:\n{reminder_lines or '- 없음'}\n"
+        f"{knowledge_section}"
         f"question: {question}"
     )
