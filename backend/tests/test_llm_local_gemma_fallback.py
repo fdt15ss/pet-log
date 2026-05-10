@@ -87,7 +87,7 @@ class TestLocalGemmaFallback(unittest.TestCase):
             FakeChatOpenAI.calls,
             [
                 {
-                    "model": "google/gemma-3n-E4B-it",
+                    "model": "gemma3n:e4b",
                     "api_key": "local-key",
                     "timeout": 9.0,
                     "base_url": "http://127.0.0.1:1234/v1",
@@ -145,7 +145,7 @@ class TestLocalGemmaFallback(unittest.TestCase):
 
         def fake_model_factory(model: str, api_key: str, timeout: float):
             created.append({"model": model, "api_key": api_key, "timeout": timeout})
-            if model == "google/gemma-3n-E4B-it":
+            if model == "gemma3n:e4b":
                 return primary_model
             if model == "gpt-5-mini":
                 return fallback_model
@@ -166,7 +166,7 @@ class TestLocalGemmaFallback(unittest.TestCase):
         self.assertEqual(
             created,
             [
-                {"model": "google/gemma-3n-E4B-it", "api_key": "local-key", "timeout": 11.0},
+                {"model": "gemma3n:e4b", "api_key": "local-key", "timeout": 11.0},
                 {"model": "gpt-5-mini", "api_key": "gpt-key", "timeout": 11.0},
             ],
         )

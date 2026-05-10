@@ -3,13 +3,11 @@ from __future__ import annotations
 from application.dto import PetLogAgentInput
 from domain.models import StructuredRecordBatch
 from infrastructure.llm.base_provider import BaseLLMProvider
-from infrastructure.llm.model_factory import TRANSIENT_LLM_ERRORS
+from infrastructure.llm.model_factory import LLMModel, ModelFactory, TRANSIENT_LLM_ERRORS
 from infrastructure.llm.provider_config import LLMProviderConfig
 from infrastructure.llm.record_structuring.mapper import to_structured_record_batch
 from infrastructure.llm.record_structuring.model import (
     DEFAULT_RECORD_STRUCTURING_MODEL,
-    StructuredRecordBatchModel,
-    StructuredRecordBatchModelFactory,
     build_record_structuring_model,
 )
 from infrastructure.llm.record_structuring.prompt import build_record_structuring_messages
@@ -18,7 +16,7 @@ from infrastructure.llm.record_structuring.prompt import build_record_structurin
 TRANSIENT_RECORD_STRUCTURING_ERRORS = TRANSIENT_LLM_ERRORS
 
 
-class RecordStructurer(BaseLLMProvider[StructuredRecordBatchModel]):
+class RecordStructurer(BaseLLMProvider[LLMModel]):
     def __init__(
         self,
         *,
@@ -26,8 +24,8 @@ class RecordStructurer(BaseLLMProvider[StructuredRecordBatchModel]):
         model: str | None = None,
         fallback_model: str | None = None,
         timeout: float = 30.0,
-        model_factory: StructuredRecordBatchModelFactory = build_record_structuring_model,
-        structured_model: StructuredRecordBatchModel | None = None,
+        model_factory: ModelFactory[LLMModel] = build_record_structuring_model,
+        structured_model: LLMModel | None = None,
     ) -> None:
         super().__init__(
             config=LLMProviderConfig.from_env(

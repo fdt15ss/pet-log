@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from infrastructure.llm.record_summary.model import (
     DEFAULT_RECORD_SUMMARY_MODEL,
-    StructuredRecordSummaryModel,
-    StructuredRecordSummaryModelFactory,
     build_record_summary_model,
 )
 from infrastructure.llm.record_summary.provider import RecordSummaryProvider
@@ -14,7 +12,5 @@ __all__ = [
     "RecordSummaryOutput",
     "RecordSummaryProvider",
     "RecordSummarySafetyNoticeOutput",
-    "StructuredRecordSummaryModel",
-    "StructuredRecordSummaryModelFactory",
     "build_record_summary_model",
 ]

@@ -22,7 +22,7 @@ def connect(database_path: str | Path | None = None) -> sqlite3.Connection:
     connection.row_factory = sqlite3.Row
     connection.execute("PRAGMA foreign_keys = ON")
     initialize_schema(connection)
-    if should_seed:
+    if should_seed or (path != Path(":memory:") and _default_sample_pet_missing(connection)):
         from infrastructure.seed_data import seed_default_data
 
         seed_default_data(connection)
@@ -87,3 +87,13 @@ def initialize_schema(connection: sqlite3.Connection) -> None:
         """
     )
     connection.commit()
+
+
+def _default_sample_pet_missing(connection: sqlite3.Connection) -> bool:
+    from infrastructure.seed_data import SAMPLE_PET_ID
+
+    row = connection.execute(
+        "SELECT 1 FROM pets WHERE id = ? AND deleted_at IS NULL",
+        (SAMPLE_PET_ID,),
+    ).fetchone()
+    return row is None

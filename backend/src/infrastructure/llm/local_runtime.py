@@ -11,12 +11,9 @@ from urllib.parse import urlsplit, urlunsplit
 from infrastructure.llm.local_settings import local_gemma_model
 
 
-DEFAULT_LOCAL_LLM_RUNTIME = "vllm"
-DEFAULT_VLLM_OPENAI_BASE_URL = "http://127.0.0.1:8000/v1"
-DEFAULT_LLAMA_CPP_OPENAI_BASE_URL = "http://127.0.0.1:8080/v1"
+DEFAULT_LOCAL_LLM_RUNTIME = "ollama"
+DEFAULT_OLLAMA_OPENAI_BASE_URL = "http://127.0.0.1:11434/v1"
 DEFAULT_GEMMA_STARTUP_TIMEOUT_SECONDS = 15.0
-DEFAULT_LLAMA_CPP_HF_REPO = "ggml-org/gemma-3n-E4B-it-GGUF"
-DEFAULT_LLAMA_CPP_HF_FILE = "gemma-3n-E4B-it-Q8_0.gguf"
 
 _started_process: subprocess.Popen[bytes] | None = None
 _started_command: list[str] | None = None
@@ -36,18 +33,17 @@ def should_preload_local_gemma_model() -> bool:
 
 def local_llm_runtime() -> str:
     runtime = os.environ.get("LOCAL_LLM_RUNTIME", DEFAULT_LOCAL_LLM_RUNTIME).lower().replace("-", "_")
-    if runtime not in {"vllm", "llama_cpp"}:
-        raise RuntimeError("LOCAL_LLM_RUNTIME must be either `vllm` or `llama_cpp`.")
+    if runtime != "ollama":
+        raise RuntimeError("LOCAL_LLM_RUNTIME must be `ollama`.")
     return runtime
 
 
 def local_gemma_base_url() -> str:
+    local_llm_runtime()
     configured_base_url = os.environ.get("GEMMA_BASE_URL")
     if configured_base_url:
         return configured_base_url
-    if local_llm_runtime() == "llama_cpp":
-        return DEFAULT_LLAMA_CPP_OPENAI_BASE_URL
-    return DEFAULT_VLLM_OPENAI_BASE_URL
+    return DEFAULT_OLLAMA_OPENAI_BASE_URL
 
 
 def ensure_local_gemma_runtime() -> None:
@@ -69,21 +65,24 @@ def _download_model_if_enabled() -> None:
     if not should_autopull_local_gemma_model():
         return
 
-    command = _download_command()
+    commands = _download_commands()
+    missing_commands: list[str] = []
     try:
-        subprocess.run(command, check=True)
-    except FileNotFoundError as error:
-        raise RuntimeError(
-            f"GEMMA_AUTO_PULL=1 requires `{command[0]}` to be installed for {local_llm_runtime()}."
-        ) from error
+        for command in commands:
+            try:
+                subprocess.run(command, check=True)
+                return
+            except FileNotFoundError:
+                missing_commands.append(command[0])
     except subprocess.CalledProcessError as error:
         raise RuntimeError(f"Failed to download local Gemma model for {local_llm_runtime()}.") from error
 
+    required_commands = " or ".join(f"`{command}`" for command in missing_commands)
+    raise RuntimeError(f"GEMMA_AUTO_PULL=1 requires {required_commands} to be installed for {local_llm_runtime()}.")
 
-def _download_command() -> list[str]:
-    if local_llm_runtime() == "llama_cpp":
-        return ["huggingface-cli", "download", _llama_cpp_hf_repo(), _llama_cpp_hf_file()]
-    return ["huggingface-cli", "download", local_gemma_model()]
+
+def _download_commands() -> list[list[str]]:
+    return [["ollama", "pull", local_gemma_model()]]
 
 
 def _preload_model_if_enabled(base_url: str) -> None:
@@ -137,30 +136,7 @@ def _start_local_server() -> None:
 
 
 def _server_command() -> list[str]:
-    host, port = _host_and_port_from_base_url(local_gemma_base_url())
-    if local_llm_runtime() == "llama_cpp":
-        return [
-            "llama-server",
-            "--hf-repo",
-            _llama_cpp_hf_repo(),
-            "--hf-file",
-            _llama_cpp_hf_file(),
-            "--alias",
-            local_gemma_model(),
-            "--host",
-            host,
-            "--port",
-            port,
-        ]
-    return ["vllm", "serve", local_gemma_model(), "--host", host, "--port", port]
-
-
-def _llama_cpp_hf_repo() -> str:
-    return os.environ.get("LLAMA_CPP_HF_REPO", DEFAULT_LLAMA_CPP_HF_REPO)
-
-
-def _llama_cpp_hf_file() -> str:
-    return os.environ.get("LLAMA_CPP_HF_FILE", DEFAULT_LLAMA_CPP_HF_FILE)
+    return ["ollama", "serve"]
 
 
 def _host_and_port_from_base_url(base_url: str) -> tuple[str, str]:

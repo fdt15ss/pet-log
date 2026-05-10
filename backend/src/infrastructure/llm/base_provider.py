@@ -25,7 +25,7 @@ class BaseLLMProvider(Generic[ModelT]):
 
     def _invoke_llm(self, messages: list[object]) -> object:
         self._config.require_credentials()
-        return self._llm().invoke(messages)  # type: ignore[arg-type]
+        return self._llm().invoke(messages)
 
     def _llm(self) -> ModelT:
         if self._model is None:

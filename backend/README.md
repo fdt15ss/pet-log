@@ -130,74 +130,104 @@ POST /api/v1/speech/transcriptions
 curl -F "audio=@recording.webm;type=audio/webm" http://127.0.0.1:8000/api/v1/speech/transcriptions
 ```
 
-## 로컬 Gemma 3n E4B와 GPT fallback
+## Ollama 로컬 Gemma와 GPT 하이브리드 모드
 
-백엔드 LLM provider는 공통 factory를 통해 OpenAI-compatible chat model interface를 사용한다. `LOCAL_LLM_AUTOSTART=1` 또는 `GEMMA_BASE_URL`이 설정되면 로컬 Gemma 3n E4B endpoint를 primary로 호출하고, `OPENAI_API_KEY`가 있으면 transient failure 시 GPT 모델로 fallback한다.
+백엔드 LLM provider는 공통 factory를 통해 OpenAI-compatible chat model interface를 사용한다. Ollama가 유일한 로컬 LLM 런타임이며, `LOCAL_LLM_ROLE` 환경 변수로 primary/fallback 모드를 전환할 수 있다.
 
-로컬 예시는 다음 파일에서 시작한다. `GEMMA_MODEL`은 로컬 런타임이 노출하는 실제 모델 이름으로 맞춘다.
+LLM provider 타입 경계는 `infrastructure.llm.model_factory.LLMModel`과 `ModelFactory`가 공통으로 담당한다. `care_answer`와 `pet_persona`처럼 일반 chat 응답만 필요한 provider는 `build_chat_openai_model`을 직접 사용하고, `record_structuring`, `record_summary`, `image_record_understanding`처럼 JSON schema structured output이 필요한 provider만 각 기능의 `model.py`에 builder를 둔다. 공통 기본 모델 상수는 `infrastructure.llm.constants`에 둔다.
+
+### 설정 파일 준비
+
+로컬 예시는 다음 파일에서 시작한다. `GEMMA_MODEL`은 Ollama가 노출하는 실제 모델 이름으로 맞춘다.
 
 ```bash
 cp .env.example .env
 ```
 
-vLLM을 코드에서 자동 기동하는 예시:
+### Gemma Primary 모드 (기본값)
+
+로컬 Gemma가 primary, GPT는 fallback이다. 이 모드에서 `LOCAL_LLM_ROLE`은 설정하지 않거나 `primary`로 명시한다.
 
 ```env
-LLM_EAGER_LOAD=1
 LOCAL_LLM_AUTOSTART=1
-LOCAL_LLM_RUNTIME=vllm
+LOCAL_LLM_ROLE=primary
 GEMMA_AUTO_PULL=1
 GEMMA_PRELOAD=1
 GEMMA_BASE_URL=
-GEMMA_MODEL=google/gemma-3n-E4B-it
+GEMMA_MODEL=gemma3n:e4b
 GEMMA_API_KEY=local-gemma
+OPENAI_API_KEY=sk-...
 ```
 
-이 설정에서는 백엔드가 실행 시점에 모든 configured LLM provider를 생성하고, 모델 생성 전에 `huggingface-cli download google/gemma-3n-E4B-it`와 `vllm serve google/gemma-3n-E4B-it`를 실행한 뒤 `/v1/chat/completions` ping으로 로컬 모델을 메모리에 올린다. 기본 endpoint는 `http://127.0.0.1:8000/v1`이다. `GEMMA_AUTO_PULL=1`은 대용량 모델 다운로드가 발생할 수 있으므로 자동 다운로드를 원하지 않으면 비워 둔다. 이미 별도 OpenAI-compatible 서버를 켜 둔 경우에는 `LOCAL_LLM_AUTOSTART`를 비우고 `GEMMA_BASE_URL`을 직접 지정한다.
+이 설정에서는 백엔드 startup 시 `ollama serve`를 함께 실행한다. `GEMMA_AUTO_PULL=1`이면 모델 생성 전에 `ollama pull gemma3n:e4b`도 실행하고, `GEMMA_PRELOAD=1`이면 `/v1/chat/completions` ping으로 로컬 모델을 메모리에 올린다. Ollama 기본 endpoint는 `http://127.0.0.1:11434/v1`이다. `GEMMA_AUTO_PULL=1`은 모델 다운로드가 발생할 수 있으므로 자동 다운로드를 원하지 않으면 비워 둔다.
 
-llama.cpp를 사용할 때는 GGUF 모델 정보를 함께 지정한다.
+### Hybrid 모드: GPT Primary + Gemma Fallback
+
+GPT가 primary, 로컬 Gemma는 last fallback이다. `LOCAL_LLM_ROLE=fallback`으로 설정한다.
 
 ```env
-LLM_EAGER_LOAD=1
 LOCAL_LLM_AUTOSTART=1
-LOCAL_LLM_RUNTIME=llama_cpp
+LOCAL_LLM_ROLE=fallback
 GEMMA_AUTO_PULL=1
 GEMMA_PRELOAD=1
 GEMMA_BASE_URL=
-GEMMA_MODEL=google/gemma-3n-E4B-it
+GEMMA_MODEL=gemma3n:e4b
 GEMMA_API_KEY=local-gemma
-LLAMA_CPP_HF_REPO=ggml-org/gemma-3n-E4B-it-GGUF
-LLAMA_CPP_HF_FILE=gemma-3n-E4B-it-Q8_0.gguf
+OPENAI_API_KEY=sk-...
+OPENAI_RECORD_STRUCTURING_MODEL=gpt-4-turbo
+OPENAI_RECORD_SUMMARY_MODEL=gpt-4-turbo
+OPENAI_CARE_ANSWER_MODEL=gpt-4-turbo
 ```
 
-llama.cpp 기본 endpoint는 `http://127.0.0.1:8080/v1`이다. 서버는 `llama-server --hf-repo ... --hf-file ... --alias google/gemma-3n-E4B-it` 형태로 시작되어 LangChain 호출부의 모델명은 vLLM과 동일하게 유지된다.
+이 모드에서는 각 task별 agent가 `OPENAI_*_MODEL` 환경 변수를 primary로 사용한다. task별로 지정된 fallback 모델(`OPENAI_*_FALLBACK_MODEL`)이 있으면 그것을 시도한 후, 마지막으로 로컬 Gemma로 fallback한다.
+
+### 외부 Ollama 서버 사용
+
+이미 별도로 Ollama 서버를 운영 중이면 `LOCAL_LLM_AUTOSTART`를 비우고 `GEMMA_BASE_URL`을 직접 지정한다.
 
 ```env
 GEMMA_BASE_URL=http://127.0.0.1:1234/v1
-GEMMA_MODEL=google/gemma-3n-E4B-it
+GEMMA_MODEL=gemma3n:e4b
 GEMMA_API_KEY=local-gemma
 ```
 
-자동 다운로드를 사용하지 않을 때는 모델을 로컬 런타임별 명령으로 미리 준비한다.
+### Ollama 모델명과 정규화
+
+Ollama 모델명은 `gemma3n:e4b`, `gemma4:e4b` 같은 Ollama tag를 사용한다. 기존 Hugging Face ID인 `google/gemma-3n-E4B-it`, `google/gemma-4-E4B-it`가 들어오면 자동으로 `gemma3n:e4b`, `gemma4:e4b`로 정규화한다. 정규화 매핑은 `infrastructure.llm.local_settings.OLLAMA_GEMMA_MODEL_ALIASES`에 정의되어 있다.
+
+모델을 미리 준비하려면:
 
 ```bash
-huggingface-cli download google/gemma-3n-E4B-it
-huggingface-cli download ggml-org/gemma-3n-E4B-it-GGUF gemma-3n-E4B-it-Q8_0.gguf
+ollama pull gemma3n:e4b
 ```
 
-GPT fallback 예시:
+### GPT Only 모드
+
+로컬 LLM을 사용하지 않으려면 `LOCAL_LLM_AUTOSTART`와 `GEMMA_BASE_URL`을 모두 비운다.
 
 ```env
-OPENAI_API_KEY=
-OPENAI_RECORD_STRUCTURING_MODEL=gpt-5-mini
-OPENAI_RECORD_STRUCTURING_FALLBACK_MODEL=gpt-5-nano
-OPENAI_RECORD_SUMMARY_MODEL=gpt-5-mini
-OPENAI_CARE_ANSWER_MODEL=gpt-5-mini
-OPENAI_PET_PERSONA_MODEL=gpt-5-mini
-OPENAI_IMAGE_RECORD_UNDERSTANDING_MODEL=gpt-5-mini
+OPENAI_API_KEY=sk-...
+OPENAI_RECORD_STRUCTURING_MODEL=gpt-4-turbo
+OPENAI_RECORD_SUMMARY_MODEL=gpt-4-turbo
+OPENAI_CARE_ANSWER_MODEL=gpt-4-turbo
 ```
 
-`OPENAI_*_FALLBACK_MODEL`을 따로 지정하지 않은 provider는 같은 GPT 작업 모델을 fallback으로 사용한다. `.env`는 local secret 파일이므로 git에 커밋하지 않는다. 운영 환경에서는 `.env` 파일 대신 배포 환경변수 또는 secret manager에 같은 키를 등록한다.
+### 주요 환경 변수
+
+| 변수 | 기본값 | 설명 |
+|------|--------|------|
+| `LOCAL_LLM_AUTOSTART` | (empty) | `1` 설정 시 Ollama 자동 기동 |
+| `LOCAL_LLM_ROLE` | `primary` | `primary`: Gemma primary, `fallback`: GPT primary + Gemma fallback |
+| `GEMMA_AUTO_PULL` | (empty) | `1` 설정 시 모델 자동 다운로드 |
+| `GEMMA_PRELOAD` | (empty) | `1` 설정 시 startup 시 모델 메모리 로드 |
+| `GEMMA_BASE_URL` | (empty) | Ollama endpoint (설정 시 자동 기동 무시) |
+| `GEMMA_MODEL` | `gemma3n:e4b` | Ollama 모델명 또는 HuggingFace ID |
+| `GEMMA_API_KEY` | `local-gemma` | Ollama API key |
+| `OPENAI_API_KEY` | (empty) | GPT fallback 사용 시 필수 |
+| `OPENAI_*_MODEL` | (empty) | Task별 GPT primary 모델 |
+| `OPENAI_*_FALLBACK_MODEL` | (empty) | Task별 추가 fallback 모델 |
+
+`.env`는 local secret 파일이므로 git에 커밋하지 않는다. 운영 환경에서는 `.env` 파일 대신 배포 환경변수 또는 secret manager에 같은 키를 등록한다.
 
 ## 실제 LLM smoke test
 
