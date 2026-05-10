@@ -10,6 +10,7 @@ from application.agents.risk_detection import RiskDetectionAgent
 from application.agents.suggestion import SuggestionAgent
 from application.pipelines.pet_log_graph import LangGraphPetLogAgentPipeline
 from infrastructure.database import connect
+from infrastructure.llm.preload import preload_configured_llm_providers
 from infrastructure.llm.record_structuring import RecordStructurer
 from infrastructure.policies.missing_record_policy import MissingRecordPolicy
 from infrastructure.policies.pattern_analyzer import PatternAnalyzer
@@ -31,6 +32,7 @@ class AppContext:
 
 
 def build_app_context(database_path: str | None = None) -> AppContext:
+    preload_configured_llm_providers()
     database = connect(database_path)
     record_repository = RecordRepository(connection=database)
     schedule_repository = ScheduleRepository(connection=database)
@@ -54,6 +56,7 @@ def build_app_context(database_path: str | None = None) -> AppContext:
 
 
 def build_pet_log_agent_pipeline(database_path: str | None = None) -> LangGraphPetLogAgentPipeline:
+    preload_configured_llm_providers()
     database = connect(database_path)
     record_repository = RecordRepository(connection=database)
     schedule_repository = ScheduleRepository(connection=database)

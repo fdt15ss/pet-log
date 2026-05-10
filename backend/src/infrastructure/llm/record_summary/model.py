@@ -3,8 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Protocol
 
-from langchain_openai import ChatOpenAI
-
+from infrastructure.llm.model_factory import build_chat_openai_model
 from infrastructure.llm.record_summary.schema import RecordSummaryOutput
 
 
@@ -20,12 +19,7 @@ StructuredRecordSummaryModelFactory = Callable[[str, str, float], StructuredReco
 
 
 def build_record_summary_model(model: str, api_key: str, timeout: float) -> StructuredRecordSummaryModel:
-    llm = ChatOpenAI(
-        model=model,
-        api_key=api_key,
-        timeout=timeout,
-        use_responses_api=True,
-    )
+    llm = build_chat_openai_model(model, api_key, timeout)
     return llm.with_structured_output(
         RecordSummaryOutput,
         method="json_schema",

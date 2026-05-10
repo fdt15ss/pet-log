@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-import os
-
 from domain.models import CareContext
 from infrastructure.knowledge import CareKnowledgeRetriever
+from infrastructure.llm.base_provider import BaseLLMProvider
 from infrastructure.llm.care_answer.mapper import message_content_to_text
 from infrastructure.llm.care_answer.model import (
     DEFAULT_CARE_ANSWER_MODEL,
@@ -12,9 +11,10 @@ from infrastructure.llm.care_answer.model import (
     build_care_answer_model,
 )
 from infrastructure.llm.care_answer.prompt import build_care_answer_messages
+from infrastructure.llm.provider_config import LLMProviderConfig
 
 
-class CareAnswerProvider:
+class CareAnswerProvider(BaseLLMProvider[CareAnswerModel]):
     def __init__(
         self,
         *,
@@ -25,25 +25,25 @@ class CareAnswerProvider:
         chat_model: CareAnswerModel | None = None,
         knowledge_retriever: CareKnowledgeRetriever | None = None,
     ) -> None:
-        self._api_key = api_key if api_key is not None else os.environ.get("OPENAI_API_KEY", "")
-        self._model = model or os.environ.get("OPENAI_CARE_ANSWER_MODEL", DEFAULT_CARE_ANSWER_MODEL)
-        self._timeout = timeout
-        self._model_factory = model_factory
-        self._chat_model = chat_model
+        super().__init__(
+            config=LLMProviderConfig.from_env(
+                provider_name="CareAnswerProvider",
+                model_env="OPENAI_CARE_ANSWER_MODEL",
+                default_model=DEFAULT_CARE_ANSWER_MODEL,
+                fallback_model_env="OPENAI_CARE_ANSWER_FALLBACK_MODEL",
+                api_key=api_key,
+                model=model,
+                timeout=timeout,
+            ),
+            model_factory=model_factory,
+            model=chat_model,
+        )
         self._knowledge_retriever = knowledge_retriever
 
     def answer(self, context: CareContext, question: str) -> str:
-        if not self._api_key:
-            raise RuntimeError("OPENAI_API_KEY is required to use CareAnswerProvider.")
-
         knowledge_hits = ()
         if self._knowledge_retriever is not None:
             knowledge_hits = self._knowledge_retriever.search(question)
 
-        result = self._chat_llm().invoke(build_care_answer_messages(context, question, knowledge_hits))
+        result = self._invoke_llm(build_care_answer_messages(context, question, knowledge_hits))
         return message_content_to_text(result)
-
-    def _chat_llm(self) -> CareAnswerModel:
-        if self._chat_model is None:
-            self._chat_model = self._model_factory(self._model, self._api_key, self._timeout)
-        return self._chat_model

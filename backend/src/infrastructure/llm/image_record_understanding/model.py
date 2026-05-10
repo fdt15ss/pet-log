@@ -3,8 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Protocol
 
-from langchain_openai import ChatOpenAI
-
+from infrastructure.llm.model_factory import build_chat_openai_model
 from infrastructure.llm.image_record_understanding.schema import ImageRecordUnderstandingOutput
 
 
@@ -24,12 +23,7 @@ def build_image_record_understanding_model(
     api_key: str,
     timeout: float,
 ) -> ImageRecordUnderstandingModel:
-    llm = ChatOpenAI(
-        model=model,
-        api_key=api_key,
-        timeout=timeout,
-        use_responses_api=True,
-    )
+    llm = build_chat_openai_model(model, api_key, timeout)
     return llm.with_structured_output(
         ImageRecordUnderstandingOutput,
         method="json_schema",
