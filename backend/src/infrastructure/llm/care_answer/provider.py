@@ -36,7 +36,11 @@ class CareAnswerProvider:
         if not self._api_key:
             raise RuntimeError("OPENAI_API_KEY is required to use CareAnswerProvider.")
 
-        result = self._chat_llm().invoke(build_care_answer_messages(context, question))
+        knowledge_hits = ()
+        if self._knowledge_retriever is not None:
+            knowledge_hits = self._knowledge_retriever.search(question)
+
+        result = self._chat_llm().invoke(build_care_answer_messages(context, question, knowledge_hits))
         return message_content_to_text(result)
 
     def _chat_llm(self) -> CareAnswerModel:

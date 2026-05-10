@@ -2,7 +2,13 @@ from __future__ import annotations
 
 import unittest
 
-from domain.models import CareContext, PetProfile, StructuredRecordCandidate
+from domain.models import (
+    CareContext,
+    CareKnowledgeChunk,
+    CareKnowledgeHit,
+    PetProfile,
+    StructuredRecordCandidate,
+)
 from infrastructure.llm.care_answer import CareAnswerProvider
 from infrastructure.llm.image_record_understanding import ImageRecordUnderstandingProvider
 from infrastructure.llm.pet_persona import PetPersonaResponder
@@ -28,6 +34,16 @@ class FakeStructuredModel:
         return self.response
 
 
+class FakeKnowledgeRetriever:
+    def __init__(self, hits: tuple[CareKnowledgeHit, ...] = ()) -> None:
+        self.hits = hits
+        self.calls: list[tuple[str, int]] = []
+
+    def search(self, question: str, limit: int = 3) -> tuple[CareKnowledgeHit, ...]:
+        self.calls.append((question, limit))
+        return self.hits
+
+
 class TextMessage:
     def __init__(self, content: str) -> None:
         self.content = content
@@ -46,6 +62,34 @@ class TestLLMProviderContract(unittest.TestCase):
         self.assertEqual(model.calls[0][0][0], "system")
         self.assertEqual(model.calls[0][1][0], "user")
         self.assertIn("진단을 단정하지 마세요", model.calls[0][0][1])
+
+    def test_care_answer_provider_adds_knowledge_hits_to_prompt_when_configured(self):
+        model = FakeTextModel(TextMessage("초코의 최근 기록을 보면 산책 시간을 조금씩 늘려보세요."))
+        chunk = CareKnowledgeChunk(
+            id="chunk-1",
+            source_id="source-1",
+            title="Dog walking guide",
+            text="Young dogs may need shorter, more frequent walks.",
+            source_url="https://example.org/dog-walking",
+            content_hash="hash-1",
+        )
+        retriever = FakeKnowledgeRetriever((CareKnowledgeHit(chunk=chunk, score=0.87),))
+        provider = CareAnswerProvider(
+            api_key="test-key",
+            model="test-model",
+            chat_model=model,
+            knowledge_retriever=retriever,
+        )
+        context = CareContext(pet=PetProfile(id="pet-1", name="초코", species="dog"))
+
+        provider.answer(context, "산책을 얼마나 해야 해?")
+
+        self.assertEqual(retriever.calls, [("산책을 얼마나 해야 해?", 3)])
+        user_prompt = model.calls[0][1][1]
+        self.assertIn("care_knowledge:", user_prompt)
+        self.assertIn("Dog walking guide", user_prompt)
+        self.assertIn("Young dogs may need shorter, more frequent walks.", user_prompt)
+        self.assertIn("https://example.org/dog-walking", user_prompt)
 
     def test_care_answer_provider_requires_api_key(self):
         provider = CareAnswerProvider(api_key="")
