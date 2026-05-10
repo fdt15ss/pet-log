@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 from application.dto import HospitalSummaryResult
-from application.interfaces import PetProfileReaderInterface, RecordHistoryReaderInterface
+from infrastructure.repositories import PetProfileRepository, RecordRepository
 
 
 class HospitalSummaryPipeline:
     def __init__(
         self,
-        pet_profile_reader: PetProfileReaderInterface,
-        record_history_reader: RecordHistoryReaderInterface,
+        pet_profile_reader: PetProfileRepository,
+        record_history_reader: RecordRepository,
         report_composer,
     ) -> None:
         self._pet_profile_reader = pet_profile_reader

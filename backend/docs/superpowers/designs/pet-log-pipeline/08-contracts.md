@@ -1,4 +1,4 @@
-# Domain, DTO, Interface 계약
+# Domain, DTO, Class 계약
 
 ## Domain 타입
 
@@ -33,59 +33,22 @@
 | `ProactiveQuestionResult` | 홈에 노출할 선제 질문 결과 |
 | `NotificationCandidate` | 알림 저장/전송 전 후보 |
 
-## Interface
+## Class Contracts
 
-구현 위치는 `src/application/interfaces/` 패키지다. `src/application/interfaces/__init__.py`가 전체 interface를 다시 export하므로 기존처럼 `from application.interfaces import ...`로 가져올 수 있다. application agent는 `src/application/agents/`에서 interface에만 의존하고, 실제 provider/policy/repository 구현은 `infrastructure`, `agent_runtime`, `tools`에 둔다.
+`src/application/interfaces/` 패키지는 제거했다. 현재 backend는 구현 없는 `Protocol`을 별도 패키지에 늘리지 않고, 제품 경로에서 호출되는 concrete class와 테스트 계약으로 경계를 관리한다.
 
-2026-05-07 기준으로 아래 신규 계약은 코드에 반영했다.
+현재 주요 구현 위치는 다음과 같다.
 
-### Pipeline interfaces
-
-파일: `src/application/interfaces/pipelines.py`
-
-- `PetLogAgentPipelineInterface`
-- `HomeFeedPipelineInterface`
-- `CareQuestionPipelineInterface`
-- `PetChatPipelineInterface`
-- `HospitalSummaryPipelineInterface`
-
-### Agent interfaces
-
-파일: `src/application/interfaces/agents.py`
-
-- `RecordStructuringAgentInterface`
-- `ContextAnalysisAgentInterface`
-- `RiskDetectionAgentInterface`
-- `SuggestionAgentInterface`
-- `ReminderAgentInterface`
-- `RecordSummaryAgentInterface`
-- `ProactiveQuestionAgentInterface`
-- `NotificationAgentInterface`
-- `PhotoRecordUnderstandingAgentInterface`
-- `CareContextBuilderInterface`
-- `PetPersonaAgentInterface`
-
-### Repository and reader interfaces
-
-파일: `src/application/interfaces/repositories.py`
-
-- `PetProfileReaderInterface`
-- `RecordHistoryReaderInterface`
-- `RecordRepositoryInterface`
-- `ScheduleContextReaderInterface`
-- `PetLogAgentResultReaderInterface`
-
-### Provider interfaces
-
-파일: `src/application/interfaces/providers.py`
-
-- `RecordStructurerInterface`
-- `RecordSummaryProviderInterface`
-- `CareAnswerProviderInterface`
-- `PetPersonaResponderInterface`
-- `ImageRecordUnderstandingProviderInterface`
-- `SpeechToTextInterface`
-- `TextToSpeechInterface`
+| 책임 | 구현 class | 구현 위치 |
+| --- | --- | --- |
+| 펫 프로필 조회 | `PetProfileRepository` | `src/infrastructure/repositories/pet_profile_repository.py` |
+| 최근 기록 조회/기록 저장 | `RecordRepository` | `src/infrastructure/repositories/record_repository.py` |
+| 일정 조회 | `ScheduleRepository` | `src/infrastructure/repositories/schedule_repository.py` |
+| 자연어 기록 구조화 | `RecordStructurer` | `src/infrastructure/llm/record_structuring/provider.py` |
+| AI 케어 답변 | `CareAnswerProvider` | `src/infrastructure/llm/care_answer/provider.py` |
+| 펫 말투 응답 | `PetPersonaResponder` | `src/infrastructure/llm/pet_persona/provider.py` |
+| 음성 입력 STT | `SpeechToTextProvider` | `src/infrastructure/speech/speech_to_text.py` |
+| 음성 응답 TTS | `TextToSpeechProvider` | `src/infrastructure/speech/text_to_speech.py` |
 
 ## 기록 구조화 계약
 
@@ -111,11 +74,11 @@ StructuredRecordBatch
 초기 agent/provider 계약:
 
 ```text
-RecordStructuringAgentInterface.structure(
+RecordStructuringAgent.structure(
   input: PetLogAgentInput,
 ) -> StructuredRecordBatch
 
-RecordStructurerInterface.structure(
+RecordStructurer.structure(
   input: PetLogAgentInput,
 ) -> StructuredRecordBatch
 ```
@@ -127,27 +90,7 @@ RecordStructurerInterface.structure(
 - `PetLogAgentPipeline`은 확인이 필요하지 않은 batch의 모든 후보를 각각 `PetRecord`로 저장한다.
 - 저장 후 결과는 `PetLogAgentResult.candidates`, `PetLogAgentResult.saved_records`로 전달한다.
 
-### Policy interfaces
-
-파일: `src/application/interfaces/policies.py`
-
-- `PatternAnalyzerInterface`
-- `MissingRecordPolicyInterface`
-- `RiskSignalPolicyInterface`
-- `SuggestionComposerInterface`
-- `ReminderPlannerInterface`
-- `CauseHypothesisPolicyInterface`
-- `ProactiveQuestionPolicyInterface`
-- `NotificationPolicyInterface`
-- `SafetyGuardInterface`
-
-### Composer interfaces
-
-파일: `src/application/interfaces/composers.py`
-
-- `HomeFeedComposerInterface`
-- `RecordSummaryComposerInterface`
-- `HospitalReportComposerInterface`
+정책과 composer도 같은 원칙을 따른다. 현재는 `PatternAnalyzer`, `MissingRecordPolicy`, `RiskSignalPolicy`, `SuggestionComposer`, `ReminderPlanner`, `HomeFeedComposer`, `HospitalReportComposer` 같은 concrete class를 직접 wiring한다. 교체 필요가 실제로 생기면 그때 최소 interface를 도입한다.
 
 ## Record summary 계약
 
@@ -168,7 +111,7 @@ RecordSummaryResult
 초기 agent 계약:
 
 ```text
-RecordSummaryAgentInterface.summarize(
+RecordSummaryAgent.summarize(
   pet: PetProfile,
   records: tuple[PetRecord, ...],
   context: ContextAnalysisResult,
@@ -179,7 +122,7 @@ RecordSummaryAgentInterface.summarize(
 모델 provider 계약:
 
 ```text
-RecordSummaryProviderInterface.summarize(
+RecordSummaryProvider.summarize(
   pet: PetProfile,
   records: tuple[PetRecord, ...],
   context: ContextAnalysisResult,
@@ -192,8 +135,8 @@ RecordSummaryProviderInterface.summarize(
 - `ContextAnalysisAgent`가 만든 insight를 재사용한다.
 - 시간 흐름 기반 변화와 반복 행동은 모델 provider가 문장형으로 정리한다.
 - `RecordSummaryAgent`는 요약 대상, 분석 결과, 일정 맥락을 provider에 전달하는 orchestration 책임을 가진다.
-- `RecordSummaryComposerInterface`는 모델 없는 fallback 또는 모델 결과 포맷팅에만 사용한다.
-- 병원 제출용 문구는 `HospitalReportComposerInterface`에서 목적에 맞게 재구성한다.
+- `RecordSummaryComposer`는 모델 없는 fallback 또는 모델 결과 포맷팅에만 사용한다.
+- 병원 제출용 문구는 `HospitalReportComposer`에서 목적에 맞게 재구성한다.
 - 의료 판단 단정 표현은 금지하고, 위험 신호는 `SafetyNotice`로 분리한다.
 
 ## 선제 질문 계약 후보
@@ -214,7 +157,7 @@ ProactiveQuestionResult
 초기 agent 계약 후보:
 
 ```text
-ProactiveQuestionAgentInterface.build_question(
+ProactiveQuestionAgent.build_question(
   pet: PetProfile,
   records: tuple[PetRecord, ...],
   context: ContextAnalysisResult,
@@ -248,7 +191,7 @@ NotificationCandidate
 초기 agent 계약 후보:
 
 ```text
-NotificationAgentInterface.plan(
+NotificationAgent.plan(
   pet: PetProfile,
   context: ContextAnalysisResult,
   safety_notices: tuple[SafetyNotice, ...],
@@ -269,7 +212,7 @@ NotificationAgentInterface.plan(
 초기 agent 계약 후보:
 
 ```text
-PhotoRecordUnderstandingAgentInterface.understand(
+PhotoRecordUnderstandingAgent.understand(
   pet: PetProfile,
   image: bytes,
   content_type: str,
@@ -279,6 +222,6 @@ PhotoRecordUnderstandingAgentInterface.understand(
 
 구현 방향:
 
-- 실제 vision 모델 호출은 `ImageRecordUnderstandingProviderInterface` 뒤로 숨긴다.
+- 실제 vision 모델 호출은 `ImageRecordUnderstandingProvider`에 둔다.
 - 사료량, 배변 상태, 자세 같은 관찰 가능한 정보만 구조화한다.
 - 건강 상태를 이미지로 단정하지 않고, 위험 신호는 `SafetyNotice` 또는 케어 질문으로 연결한다.

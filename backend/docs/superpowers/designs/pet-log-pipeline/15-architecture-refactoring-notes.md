@@ -6,11 +6,11 @@
 
 현재 구조는 `기록 입력 -> DB 저장 -> 분석/제안 -> 케어 질문`의 핵심 흐름을 분리하려는 의도는 좋다. 다만 MVP 단계 기준으로는 `Protocol`, wrapper agent, 구현 없는 skeleton module이 동시에 늘어나면서 파일 탐색 비용이 커졌다.
 
-우선 줄일 대상은 실제 product path에 아직 붙지 않은 미래 agent/runtime/RAG 세부 인터페이스다. 반대로 DB, LLM provider, speech provider처럼 교체 가능성이 높고 제품 흐름에서 이미 쓰이는 경계는 유지한다.
+우선 줄일 대상은 실제 product path에 아직 붙지 않은 미래 agent/runtime/RAG 세부 인터페이스다. 현재 코드에서는 `application.interfaces` 패키지를 제거하고, repository/provider/policy의 concrete class를 직접 wiring한다.
 
-## 문제 1. `application.interfaces`가 넓음
+## 문제 1. `application.interfaces` 제거
 
-현재 `application.interfaces`에는 agents, providers, policies, repositories, pipelines, composers, knowledge까지 많은 `Protocol`이 나뉘어 있다. 하지만 실제 구현은 단순 위임이거나 `NotImplementedError` skeleton인 경우가 있다.
+과거 `application.interfaces`에는 agents, providers, policies, repositories, pipelines, composers, knowledge까지 많은 `Protocol`이 나뉘어 있었다. 하지만 실제 구현은 단순 위임이거나 `NotImplementedError` skeleton인 경우가 많았다.
 
 이 상태에서는 인터페이스가 복잡도를 줄이기보다 다음 비용을 만든다.
 
@@ -18,17 +18,16 @@
 - import test만으로 기능이 완료된 것처럼 보일 수 있다.
 - 새 기능을 추가할 때 실제 필요보다 먼저 contract가 늘어난다.
 
-### 유지할 핵심 인터페이스
+### 현재 유지하는 코드 표면
 
-현재 제품 흐름에서 직접 사용되거나 교체 가능성이 명확한 경계는 유지한다.
+현재 제품 흐름에서 직접 쓰는 경계는 concrete class와 테스트 계약으로 유지한다.
 
-- `PetProfileReaderInterface`
-- `RecordHistoryReaderInterface`
-- `RecordRepositoryInterface`
-- `ScheduleContextReaderInterface`
-- `RecordStructurerInterface`
-- `SpeechToTextInterface`
-- `CareAnswerProviderInterface`
+- `PetProfileRepository`
+- `RecordRepository`
+- `ScheduleRepository`
+- `RecordStructurer`
+- `SpeechToTextProvider`
+- `CareAnswerProvider`
 
 ### 문서로만 남길 미래 영역
 
@@ -43,7 +42,7 @@
 
 ## 문제 2. Agent와 Provider 경계가 애매함
 
-일부 agent는 provider를 감싼 얇은 wrapper에 가깝다. 예를 들어 `RecordStructuringAgent`는 `RecordStructurerInterface`를 호출하고 결과를 반환한다. `CareAnswerProvider`, `PetPersonaResponder`, `RecordSummaryProvider` 주변도 현재 단계에서는 "한 번 호출하고 결과 반환"에 가까운 흐름이 많다.
+일부 agent는 provider를 감싼 얇은 wrapper에 가깝다. 예를 들어 `RecordStructuringAgent`는 `RecordStructurer`를 호출하고 결과를 반환한다. `CareAnswerProvider`, `PetPersonaResponder`, `RecordSummaryProvider` 주변도 현재 단계에서는 "한 번 호출하고 결과 반환"에 가까운 흐름이 많다.
 
 agent layer가 실질 가치를 가지려면 다음 중 하나가 있어야 한다.
 
@@ -96,8 +95,8 @@ CareAnswerProvider
 
 다음 항목은 실제 구현 스프린트에서 필요가 확인될 때 뽑는다.
 
-- `CareKnowledgeIngestionInterface`
-- `EmbeddingProviderInterface`
+- `CareKnowledgeIngestion`
+- `EmbeddingProvider`
 - `CareKnowledgeRepository`
 - URL fetcher
 - chunker
@@ -117,7 +116,7 @@ CareAnswerProvider
 
 ## 권장 정리 순서
 
-1. `application.interfaces`에서 실제 사용 중인 인터페이스와 후보 인터페이스를 구분한다.
+1. `application.interfaces` 패키지는 제거하고 concrete class 호출 계약으로 정리한다.
 2. 단순 provider 위임만 하는 wrapper agent를 제거하거나 pipeline 내부 호출로 접는다.
 3. `agent_runtime`, `tools`, `middleware`는 실제 실행 경로가 생기기 전까지 experimental 또는 docs-only로 표시한다.
 4. 구현 없는 future skeleton은 문서 backlog로 옮긴다.

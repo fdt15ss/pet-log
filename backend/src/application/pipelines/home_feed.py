@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 from application.dto import HomeFeedResult
-from application.interfaces import PetProfileReaderInterface, ScheduleContextReaderInterface
+from infrastructure.repositories import PetProfileRepository, ScheduleRepository
 
 
 class HomeFeedPipeline:
     def __init__(
         self,
-        pet_profile_reader: PetProfileReaderInterface,
+        pet_profile_reader: PetProfileRepository,
         agent_result_reader,
-        schedule_context_reader: ScheduleContextReaderInterface,
+        schedule_context_reader: ScheduleRepository,
         home_feed_composer,
         days_ahead: int = 14,
     ) -> None:

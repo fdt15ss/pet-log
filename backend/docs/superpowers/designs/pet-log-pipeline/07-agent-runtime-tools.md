@@ -51,7 +51,7 @@ infrastructure/
 ```text
 application pipeline
   -> application agent
-  -> AgentRuntimeInterface 후보
+  -> agent runtime 후보
   -> LangGraphAgentRuntime
   -> ToolRegistry
   -> infrastructure provider/tool

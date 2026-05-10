@@ -69,7 +69,7 @@ uv run python -B -m unittest discover -s tests -v
 ```
 
 ```bash
-uv run python -B -c "import application.interfaces, agent_runtime, middleware, tools, infrastructure, presentation, composition; print('target imports ok')"
+uv run python -B -c "import application, agent_runtime, middleware, tools, infrastructure, presentation, composition; print('target imports ok')"
 ```
 
 ```bash

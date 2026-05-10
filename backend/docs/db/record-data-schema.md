@@ -9,11 +9,11 @@
 ```text
 사용자 입력 문장
   -> PetLogAgentInput
-  -> RecordStructurerInterface
+  -> RecordStructurer
   -> StructuredRecordBatch
      -> StructuredRecordCandidate tuple
   -> PetLogAgentPipeline
-  -> RecordRepositoryInterface.save_candidate()
+  -> RecordRepository.save_candidate()
   -> pet_records 여러 row
 ```
 

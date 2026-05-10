@@ -7,7 +7,7 @@
 ```text
 PetChatInput
   -> CareContextBuilder
-  -> SafetyGuardInterface
+  -> SafetyGuard
   -> PetPersonaAgent
   -> PetChatResult
 ```
@@ -17,11 +17,11 @@ PetChatInput
 - 펫 말투는 프로필의 `personality`, 최근 기록, 안전 규칙을 기반으로 한다.
 - 건강 판단 질문은 직접 답하지 않는다.
 - 건강/증상 관련 질문은 `CareQuestionPipeline`으로 연결한다.
-- 감성 답변 생성은 `PetPersonaResponderInterface` 뒤로 숨긴다.
-- 음성 출력 생성은 `TextToSpeechInterface` 뒤로 숨긴다.
+- 감성 답변 생성은 `PetPersonaResponder`에 둔다.
+- 음성 출력 생성은 `TextToSpeechProvider`에 둔다.
 
 ## 후속 결정
 
 - 말투 규칙은 별도 prompt/spec 문서에서 정의한다.
-- 케어 질문과 같은 LLM provider를 쓰더라도 application interface는 분리한다.
+- 케어 질문과 같은 LLM provider를 쓰더라도 class 책임은 분리한다.
 - TTS provider는 LLM provider와 분리한다.

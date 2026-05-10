@@ -1,15 +1,15 @@
 from __future__ import annotations
 
-from application.interfaces import PetProfileReaderInterface, RecordHistoryReaderInterface, ScheduleContextReaderInterface
 from domain.models import CareContext
+from infrastructure.repositories import PetProfileRepository, RecordRepository, ScheduleRepository
 
 
 class CareContextBuilder:
     def __init__(
         self,
-        pet_profile_reader: PetProfileReaderInterface,
-        record_history_reader: RecordHistoryReaderInterface,
-        schedule_context_reader: ScheduleContextReaderInterface,
+        pet_profile_reader: PetProfileRepository,
+        record_history_reader: RecordRepository,
+        schedule_context_reader: ScheduleRepository,
         days_ahead: int = 14,
     ) -> None:
         self._pet_profile_reader = pet_profile_reader

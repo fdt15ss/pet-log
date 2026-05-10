@@ -1,6 +1,6 @@
 # 패키지 구조
 
-패키지는 `pet_log/` wrapper 없이 `src/` 아래의 최상위 패키지로 구성한다. 폴더명은 구현자가 바로 의미를 읽을 수 있도록 `interfaces`, `agents`, `pipelines`, `agent_runtime`, `middleware`, `tools`, `infrastructure`, `presentation`을 기준으로 한다.
+패키지는 `pet_log/` wrapper 없이 `src/` 아래의 최상위 패키지로 구성한다. 폴더명은 구현자가 바로 의미를 읽을 수 있도록 `agents`, `pipelines`, `agent_runtime`, `middleware`, `tools`, `infrastructure`, `presentation`을 기준으로 한다.
 
 ## 폴더 구성표
 
@@ -12,7 +12,6 @@
 | `src/domain/events.py` | domain | record created, insight generated, reminder planned 이벤트 타입 | 파일만 |
 | `src/application/` | application | use case pipeline과 agent 정의 | 생성 |
 | `src/application/dto.py` | application | pipeline input/output DTO | 타입만 |
-| `src/application/interfaces/` | application | pipeline, agent, repository, provider, policy, composer protocol 정의 | 인터페이스만 |
 | `src/application/agents/` | application | 제품 기능을 맡는 LLM agent 역할 단위 | 함수 호출 구성만 |
 | `src/application/pipelines/` | application | core/surface pipeline shell | 함수 호출 구성만 |
 | `src/application/errors.py` | application | pipeline error 계약 | 타입만 |
@@ -30,7 +29,7 @@
 | `src/presentation/http/` | presentation | HTTP entrypoint 후보 | 폴더만 |
 | `src/composition.py` | composition | concrete implementation wiring 위치 | 파일만 |
 | `pyproject.toml` | packaging | `src` layout package 설정 | 설정됨 |
-| `tests/` | tests | interface contract와 pipeline 단위 테스트 | 후속 |
+| `tests/` | tests | class contract와 pipeline 단위 테스트 | 후속 |
 
 ## 폴더 트리
 

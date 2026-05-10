@@ -14,7 +14,7 @@
 | 행동 가이드/개선 방향 제안 | `SuggestionAgent` |
 | 일정 기반 관리/리마인더 | `ReminderAgent` |
 | 펫과 대화하는 감성 인터페이스 | `PetPersonaAgent` + `PetChatPipeline` |
-| 보호자 AI 케어 질문 | `CareQuestionPipeline` + `CareAnswerProviderInterface` |
+| 보호자 AI 케어 질문 | `CareQuestionPipeline` + `CareAnswerProvider` |
 | 기록 타임라인/검색/필터/프로필 | frontend/API/data schema 쪽 MVP 범위 |
 
 ## 누락 agent 후보
@@ -22,7 +22,7 @@
 | 우선순위 | 후보 | 기획 근거 | 필요한 이유 |
 | --- | --- | --- | --- |
 | 1 | `RecordSummaryAgent` | 문제 행동 요약, 주간/월간 리포트, 병원 제출용 요약, 변화 기록 정리 | `ContextAnalysisAgent`는 insight를 만들지만 사람이 읽을 문장형 요약/리포트를 만들지 않는다. |
-| 2 | `CauseHypothesisPolicyInterface` | 원인 추정 | 원인 단정은 위험하므로 진단이 아닌 "가능한 맥락", "추가 확인 질문", "관찰 포인트"로 제한하는 별도 정책이 필요하다. |
+| 2 | `CauseHypothesisPolicy` | 원인 추정 | 원인 단정은 위험하므로 진단이 아닌 "가능한 맥락", "추가 확인 질문", "관찰 포인트"로 제한하는 별도 정책이 필요하다. |
 | 3 | `ProactiveQuestionAgent` | 홈의 AI가 먼저 질문하는 한줄 구간, 기록 누락/최근 변화 확인 | 홈 composer가 문구를 조립하는 것과 "무엇을 먼저 물을지" 판단하는 책임은 분리해야 한다. |
 | 4 | `NotificationAgent` | 이상 징후 알림, 행동 변화 알림, 일정 알림, 기록 누락 알림 | 알림 후보 생성은 push 전송과 다르며, dedupe와 안전 문구 정책이 필요하다. |
 | 5 | `PhotoRecordUnderstandingAgent` | 사진 첨부 기록, 사진 인식 아이디어 | 사진에서 관찰 가능한 정보를 구조화하고 낮은 확신은 보호자 확인으로 돌리는 입력 이해 책임이 필요하다. |
@@ -54,7 +54,7 @@
 ## 추천 반영 순서
 
 1. `RecordSummaryAgent` 계약을 먼저 고정한다.
-2. 원인 추정 표현을 `CauseHypothesisPolicyInterface` 같은 안전 정책으로 제한한다.
+2. 원인 추정 표현을 `CauseHypothesisPolicy` 같은 안전 정책으로 제한한다.
 3. 홈 경험에 직접 노출되는 `ProactiveQuestionAgent` 계약을 추가한다.
 4. `NotificationAgent`로 알림 후보 생성과 전송 책임을 분리한다.
 5. 입력 채널 확장 단계에서 `PhotoRecordUnderstandingAgent`를 추가한다.
@@ -62,7 +62,7 @@
 
 ## 결정
 
-- 누락 agent 후보는 모두 application interface부터 정의한다.
+- 누락 agent 후보는 먼저 concrete class와 테스트 계약으로 정의하고, 실제 교체 필요가 생길 때만 interface를 추가한다.
 - 실제 LLM, vision, push provider는 infrastructure 뒤에 둔다.
 - 의료 판단 단정 표현은 모든 agent에서 금지한다.
 - 원인 추정은 진단이 아니라 관찰 가능한 기록 근거와 확인 질문으로 제한한다.

@@ -6,9 +6,9 @@
 
 ```text
 HospitalSummaryInput
-  -> PetProfileReaderInterface
-  -> RecordHistoryReaderInterface
-  -> HospitalReportComposerInterface
+  -> PetProfileRepository
+  -> RecordRepository
+  -> HospitalReportComposer
   -> HospitalSummaryResult
 ```
 
@@ -28,7 +28,7 @@ HospitalSummaryInput
 
 1. 일반 기록 묶음을 요약하는 summary 계약을 먼저 정의한다.
 2. `HospitalSummaryPipeline`은 선택된 record id를 조회하고 summary 계약을 호출한다.
-3. 병원 제출용 안전 문구와 포맷만 `HospitalReportComposerInterface`에서 별도로 다룬다.
+3. 병원 제출용 안전 문구와 포맷만 `HospitalReportComposer`에서 별도로 다룬다.
 
 ## 결정
 
