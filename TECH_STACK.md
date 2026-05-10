@@ -110,6 +110,9 @@ Browser
   - `domain`과 `application`은 LangChain/LangGraph 타입에 직접 의존하지 않음
   - 실제 framework 의존성은 infrastructure와 agent runtime에 격리
   - `infrastructure.llm.model_factory`가 OpenAI-compatible local endpoint와 OpenAI Responses API 차이를 흡수
+  - `infrastructure.llm.model_factory.LLMModel`과 `ModelFactory`가 provider 공통 model contract를 제공
+  - 단순 chat provider는 `build_chat_openai_model`을 직접 주입하고, structured output provider만 기능별 `model.py` builder를 유지
+  - 공통 GPT 기본 모델 상수는 `infrastructure.llm.constants`에서 관리
   - `LLM_EAGER_LOAD=1`이면 backend startup에서 configured provider를 모두 생성
   - `LOCAL_LLM_AUTOSTART=1`이면 백엔드 코드가 vLLM 또는 llama.cpp 서버를 자동 기동
   - `LOCAL_LLM_RUNTIME=vllm`이면 `vllm serve <GEMMA_MODEL>`와 기본 endpoint `http://127.0.0.1:8000/v1` 사용

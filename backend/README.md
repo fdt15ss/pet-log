@@ -134,6 +134,8 @@ curl -F "audio=@recording.webm;type=audio/webm" http://127.0.0.1:8000/api/v1/spe
 
 백엔드 LLM provider는 공통 factory를 통해 OpenAI-compatible chat model interface를 사용한다. `LOCAL_LLM_AUTOSTART=1` 또는 `GEMMA_BASE_URL`이 설정되면 로컬 Gemma 3n E4B endpoint를 primary로 호출하고, `OPENAI_API_KEY`가 있으면 transient failure 시 GPT 모델로 fallback한다.
 
+LLM provider 타입 경계는 `infrastructure.llm.model_factory.LLMModel`과 `ModelFactory`가 공통으로 담당한다. `care_answer`와 `pet_persona`처럼 일반 chat 응답만 필요한 provider는 `build_chat_openai_model`을 직접 사용하고, `record_structuring`, `record_summary`, `image_record_understanding`처럼 JSON schema structured output이 필요한 provider만 각 기능의 `model.py`에 builder를 둔다. 공통 기본 모델 상수는 `infrastructure.llm.constants`에 둔다.
+
 로컬 예시는 다음 파일에서 시작한다. `GEMMA_MODEL`은 로컬 런타임이 노출하는 실제 모델 이름으로 맞춘다.
 
 ```bash
