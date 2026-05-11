@@ -443,6 +443,32 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     }
   }
 
+  if (path[0] === "ai" && path[1] === "insights" && path.length === 2) {
+    const petId = _request.nextUrl.searchParams.get("pet_id") || backendPetId();
+    try {
+      const response = await axios.get(backendApiUrl(`/api/v1/ai/insights?pet_id=${encodeURIComponent(petId)}`), {
+        timeout: backendTimeoutMs(),
+        validateStatus: () => true,
+      });
+      return ok(response.data.data);
+    } catch {
+      return fail("BACKEND_INSIGHTS_FAILED", "AI 분석 결과를 불러오지 못했습니다.", 502);
+    }
+  }
+
+  if (path[0] === "ai" && path[1] === "suggestions" && path.length === 2) {
+    const petId = _request.nextUrl.searchParams.get("pet_id") || backendPetId();
+    try {
+      const response = await axios.get(backendApiUrl(`/api/v1/ai/suggestions?pet_id=${encodeURIComponent(petId)}`), {
+        timeout: backendTimeoutMs(),
+        validateStatus: () => true,
+      });
+      return ok(response.data.data);
+    } catch {
+      return fail("BACKEND_SUGGESTIONS_FAILED", "AI 케어 제안을 불러오지 못했습니다.", 502);
+    }
+  }
+
   if (path[0] === "chatbot" && path[1] === "threads" && path.length === 2) {
     return ok({ threads: getMockChatbotThreads() });
   }

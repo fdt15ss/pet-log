@@ -40,7 +40,7 @@ function createNextRouteAxiosClient() {
   });
 }
 
-test("초기 스냅샷 API는 FastAPI DB snapshot endpoint를 호출한다", async () => {
+test("초기 기록 API는 FastAPI DB records endpoint를 호출한다", async () => {
   const previousBaseUrl = process.env.PET_LOG_BACKEND_API_BASE_URL;
   const previousPetId = process.env.PET_LOG_BACKEND_PET_ID;
   const previousAdapter = axios.defaults.adapter;
@@ -50,7 +50,7 @@ test("초기 스냅샷 API는 FastAPI DB snapshot endpoint를 호출한다", asy
   axios.defaults.adapter = (async (config) => {
     assert.equal(
       config.url,
-      "http://127.0.0.1:27893/api/v1/pet-log/snapshot?pet_id=pet_01JCM7V8H9Q2K4N6R8T0A1B2C3",
+      "http://127.0.0.1:27893/api/v1/pet-log/records?pet_id=pet_01JCM7V8H9Q2K4N6R8T0A1B2C3",
     );
     assert.equal(config.method, "get");
 
@@ -59,33 +59,7 @@ test("초기 스냅샷 API는 FastAPI DB snapshot endpoint를 호출한다", asy
       data: {
         success: true,
         data: {
-          version: 1,
-          profile: {
-            name: "초코",
-            breed: "말티푸",
-            age: "3살",
-            sex: "",
-            weight: "",
-            birthday: "",
-            personality: "저녁 산책을 좋아해요",
-            notes: ["아침 식사는 천천히 먹는 편"],
-          },
           records: [],
-          schedules: [],
-          settings: {
-            notificationPreferences: {
-              missingRecord: true,
-              alert: true,
-              schedule: true,
-            },
-            aiInsightEnabled: true,
-          },
-          readNotificationIds: [],
-          expansionState: {
-            sharedCare: {},
-            hospital: {},
-            shopping: {},
-          },
         },
       },
       headers: {},
@@ -96,14 +70,15 @@ test("초기 스냅샷 API는 FastAPI DB snapshot endpoint를 호출한다", asy
   }) as AxiosAdapter;
 
   try {
-    const response = await GET(new Request("http://localhost/api/v1/me/pet-log") as never, {
-      params: Promise.resolve({ path: ["me", "pet-log"] }),
+    const { NextRequest } = await import("next/server");
+    const response = await GET(new NextRequest("http://localhost/api/v1/pet-log/records") as never, {
+      params: Promise.resolve({ path: ["pet-log", "records"] }),
     });
     const json = await response.json();
 
     assert.equal(response.status, 200);
     assert.equal(json.ok, true);
-    assert.equal(json.data.profile.name, "초코");
+    assert.deepEqual(json.data.records, []);
   } finally {
     axios.defaults.adapter = previousAdapter;
     restoreEnvValue("PET_LOG_BACKEND_API_BASE_URL", previousBaseUrl);
@@ -111,32 +86,28 @@ test("초기 스냅샷 API는 FastAPI DB snapshot endpoint를 호출한다", asy
   }
 });
 
-test("초기 스냅샷 API는 백엔드 실패 시 mock snapshot으로 대체하지 않는다", async () => {
+test("기록 API는 백엔드 실패 시 공통 실패 응답을 반환한다", async () => {
   const previousBaseUrl = process.env.PET_LOG_BACKEND_API_BASE_URL;
   const previousAdapter = axios.defaults.adapter;
   process.env.PET_LOG_BACKEND_API_BASE_URL = "http://127.0.0.1:27893";
 
-  axios.defaults.adapter = (async (config) => ({
-    config,
-    data: { success: false, detail: "Pet not found" },
-    headers: {},
-    request: {},
-    status: 404,
-    statusText: "Not Found",
-  })) as AxiosAdapter;
+  axios.defaults.adapter = (async (config) => {
+    throw new Error("Network error");
+  }) as AxiosAdapter;
 
   try {
-    const response = await GET(new Request("http://localhost/api/v1/me/pet-log") as never, {
-      params: Promise.resolve({ path: ["me", "pet-log"] }),
+    const { NextRequest } = await import("next/server");
+    const response = await GET(new NextRequest("http://localhost/api/v1/pet-log/records") as never, {
+      params: Promise.resolve({ path: ["pet-log", "records"] }),
     });
     const json = await response.json();
 
-    assert.equal(response.status, 404);
+    assert.equal(response.status, 502);
     assert.deepEqual(json, {
       ok: false,
       error: {
-        code: "NOT_FOUND",
-        message: "Pet not found",
+        code: "BACKEND_RECORDS_FAILED",
+        message: "기록 목록을 불러오지 못했습니다.",
       },
     });
   } finally {
@@ -600,27 +571,67 @@ test("기록 생성 API는 백엔드 실패 시 mock 기록으로 대체하지 �
 });
 
 test("기록 수정 API는 전체 기본 분류로 다시 구조화해 추천 카테고리를 저장한다", async () => {
-  const response = await createNextRouteAxiosClient().patch("/records/r1", {
-    category: "all",
-    detail: "저녁 산책 30분 다녀왔어요.",
-  });
-  const json = response.data;
+  const previousAdapter = axios.defaults.adapter;
+  axios.defaults.adapter = (async (config) => {
+    if (config.url?.includes("/api/v1/pet-log/records/r1")) {
+      return {
+        config,
+        data: { success: true, data: { id: "r1", category: "walk", title: "산책 30분", detail: "저녁 산책 30분 다녀왔어요.", status: "normal", recorded_at: "2026-05-11T19:30:00Z" } },
+        headers: {}, request: {}, status: 200, statusText: "OK",
+      };
+    }
+    return {
+      config,
+      data: { success: true, data: { candidates: [{ category: "walk", title: "산책 30분" }] } },
+      headers: {}, request: {}, status: 200, statusText: "OK",
+    };
+  }) as AxiosAdapter;
 
-  assert.equal(response.status, 200);
-  assert.equal(json.data.record.category, "walk");
-  assert.equal(json.data.record.categoryChoice, "all");
-  assert.equal(json.data.record.structured.suggestedCategory, "walk");
+  try {
+    const response = await createNextRouteAxiosClient().patch("/records/r1", {
+      category: "all",
+      detail: "저녁 산책 30분 다녀왔어요.",
+    });
+    const json = response.data;
+
+    assert.equal(response.status, 200);
+    assert.equal(json.data.record.category, "walk");
+    assert.equal(json.data.record.categoryChoice, "all");
+    assert.equal(json.data.record.structured.suggestedCategory, "walk");
+  } finally {
+    axios.defaults.adapter = previousAdapter;
+  }
 });
 
 test("기록 수정 API는 AI 자동 분류가 애매하면 기존 카테고리를 유지한다", async () => {
-  const response = await createNextRouteAxiosClient().patch("/records/r2", {
-    category: "all",
-    detail: "오늘은 평소와 비슷했어요.",
-  });
-  const json = response.data;
+  const previousAdapter = axios.defaults.adapter;
+  axios.defaults.adapter = (async (config) => {
+    if (config.url?.includes("/api/v1/pet-log/records/r2")) {
+      return {
+        config,
+        data: { success: true, data: { id: "r2", category: "walk", title: "평소와 비슷함", detail: "오늘은 평소와 비슷했어요.", status: "normal", recorded_at: "2026-05-11T19:30:00Z" } },
+        headers: {}, request: {}, status: 200, statusText: "OK",
+      };
+    }
+    return {
+      config,
+      data: { success: true, data: { candidates: [{ category: "walk", title: "평소와 비슷함", needs_confirmation: true }] } },
+      headers: {}, request: {}, status: 200, statusText: "OK",
+    };
+  }) as AxiosAdapter;
 
-  assert.equal(response.status, 200);
-  assert.equal(json.data.record.category, "walk");
-  assert.equal(json.data.record.categoryChoice, "all");
-  assert.equal(json.data.record.structured.needsConfirmation, true);
+  try {
+    const response = await createNextRouteAxiosClient().patch("/records/r2", {
+      category: "all",
+      detail: "오늘은 평소와 비슷했어요.",
+    });
+    const json = response.data;
+
+    assert.equal(response.status, 200);
+    assert.equal(json.data.record.category, "walk");
+    assert.equal(json.data.record.categoryChoice, "all");
+    assert.equal(json.data.record.structured.needsConfirmation, true);
+  } finally {
+    axios.defaults.adapter = previousAdapter;
+  }
 });
