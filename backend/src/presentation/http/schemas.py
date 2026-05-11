@@ -2,15 +2,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 from application.dto import PetLogAgentResult
 from application.agents.hospital import HospitalRecommendationResult
-from domain.enums import CommunityBoard, CommunityReactionType, RecordInputSource
+from domain.enums import RecordInputSource
 from domain.models import (
     CareSuggestion,
-    CommunityComment,
-    CommunityPost,
     PetRecord,
     PlannedReminder,
     SafetyNotice,
@@ -47,57 +45,6 @@ class HospitalRecommendationRequest(BaseModel):
     open_now_only: bool = True
     emergency: bool = False
     text: str = ""
-
-
-class CommunityPostRequest(BaseModel):
-    model_config = ConfigDict(populate_by_name=True)
-
-    board: CommunityBoard
-    title: str = Field(min_length=1)
-    body: str = Field(min_length=1)
-    author_name: str = Field(default="나", alias="authorName", min_length=1)
-    distance: str | None = None
-    tags: list[str] = Field(default_factory=list)
-
-    @field_validator("title", "body", "author_name")
-    @classmethod
-    def reject_blank_community_text(cls, value: str) -> str:
-        stripped = value.strip()
-        if not stripped:
-            raise ValueError("value must not be blank")
-        return stripped
-
-    @field_validator("distance")
-    @classmethod
-    def normalize_blank_distance(cls, value: str | None) -> str | None:
-        if value is None:
-            return None
-        stripped = value.strip()
-        return stripped or None
-
-    @field_validator("tags")
-    @classmethod
-    def normalize_tags(cls, value: list[str]) -> list[str]:
-        return [tag.strip() for tag in value if tag.strip()]
-
-
-class CommunityCommentRequest(BaseModel):
-    model_config = ConfigDict(populate_by_name=True)
-
-    body: str = Field(min_length=1)
-    author_name: str = Field(default="나", alias="authorName", min_length=1)
-
-    @field_validator("body", "author_name")
-    @classmethod
-    def reject_blank_comment_text(cls, value: str) -> str:
-        stripped = value.strip()
-        if not stripped:
-            raise ValueError("value must not be blank")
-        return stripped
-
-
-class CommunityReactionRequest(BaseModel):
-    reaction_type: CommunityReactionType = "like"
 
 
 class RecordUpdateRequest(BaseModel):
@@ -200,32 +147,6 @@ def hospital_recommendation_result_to_dict(
             _hospital_recommendation_to_dict(recommendation)
             for recommendation in result.recommendations
         ],
-    }
-
-
-def community_post_to_dict(post: CommunityPost) -> dict[str, Any]:
-    return {
-        "id": post.id,
-        "board": post.board,
-        "title": post.title,
-        "body": post.body,
-        "authorName": post.author_name,
-        "createdAt": post.created_at,
-        "comments": post.comments,
-        "likes": post.likes,
-        "distance": post.distance,
-        "feeds": list(post.feeds),
-        "tags": list(post.tags),
-    }
-
-
-def community_comment_to_dict(comment: CommunityComment) -> dict[str, Any]:
-    return {
-        "id": comment.id,
-        "postId": comment.post_id,
-        "authorName": comment.author_name,
-        "body": comment.body,
-        "createdAt": comment.created_at,
     }
 
 

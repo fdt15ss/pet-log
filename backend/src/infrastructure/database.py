@@ -100,47 +100,6 @@ def initialize_schema(connection: sqlite3.Connection) -> None:
         CREATE INDEX IF NOT EXISTS idx_files_pet_purpose_created_at
             ON files (pet_id, purpose, created_at);
 
-        CREATE TABLE IF NOT EXISTS community_posts (
-            id TEXT PRIMARY KEY,
-            board TEXT NOT NULL,
-            title TEXT NOT NULL,
-            body TEXT NOT NULL,
-            author_name TEXT NOT NULL,
-            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            comment_count INTEGER NOT NULL DEFAULT 0,
-            like_count INTEGER NOT NULL DEFAULT 0,
-            distance TEXT,
-            tags TEXT NOT NULL DEFAULT '[]',
-            deleted_at TEXT
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_community_posts_board_created_at
-            ON community_posts (board, created_at);
-
-        CREATE TABLE IF NOT EXISTS community_comments (
-            id TEXT PRIMARY KEY,
-            post_id TEXT NOT NULL,
-            author_name TEXT NOT NULL,
-            body TEXT NOT NULL,
-            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            deleted_at TEXT,
-            FOREIGN KEY (post_id) REFERENCES community_posts(id)
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_community_comments_post_created_at
-            ON community_comments (post_id, created_at);
-
-        CREATE TABLE IF NOT EXISTS community_reactions (
-            id TEXT PRIMARY KEY,
-            post_id TEXT NOT NULL,
-            reaction_type TEXT NOT NULL,
-            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (post_id) REFERENCES community_posts(id)
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_community_reactions_post_created_at
-            ON community_reactions (post_id, created_at);
-
         CREATE TABLE IF NOT EXISTS notifications (
             id TEXT PRIMARY KEY,
             pet_id TEXT NOT NULL,

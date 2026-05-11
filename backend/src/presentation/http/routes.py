@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from presentation.http.community_routes import build_community_router
 from presentation.http.file_routes import build_file_router
 from presentation.http.hospital_routes import build_hospital_router
 from presentation.http.notification_routes import build_notification_router
@@ -16,7 +15,6 @@ def build_router() -> APIRouter:
     router.include_router(build_file_router())
     router.include_router(build_speech_router())
     router.include_router(build_hospital_router())
-    router.include_router(build_community_router())
     router.include_router(build_notification_router())
 
     @router.get("/health")

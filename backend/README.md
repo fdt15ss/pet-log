@@ -75,17 +75,12 @@ src/composition.py
 - `POST /api/v1/files`: 이미지를 업로드하고 `file_id`를 반환한다. (프로필 사진 등)
 - `GET /api/v1/files/{file_id}`: 업로드된 이미지 파일을 다운로드한다.
 - `POST /api/v1/speech/transcriptions`: 음성 파일을 STT provider로 넘긴다.
-- `GET /api/v1/community/posts`: 커뮤니티 게시글 목록을 반환한다.
 - `record summary`, `care answer`, `pet persona`, `photo understanding` provider는 아직 프론트 초기 로딩이나 기록 입력 route에 연결하지 않는다.
 
 ## 검증 명령
 
 ```bash
 uv run python -B -m unittest discover -s tests -v
-```
-
-```bash
-uv run python -B -m unittest tests.test_community_repository tests.test_community_http_routes -v
 ```
 
 ```bash
@@ -158,38 +153,6 @@ POST /api/v1/speech/transcriptions
 
 ```bash
 curl -F "audio=@recording.webm;type=audio/webm" http://127.0.0.1:27893/api/v1/speech/transcriptions
-```
-
-커뮤니티 API:
-
-```text
-GET /api/v1/community/posts
-GET /api/v1/community/posts/{post_id}
-POST /api/v1/community/posts
-POST /api/v1/community/posts/{post_id}/comments
-POST /api/v1/community/posts/{post_id}/reactions
-```
-
-게시판은 `유기동물`, `용품 나눔`, `자유게시판`, `행동 고민`, `후기`를 지원한다. 피드는 `인기글`, `최신글`, `내 주변`을 지원하며, 인기글은 댓글과 반응 점수 기준으로 계산한다.
-
-게시글 작성 예시:
-
-```json
-{
-  "board": "후기",
-  "title": "짧은 산책을 나눈 후기",
-  "body": "아침과 저녁으로 나눴더니 안정되는 시간이 빨라졌습니다.",
-  "author_name": "밤산책",
-  "tags": ["산책"]
-}
-```
-
-응답은 프론트 커뮤니티 타입에 맞춰 `authorName`, `createdAt`, `feeds`, `tags` 필드를 포함한다.
-
-수동 smoke 확인:
-
-```bash
-uv run python -B scripts/smoke_community.py
 ```
 
 동물병원 추천 API:
