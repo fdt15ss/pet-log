@@ -7,6 +7,8 @@ export const metadata: Metadata = {
   description: "AI-first pet care MVP for records, interpretation, and care suggestions.",
 };
 
+export const dynamic = "force-dynamic";
+
 export default function RootLayout({
   children,
 }: Readonly<{
