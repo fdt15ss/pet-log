@@ -87,14 +87,24 @@ rg -n "fastapi|openai|sqlalchemy|sqlite|postgres|psycopg" src/application src/do
 
 ## FastAPI 실행
 
+macOS/Linux:
+
 ```bash
-uv run uvicorn main:app --reload --host 127.0.0.1 --port 8000
+./scripts/run-dev.sh
 ```
+
+Windows:
+
+```bat
+scripts\run-dev.bat
+```
+
+기본 포트는 `27893`이다. 필요하면 `PET_LOG_BACKEND_PORT` 환경변수로 바꿀 수 있다.
 
 기본 확인:
 
 ```bash
-curl http://127.0.0.1:8000/health
+curl http://127.0.0.1:27893/health
 ```
 
 기록 입력 API:
@@ -134,7 +144,7 @@ POST /api/v1/speech/transcriptions
 요청은 `multipart/form-data`의 `audio` 파일 필드로 받는다. 서버는 `composition.build_app_context()`에서 연결된 `SpeechToTextProvider`를 통해 Whisper `medium`으로 변환한다.
 
 ```bash
-curl -F "audio=@recording.webm;type=audio/webm" http://127.0.0.1:8000/api/v1/speech/transcriptions
+curl -F "audio=@recording.webm;type=audio/webm" http://127.0.0.1:27893/api/v1/speech/transcriptions
 ```
 
 ## Ollama 로컬 Gemma와 GPT 하이브리드 모드

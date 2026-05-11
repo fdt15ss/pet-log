@@ -11,11 +11,11 @@
 `frontend/app/web`의 Next Route Handler는 다음 서버 환경변수를 사용합니다.
 
 ```env
-PET_LOG_BACKEND_API_BASE_URL=http://127.0.0.1:8000
+PET_LOG_BACKEND_API_BASE_URL=http://127.0.0.1:27893
 PET_LOG_BACKEND_PET_ID=pet_01JCM7V8H9Q2K4N6R8T0A1B2C3
 ```
 
-- `PET_LOG_BACKEND_API_BASE_URL`: FastAPI 서버 base URL입니다. 기본값은 `http://127.0.0.1:8000`입니다.
+- `PET_LOG_BACKEND_API_BASE_URL`: FastAPI 서버 base URL입니다. 기본값은 `http://127.0.0.1:27893`입니다.
 - `PET_LOG_BACKEND_PET_ID`: 기록 파이프라인에 넘길 서버 pet id입니다. 기본값은 seed data의 `pet_01JCM7V8H9Q2K4N6R8T0A1B2C3`입니다.
 - 클라이언트 브라우저는 FastAPI를 직접 호출하지 않고 `/api/v1/*`의 Next Route Handler만 호출합니다.
 
