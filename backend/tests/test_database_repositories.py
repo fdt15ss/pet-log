@@ -21,6 +21,7 @@ class TestDatabaseRepositories(unittest.TestCase):
             connection = connect(database_path)
             seeded_pet_count = connection.execute("SELECT COUNT(*) FROM pets").fetchone()[0]
             seeded_record_count = connection.execute("SELECT COUNT(*) FROM pet_records").fetchone()[0]
+            seeded_community_post_count = connection.execute("SELECT COUNT(*) FROM community_posts").fetchone()[0]
             connection.close()
 
             second_connection = connect(database_path)
@@ -30,6 +31,7 @@ class TestDatabaseRepositories(unittest.TestCase):
 
         self.assertEqual(seeded_pet_count, 3)
         self.assertEqual(seeded_record_count, 9)
+        self.assertEqual(seeded_community_post_count, 5)
         self.assertEqual(second_pet_count, 3)
         self.assertEqual(second_record_count, 9)
 
@@ -100,6 +102,13 @@ class TestDatabaseRepositories(unittest.TestCase):
                 (SAMPLE_PET_ID,),
             ).fetchall()
         )
+        community_titles = tuple(
+            row["title"]
+            for row in connection.execute(
+                "SELECT title FROM community_posts ORDER BY id",
+            ).fetchall()
+        )
+        community_comment_count = connection.execute("SELECT COUNT(*) FROM community_comments").fetchone()[0]
 
         self.assertEqual(pet["name"], "초코")
         self.assertEqual(pet["breed"], "말티푸")
@@ -110,6 +119,17 @@ class TestDatabaseRepositories(unittest.TestCase):
         self.assertEqual(record_titles, ("아침 식사", "저녁 산책", "배변 상태", "귀 상태 확인", "낯선 소리 반응"))
         self.assertEqual(schedule_dates, ("2026-05-10", "2026-05-14"))
         self.assertEqual(schedule_titles, ("미용 예약", "정기 검진"))
+        self.assertEqual(
+            community_titles,
+            (
+                "말티즈 산책 시간이 줄면 쉽게 흥분하나요?",
+                "소형 반려동물 하네스 나눔합니다",
+                "분리불안 기록 방식 공유해요",
+                "AI 제안대로 산책을 나눠본 후기",
+                "근처 임시 보호 정보 공유합니다",
+            ),
+        )
+        self.assertEqual(community_comment_count, 3)
 
     def test_seed_database_can_seed_existing_empty_file(self):
         with tempfile.TemporaryDirectory() as directory:
