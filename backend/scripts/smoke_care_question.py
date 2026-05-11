@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 from application.agents.care_context import CareContextBuilder
 from domain.models import CareContext
 from infrastructure.database import connect
+from infrastructure.knowledge.retriever import CareKnowledgeRetriever
 from infrastructure.llm.care_answer.provider import CareAnswerProvider
 from infrastructure.repositories import PetProfileRepository, RecordRepository, ScheduleRepository
 from infrastructure.seed_data import SAMPLE_PET_ID, seed_default_data
@@ -52,7 +53,7 @@ def build_care_question_smoke_fixture(
     )
 
     return CareQuestionSmokeFixture(
-        provider=CareAnswerProvider(),
+        provider=CareAnswerProvider(knowledge_retriever=CareKnowledgeRetriever()),
         context_builder=context_builder,
         pet_id=pet_id,
     )
