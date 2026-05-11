@@ -7,6 +7,7 @@ from application.agents.context_analysis import ContextAnalysisAgent
 from application.agents.record_structuring import RecordStructuringAgent
 from application.agents.reminder import ReminderAgent
 from application.agents.risk_detection import RiskDetectionAgent
+from application.agents.shopping import ShoppingAgent
 from application.agents.suggestion import SuggestionAgent
 from application.pipelines.pet_log_graph import LangGraphPetLogAgentPipeline
 from infrastructure.database import connect
@@ -20,6 +21,7 @@ from infrastructure.policies.suggestion_composer import SuggestionComposer
 from infrastructure.repositories.pet_profile_repository import PetProfileRepository
 from infrastructure.repositories.record_repository import RecordRepository
 from infrastructure.repositories.schedule_repository import ScheduleRepository
+from infrastructure.shopping import NaverShoppingClient, ShoppingRecommendationProvider
 from infrastructure.speech import SpeechToTextProvider
 
 
@@ -48,6 +50,7 @@ def build_app_context(database_path: str | None = None) -> AppContext:
         record_repository=record_repository,
         suggestion_agent=SuggestionAgent(SuggestionComposer()),
         reminder_agent=ReminderAgent(ReminderPlanner()),
+        shopping_agent=ShoppingAgent(ShoppingRecommendationProvider(NaverShoppingClient())),
     )
     return AppContext(
         pet_log_agent_pipeline=pipeline,
@@ -73,6 +76,7 @@ def build_pet_log_agent_pipeline(database_path: str | None = None) -> LangGraphP
         record_repository=record_repository,
         suggestion_agent=SuggestionAgent(SuggestionComposer()),
         reminder_agent=ReminderAgent(ReminderPlanner()),
+        shopping_agent=ShoppingAgent(ShoppingRecommendationProvider(NaverShoppingClient())),
     )
 
 

@@ -16,14 +16,26 @@ from domain.models import (  # noqa: E402
     CareSuggestion,
     ContextAnalysisResult,
     PetRecord,
+    PetProfile,
     PlannedReminder,
     SafetyNotice,
+    ShoppingRecommendation,
     StructuredRecordBatch,
 )
 from infrastructure.repositories import RecordRepository, ScheduleRepository  # noqa: E402
 
 
 logger = logging.getLogger(__name__)
+
+
+class _NoopShoppingAgent:
+    def recommend(
+        self,
+        pet: PetProfile,
+        text: str,
+        records: tuple[PetRecord, ...],
+    ) -> tuple[ShoppingRecommendation, ...]:
+        return ()
 
 
 class PetLogAgentState(TypedDict, total=False):
@@ -35,6 +47,7 @@ class PetLogAgentState(TypedDict, total=False):
     safety_notices: tuple[SafetyNotice, ...]
     saved_records: tuple[PetRecord, ...]
     suggestions: tuple[CareSuggestion, ...]
+    shopping_recommendations: tuple[ShoppingRecommendation, ...]
     reminders: tuple[PlannedReminder, ...]
     result: PetLogAgentResult
 
@@ -50,6 +63,7 @@ class LangGraphPetLogAgentPipeline:
         record_repository: RecordRepository,
         suggestion_agent,
         reminder_agent,
+        shopping_agent=None,
         lookback_days: int = 30,
         days_ahead: int = 14,
     ) -> None:
@@ -61,6 +75,7 @@ class LangGraphPetLogAgentPipeline:
         self._record_repository = record_repository
         self._suggestion_agent = suggestion_agent
         self._reminder_agent = reminder_agent
+        self._shopping_agent = shopping_agent or _NoopShoppingAgent()
         self._lookback_days = lookback_days
         self._days_ahead = days_ahead
         self._graph = self._build_graph()
@@ -96,6 +111,7 @@ class LangGraphPetLogAgentPipeline:
         graph.add_node("detect_risk", self._detect_risk)
         graph.add_node("build_confirmation_result", self._build_confirmation_result)
         graph.add_node("save_records", self._save_records)
+        graph.add_node("recommend_shopping", self._recommend_shopping)
         graph.add_node("suggest_care", self._suggest_care)
         graph.add_node("plan_reminders", self._plan_reminders)
         graph.add_node("build_saved_result", self._build_saved_result)
@@ -113,7 +129,8 @@ class LangGraphPetLogAgentPipeline:
             },
         )
         graph.add_edge("build_confirmation_result", END)
-        graph.add_edge("save_records", "suggest_care")
+        graph.add_edge("save_records", "recommend_shopping")
+        graph.add_edge("recommend_shopping", "suggest_care")
         graph.add_edge("suggest_care", "plan_reminders")
         graph.add_edge("plan_reminders", "build_saved_result")
         graph.add_edge("build_saved_result", END)
@@ -170,6 +187,15 @@ class LangGraphPetLogAgentPipeline:
             )
         }
 
+    def _recommend_shopping(self, state: PetLogAgentState) -> PetLogAgentState:
+        return {
+            "shopping_recommendations": self._shopping_agent.recommend(
+                state["input"].pet,
+                state["input"].text,
+                state["saved_records"],
+            )
+        }
+
     def _suggest_care(self, state: PetLogAgentState) -> PetLogAgentState:
         return {
             "suggestions": self._suggestion_agent.suggest(
@@ -196,6 +222,7 @@ class LangGraphPetLogAgentPipeline:
                 context_analysis=state["context_analysis"],
                 safety_notices=state["safety_notices"],
                 suggestions=state["suggestions"],
+                shopping_recommendations=state["shopping_recommendations"],
                 reminders=state["reminders"],
             )
         }

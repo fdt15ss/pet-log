@@ -1,7 +1,18 @@
 from __future__ import annotations
 
 from application.dto import PetLogAgentInput, PetLogAgentResult
+from domain.models import PetProfile, PetRecord, ShoppingRecommendation
 from infrastructure.repositories import RecordRepository, ScheduleRepository
+
+
+class _NoopShoppingAgent:
+    def recommend(
+        self,
+        pet: PetProfile,
+        text: str,
+        records: tuple[PetRecord, ...],
+    ) -> tuple[ShoppingRecommendation, ...]:
+        return ()
 
 
 class PetLogAgentPipeline:
@@ -15,6 +26,7 @@ class PetLogAgentPipeline:
         record_repository: RecordRepository,
         suggestion_agent,
         reminder_agent,
+        shopping_agent=None,
         lookback_days: int = 30,
         days_ahead: int = 14,
     ) -> None:
@@ -26,6 +38,7 @@ class PetLogAgentPipeline:
         self._record_repository = record_repository
         self._suggestion_agent = suggestion_agent
         self._reminder_agent = reminder_agent
+        self._shopping_agent = shopping_agent or _NoopShoppingAgent()
         self._lookback_days = lookback_days
         self._days_ahead = days_ahead
 
@@ -48,6 +61,7 @@ class PetLogAgentPipeline:
             for candidate in record_batch.candidates
         )
         suggestions = self._suggestion_agent.suggest(input.pet, context, safety_notices)
+        shopping_recommendations = self._shopping_agent.recommend(input.pet, input.text, saved_records)
         reminders = self._reminder_agent.plan(input.pet, recent_records + saved_records, due_items)
 
         return PetLogAgentResult(
@@ -56,5 +70,6 @@ class PetLogAgentPipeline:
             context_analysis=context,
             safety_notices=safety_notices,
             suggestions=suggestions,
+            shopping_recommendations=shopping_recommendations,
             reminders=reminders,
         )

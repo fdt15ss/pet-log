@@ -11,6 +11,7 @@ from domain.models import (
     PetRecord,
     PlannedReminder,
     SafetyNotice,
+    ShoppingRecommendation,
     StructuredRecordCandidate,
 )
 
@@ -41,6 +42,10 @@ def pet_log_agent_result_to_dict(result: PetLogAgentResult) -> dict[str, Any]:
         "needs_confirmation": result.record_batch.needs_confirmation,
         "safety_notices": [_safety_notice_to_dict(notice) for notice in result.safety_notices],
         "suggestions": [_suggestion_to_dict(suggestion) for suggestion in result.suggestions],
+        "shopping_recommendations": [
+            _shopping_recommendation_to_dict(recommendation)
+            for recommendation in result.shopping_recommendations
+        ],
         "reminders": [_reminder_to_dict(reminder) for reminder in result.reminders],
     }
 
@@ -83,6 +88,19 @@ def _suggestion_to_dict(suggestion: CareSuggestion) -> dict[str, Any]:
         "action": suggestion.action,
         "reason": suggestion.reason,
         "source_record_ids": list(suggestion.source_record_ids),
+    }
+
+
+def _shopping_recommendation_to_dict(recommendation: ShoppingRecommendation) -> dict[str, Any]:
+    return {
+        "title": recommendation.title,
+        "product_url": recommendation.product_url,
+        "image_url": recommendation.image_url,
+        "mall_name": recommendation.mall_name,
+        "lowest_price": recommendation.lowest_price,
+        "query": recommendation.query,
+        "reason": recommendation.reason,
+        "source_record_ids": list(recommendation.source_record_ids),
     }
 
 

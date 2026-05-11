@@ -11,6 +11,7 @@ from domain.models import (
     PetRecord,
     PlannedReminder,
     SafetyNotice,
+    ShoppingRecommendation,
     StructuredRecordBatch,
     StructuredRecordCandidate,
 )
@@ -31,6 +32,7 @@ class PetLogAgentResult:
     context_analysis: ContextAnalysisResult | None = None
     safety_notices: tuple[SafetyNotice, ...] = field(default_factory=tuple)
     suggestions: tuple[CareSuggestion, ...] = field(default_factory=tuple)
+    shopping_recommendations: tuple[ShoppingRecommendation, ...] = field(default_factory=tuple)
     reminders: tuple[PlannedReminder, ...] = field(default_factory=tuple)
 
     @property
