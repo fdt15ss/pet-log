@@ -55,6 +55,7 @@ class TestPackageStructure(unittest.TestCase):
             "infrastructure.llm.care_answer.prompt",
             "infrastructure.llm.care_answer.provider",
             "infrastructure.knowledge.retriever",
+            "infrastructure.knowledge.web_search",
             "infrastructure.llm.pet_persona",
             "infrastructure.llm.pet_persona.mapper",
             "infrastructure.llm.pet_persona.prompt",
