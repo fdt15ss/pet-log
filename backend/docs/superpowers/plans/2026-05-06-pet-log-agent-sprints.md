@@ -26,14 +26,14 @@
 
 ## 스프린트 파일
 
-| Sprint | 문서 | 목표 |
-| --- | --- | --- |
-| Sprint 1 | [01-backend-foundation.md](pet-log-agent-sprints/01-backend-foundation.md) | 실행 가능한 backend 기반 |
-| Sprint 2 | [02-core-record-flow.md](pet-log-agent-sprints/02-core-record-flow.md) | 자연어 기록 입력 end-to-end |
-| Sprint 3 | [03-rule-based-analysis.md](pet-log-agent-sprints/03-rule-based-analysis.md) | rule-based 분석/제안 |
-| Sprint 4 | [04-surface-pipelines.md](pet-log-agent-sprints/04-surface-pipelines.md) | 홈/케어 질문/펫 대화/병원 요약 |
-| Sprint 5 | [05-entrypoints.md](pet-log-agent-sprints/05-entrypoints.md) | CLI/API/STT/TTS 진입점 |
-| Sprint 6 | [06-real-infrastructure.md](pet-log-agent-sprints/06-real-infrastructure.md) | 실제 DB/LLM/STT/TTS/agent runtime 연결 |
+| Sprint | 문서 | 목표 | 상태 |
+| --- | --- | --- | --- |
+| Sprint 1 | [01-backend-foundation.md](pet-log-agent-sprints/01-backend-foundation.md) | 실행 가능한 backend 기반 | 완료 |
+| Sprint 2 | [02-core-record-flow.md](pet-log-agent-sprints/02-core-record-flow.md) | 자연어 기록 입력 end-to-end | 완료 |
+| Sprint 3 | [03-rule-based-analysis.md](pet-log-agent-sprints/03-rule-based-analysis.md) | rule-based 분석/제안 | 진행 중 |
+| Sprint 4 | [04-surface-pipelines.md](pet-log-agent-sprints/04-surface-pipelines.md) | 홈/케어 질문/펫 대화/병원 요약 | 진행 중 |
+| Sprint 5 | [05-entrypoints.md](pet-log-agent-sprints/05-entrypoints.md) | CLI/API/STT/TTS 진입점 | 완료 |
+| Sprint 6 | [06-real-infrastructure.md](pet-log-agent-sprints/06-real-infrastructure.md) | 실제 DB/LLM/STT/TTS/agent runtime 연결 | 진행 중 (DB 완료) |
 
 ---
 

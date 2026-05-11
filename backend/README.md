@@ -64,11 +64,18 @@ src/composition.py
 
 ## 프론트 연동 API 상태
 
-- `POST /api/v1/pet-log/records`: 기록 입력 pipeline을 실행한다. 프론트의 기록 미리보기와 기록 저장 Route Handler가 이 endpoint를 proxy 호출한다.
-- `POST /api/v1/speech/transcriptions`: 음성 파일을 STT provider로 넘긴다. 프론트 음성 fallback 입력이 이 endpoint를 proxy 호출한다.
-- `GET /api/v1/pet-log/snapshot?pet_id=...`: 앱 초기 로딩용 DB snapshot endpoint로 추가한다. `pets`, `pet_records`, `care_schedules`를 읽어 프론트 `PetLogSnapshot` 형태로 내려주는 것이 목표다.
-- `GET /api/v1/community/posts`: 커뮤니티 게시글 목록을 `feed`, `board` query로 필터링해 내려준다. 프론트 커뮤니티 mock 타입과 맞춘 `CommunityPost` 형태를 사용한다.
-- `POST /api/v1/community/posts`, `POST /api/v1/community/posts/{post_id}/comments`, `POST /api/v1/community/posts/{post_id}/reactions`: 커뮤니티 게시글 작성, 댓글 작성, 반응 등록을 처리한다.
+- `GET /api/v1/me`: 현재 로그인한 유저 정보를 반환한다. (현재는 `local-user` 고정)
+- `GET /api/v1/pets`: 유저가 소유한 모든 반려동물 목록을 반환한다.
+- `GET /api/v1/pet-log/records?pet_id=...`: 특정 반려동물의 최근 기록 목록을 반환한다.
+- `GET /api/v1/pet-log/schedules?pet_id=...`: 특정 반려동물의 일정 목록을 반환한다.
+- `GET /api/v1/notifications?pet_id=...`: 특정 반려동물의 알림 목록을 반환한다.
+- `PATCH /api/v1/notifications/{id}/read`: 특정 알림을 읽음 처리한다.
+- `PUT /api/v1/notifications/read?pet_id=...`: 특정 반려동물의 모든 알림을 일괄 읽음 처리한다.
+- `POST /api/v1/pet-log/records`: 기록 입력 pipeline을 실행한다.
+- `POST /api/v1/files`: 이미지를 업로드하고 `file_id`를 반환한다. (프로필 사진 등)
+- `GET /api/v1/files/{file_id}`: 업로드된 이미지 파일을 다운로드한다.
+- `POST /api/v1/speech/transcriptions`: 음성 파일을 STT provider로 넘긴다.
+- `GET /api/v1/community/posts`: 커뮤니티 게시글 목록을 반환한다.
 - `record summary`, `care answer`, `pet persona`, `photo understanding` provider는 아직 프론트 초기 로딩이나 기록 입력 route에 연결하지 않는다.
 
 ## 검증 명령
