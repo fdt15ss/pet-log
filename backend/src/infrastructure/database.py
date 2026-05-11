@@ -140,6 +140,24 @@ def initialize_schema(connection: sqlite3.Connection) -> None:
 
         CREATE INDEX IF NOT EXISTS idx_community_reactions_post_created_at
             ON community_reactions (post_id, created_at);
+
+        CREATE TABLE IF NOT EXISTS notifications (
+            id TEXT PRIMARY KEY,
+            pet_id TEXT NOT NULL,
+            category TEXT NOT NULL,
+            title TEXT NOT NULL,
+            detail TEXT NOT NULL,
+            action TEXT NOT NULL,
+            action_href TEXT NOT NULL,
+            due_label TEXT NOT NULL,
+            tone TEXT NOT NULL,
+            read_at TEXT,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            deleted_at TEXT
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_notifications_pet_created_at
+            ON notifications (pet_id, created_at);
         """
     )
     _add_column_if_missing(connection, "pets", "photo_file_id", "TEXT")

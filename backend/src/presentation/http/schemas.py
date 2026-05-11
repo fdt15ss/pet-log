@@ -100,6 +100,85 @@ class CommunityReactionRequest(BaseModel):
     reaction_type: CommunityReactionType = "like"
 
 
+class RecordUpdateRequest(BaseModel):
+    detail: str = Field(min_length=1)
+    category: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    status: str = "normal"
+
+    @field_validator("detail", "category", "title")
+    @classmethod
+    def reject_blank(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("value must not be blank")
+        return stripped
+
+
+class ScheduleCreateRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    pet_id: str = Field(min_length=1)
+    category: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    due_date: str = Field(alias="dueDate", min_length=1)
+    repeat_label: str = Field(alias="repeatLabel", default="한 번")
+    note: str = ""
+
+    @field_validator("pet_id", "category", "title", "due_date")
+    @classmethod
+    def reject_blank_schedule(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("value must not be blank")
+        return stripped
+
+
+class ScheduleUpdateRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    category: str | None = None
+    title: str | None = None
+    due_date: str | None = Field(alias="dueDate", default=None)
+    repeat_label: str | None = Field(alias="repeatLabel", default=None)
+    note: str | None = None
+    is_done: bool | None = Field(alias="isDone", default=None)
+
+
+class ProfileUpdateRequest(BaseModel):
+    pet_id: str = Field(min_length=1)
+    name: str = Field(min_length=1)
+    breed: str = ""
+    age: str = ""
+    sex: str = ""
+    weight: str = ""
+    birthday: str = ""
+    personality: str = ""
+    notes: list[str] = Field(default_factory=list)
+
+    @field_validator("name")
+    @classmethod
+    def reject_blank_name(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("name must not be blank")
+        return stripped
+
+
+class PetCreateRequest(BaseModel):
+    name: str = Field(min_length=1)
+    species: str = "companion"
+    breed: str = ""
+
+    @field_validator("name")
+    @classmethod
+    def reject_blank_pet_name(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("name must not be blank")
+        return stripped
+
+
 def success_response(data: dict[str, Any]) -> dict[str, Any]:
     return {"success": True, "data": data}
 
