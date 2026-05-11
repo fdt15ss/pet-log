@@ -1,4 +1,5 @@
 import json
+import sqlite3
 import tempfile
 import threading
 import unittest
@@ -6,8 +7,9 @@ from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 from domain.models import StructuredRecordCandidate
-from infrastructure.database import connect
-from infrastructure.repositories import PetProfileRepository, RecordRepository, ScheduleRepository
+from infrastructure.database import connect, initialize_schema
+from infrastructure.repositories import FileRepository, PetProfileRepository, RecordRepository, ScheduleRepository
+from infrastructure.repositories.file_repository import LocalFileStorage
 from infrastructure.seed_data import SAMPLE_PET_ID, SAMPLE_PET_IDS, seed_database, seed_default_data
 
 
@@ -121,14 +123,101 @@ class TestDatabaseRepositories(unittest.TestCase):
 
         self.assertEqual(pet_count, 3)
 
+    def test_initialize_schema_creates_file_storage_tables(self):
+        connection = connect(":memory:")
+
+        file_columns = {
+            row["name"]
+            for row in connection.execute("PRAGMA table_info(files)").fetchall()
+        }
+        pet_columns = {
+            row["name"]
+            for row in connection.execute("PRAGMA table_info(pets)").fetchall()
+        }
+
+        self.assertEqual(
+            {
+                "id",
+                "owner_user_id",
+                "pet_id",
+                "purpose",
+                "storage_key",
+                "mime_type",
+                "byte_size",
+                "created_at",
+                "deleted_at",
+            },
+            file_columns,
+        )
+        self.assertIn("photo_file_id", pet_columns)
+
+    def test_initialize_schema_adds_photo_file_id_to_existing_pets_table(self):
+        connection = sqlite3.connect(":memory:")
+        connection.row_factory = sqlite3.Row
+        connection.execute(
+            """
+            CREATE TABLE pets (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                notes TEXT NOT NULL DEFAULT '[]',
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                deleted_at TEXT
+            )
+            """
+        )
+
+        initialize_schema(connection)
+        pet_columns = {
+            row["name"]
+            for row in connection.execute("PRAGMA table_info(pets)").fetchall()
+        }
+
+        self.assertIn("photo_file_id", pet_columns)
+
+    def test_file_repository_saves_profile_photo_metadata(self):
+        connection = connect(":memory:")
+        repository = FileRepository(connection=connection)
+
+        saved_file = repository.save_metadata(
+            owner_user_id="user-1",
+            pet_id="pet-1",
+            purpose="profile_photo",
+            storage_key="profile_photos/pet-1/file-1.jpg",
+            mime_type="image/jpeg",
+            byte_size=12,
+            file_id="file-1",
+        )
+
+        self.assertEqual(saved_file.id, "file-1")
+        self.assertEqual(saved_file.owner_user_id, "user-1")
+        self.assertEqual(saved_file.pet_id, "pet-1")
+        self.assertEqual(saved_file.purpose, "profile_photo")
+        self.assertEqual(saved_file.storage_key, "profile_photos/pet-1/file-1.jpg")
+        self.assertEqual(saved_file.mime_type, "image/jpeg")
+        self.assertEqual(saved_file.byte_size, 12)
+        self.assertEqual(repository.get_file("file-1"), saved_file)
+
+    def test_local_file_storage_writes_under_upload_root(self):
+        with tempfile.TemporaryDirectory() as directory:
+            storage = LocalFileStorage(Path(directory))
+
+            saved_path = storage.write("profile_photos/pet-1/file-1.jpg", b"image-bytes")
+
+            self.assertEqual(
+                saved_path,
+                (Path(directory) / "profile_photos" / "pet-1" / "file-1.jpg").resolve(),
+            )
+            self.assertEqual(saved_path.read_bytes(), b"image-bytes")
+
     def test_pet_profile_repository_reads_sqlite_pet(self):
         connection = connect(":memory:")
         connection.execute(
             """
-            INSERT INTO pets (id, name, breed, species, age_label, personality, notes)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO pets (id, name, breed, species, age_label, sex_label, weight_label, birthday, personality, notes)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            ("pet-1", "Choco", "Poodle", "dog", "3 years", "gentle", json.dumps(["likes walks"])),
+            ("pet-1", "Choco", "Poodle", "dog", "3 years", "female", "3.4kg", "2018.5.11", "gentle", json.dumps(["likes walks"])),
         )
         connection.commit()
         repository = PetProfileRepository(connection=connection)
@@ -139,6 +228,9 @@ class TestDatabaseRepositories(unittest.TestCase):
         self.assertEqual(pet.name, "Choco")
         self.assertEqual(pet.breed, "Poodle")
         self.assertEqual(pet.species, "dog")
+        self.assertEqual(pet.sex_label, "female")
+        self.assertEqual(pet.weight_label, "3.4kg")
+        self.assertEqual(pet.birthday, "2018.5.11")
         self.assertEqual(pet.notes, ("likes walks",))
 
     def test_sqlite_connection_can_be_used_from_fastapi_worker_thread(self):

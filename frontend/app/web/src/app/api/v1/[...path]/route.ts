@@ -380,8 +380,55 @@ async function proxySpeechTranscription(request: NextRequest) {
   return ok({ text: payload.data.text });
 }
 
+async function proxyFileUpload(request: NextRequest) {
+  const incomingFormData = await request.formData();
+  const file = incomingFormData.get("file");
+  if (!(file instanceof File)) {
+    return fail("VALIDATION_ERROR", "이미지 파일이 필요합니다.", 400);
+  }
+
+  const backendFormData = new FormData();
+  backendFormData.set("file", file);
+  backendFormData.set("pet_id", backendPetId());
+  backendFormData.set("purpose", "profile_photo");
+
+  const response = await fetch(backendApiUrl("/api/v1/files"), {
+    body: backendFormData,
+    method: "POST",
+  });
+  const payload = (await response.json().catch(() => null)) as
+    | { success?: boolean; data?: unknown; detail?: unknown }
+    | null;
+
+  if (!response.ok || payload?.success !== true || !payload.data) {
+    const message = typeof payload?.detail === "string" ? payload.detail : "이미지를 저장하지 못했습니다.";
+    return fail("FILE_UPLOAD_FAILED", message, response.status || 502);
+  }
+
+  return ok(payload.data, response.status);
+}
+
+async function proxyFileDownload(fileId: string) {
+  const response = await fetch(backendApiUrl(`/api/v1/files/${encodeURIComponent(fileId)}`));
+  if (!response.ok) {
+    return fail("FILE_NOT_FOUND", "이미지를 찾지 못했습니다.", response.status || 404);
+  }
+
+  const headers = new Headers();
+  const contentType = response.headers.get("content-type");
+  if (contentType) {
+    headers.set("content-type", contentType);
+  }
+  headers.set("cache-control", "public, max-age=31536000, immutable");
+  return new NextResponse(await response.arrayBuffer(), { status: response.status, headers });
+}
+
 export async function GET(_request: NextRequest, context: RouteContext) {
   const path = await getPath(context);
+
+  if (path[0] === "files" && path[1] && path.length === 2) {
+    return proxyFileDownload(path[1]);
+  }
 
   if (path[0] === "me" && path[1] === "pet-log" && path.length === 2) {
     try {
@@ -405,6 +452,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
   const path = await getPath(context);
   if (isSpeechTranscriptionPath(path)) {
     return proxySpeechTranscription(request);
+  }
+  if (path[0] === "files" && path.length === 1) {
+    return proxyFileUpload(request);
   }
 
   const body = await readJson(request);

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from domain.enums import InsightSeverity, RecordCategory, RecordInputSource, RecordStatus
+from domain.enums import FilePurpose, InsightSeverity, RecordCategory, RecordInputSource, RecordStatus
 
 
 @dataclass(frozen=True)
@@ -12,8 +12,12 @@ class PetProfile:
     breed: str | None = None
     species: str | None = None
     age_label: str | None = None
+    sex_label: str | None = None
+    weight_label: str | None = None
+    birthday: str | None = None
     personality: str | None = None
     notes: tuple[str, ...] = ()
+    photo_file_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -26,6 +30,18 @@ class PetRecord:
     status: RecordStatus
     recorded_at: str
     source: RecordInputSource
+
+
+@dataclass(frozen=True)
+class StoredFile:
+    id: str
+    owner_user_id: str
+    pet_id: str | None
+    purpose: FilePurpose
+    storage_key: str
+    mime_type: str
+    byte_size: int
+    created_at: str | None = None
 
 
 @dataclass(frozen=True)

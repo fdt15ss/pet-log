@@ -70,16 +70,7 @@ def _pet_log_snapshot_to_dict(
 ) -> dict[str, object]:
     return {
         "version": 1,
-        "profile": {
-            "name": pet.name,
-            "breed": pet.breed or "",
-            "age": pet.age_label or "",
-            "sex": "",
-            "weight": "",
-            "birthday": "",
-            "personality": pet.personality or "",
-            "notes": list(pet.notes),
-        },
+        "profile": _profile_to_frontend_entry(pet),
         "records": [
             _record_to_frontend_entry(record)
             for record in sorted(records, key=lambda item: item.recorded_at, reverse=True)
@@ -100,6 +91,22 @@ def _pet_log_snapshot_to_dict(
             "shopping": {},
         },
     }
+
+
+def _profile_to_frontend_entry(pet: PetProfile) -> dict[str, object]:
+    profile = {
+        "name": pet.name,
+        "breed": pet.breed or "",
+        "age": pet.age_label or "",
+        "sex": pet.sex_label or "",
+        "weight": pet.weight_label or "",
+        "birthday": pet.birthday or "",
+        "personality": pet.personality or "",
+        "notes": list(pet.notes),
+    }
+    if pet.photo_file_id:
+        profile["photoDataUrl"] = f"/api/v1/files/{pet.photo_file_id}"
+    return profile
 
 
 def _record_to_frontend_entry(record: PetRecord) -> dict[str, object]:
