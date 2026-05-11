@@ -5,6 +5,7 @@ from typing import Any
 from pydantic import BaseModel, Field, field_validator
 
 from application.dto import PetLogAgentResult
+from application.agents.hospital import HospitalRecommendationResult
 from domain.enums import RecordInputSource
 from domain.models import (
     CareSuggestion,
@@ -13,6 +14,7 @@ from domain.models import (
     SafetyNotice,
     ShoppingRecommendation,
     StructuredRecordCandidate,
+    VeterinaryHospitalRecommendation,
 )
 
 
@@ -31,8 +33,42 @@ class PetLogRecordRequest(BaseModel):
         return stripped
 
 
+class HospitalRecommendationRequest(BaseModel):
+    latitude: float = Field(ge=-90, le=90)
+    longitude: float = Field(ge=-180, le=180)
+    accuracy_meters: float | None = Field(default=None, ge=0, le=100000)
+    location_source: str = Field(default="gps", min_length=1, max_length=32)
+    radius_meters: int = Field(default=3000, ge=100, le=50000)
+    max_results: int = Field(default=5, ge=1, le=20)
+    language_code: str = Field(default="ko", min_length=2, max_length=8)
+    region_code: str = Field(default="KR", min_length=2, max_length=2)
+    open_now_only: bool = True
+    emergency: bool = False
+    text: str = ""
+
+
 def success_response(data: dict[str, Any]) -> dict[str, Any]:
     return {"success": True, "data": data}
+
+
+def hospital_recommendation_result_to_dict(
+    result: HospitalRecommendationResult,
+) -> dict[str, Any]:
+    return {
+        "current_time": result.current_time.isoformat(),
+        "search_center": {
+            "latitude": result.center_latitude,
+            "longitude": result.center_longitude,
+            "radius_meters": result.radius_meters,
+            "location_source": result.location_source,
+            "accuracy_meters": result.accuracy_meters,
+            "emergency_mode": result.emergency_mode,
+        },
+        "recommendations": [
+            _hospital_recommendation_to_dict(recommendation)
+            for recommendation in result.recommendations
+        ],
+    }
 
 
 def pet_log_agent_result_to_dict(result: PetLogAgentResult) -> dict[str, Any]:
@@ -101,6 +137,25 @@ def _shopping_recommendation_to_dict(recommendation: ShoppingRecommendation) -> 
         "query": recommendation.query,
         "reason": recommendation.reason,
         "source_record_ids": list(recommendation.source_record_ids),
+    }
+
+
+def _hospital_recommendation_to_dict(recommendation: VeterinaryHospitalRecommendation) -> dict[str, Any]:
+    return {
+        "place_id": recommendation.place_id,
+        "name": recommendation.name,
+        "address": recommendation.address,
+        "phone_number": recommendation.phone_number,
+        "google_maps_url": recommendation.google_maps_url,
+        "latitude": recommendation.latitude,
+        "longitude": recommendation.longitude,
+        "rating": recommendation.rating,
+        "user_rating_count": recommendation.user_rating_count,
+        "is_open_now": recommendation.is_open_now,
+        "is_24_hours": recommendation.is_24_hours,
+        "weekday_text": list(recommendation.weekday_text),
+        "distance_meters": recommendation.distance_meters,
+        "reason": recommendation.reason,
     }
 
 
