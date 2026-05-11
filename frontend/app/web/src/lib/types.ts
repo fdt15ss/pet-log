@@ -47,6 +47,7 @@ export type AiSuggestion = {
 };
 
 export type PetProfile = {
+  id?: string;
   name: string;
   breed: string;
   age: string;

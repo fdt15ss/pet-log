@@ -5,7 +5,6 @@ import { AppShell } from "@/components/app-shell";
 import { PetIcon } from "@/components/pet-icons";
 import { usePetLog } from "@/components/pet-log-provider";
 import { Card, MultiLineChart, Pill, SectionHeader } from "@/components/ui";
-import { getAiInsights } from "@/lib/ai-insights";
 import {
   getAnalysisMetrics,
   getAnalysisReport,
@@ -43,15 +42,22 @@ const toneIcon: Record<AnalysisTone, "check" | "alert" | "activity" | "sparkle">
 };
 
 export default function AnalysisPage() {
-  const { records, settings } = usePetLog();
+  const { records, settings, insights, isAnalysisLoading } = usePetLog();
   const [activeRange, setActiveRange] = useState<AnalysisRange>("weekly");
   const [activeMetric, setActiveMetric] = useState<AnalysisMetricFilter>("all");
 
   const summary = useMemo(() => getAnalysisReport(records, activeRange), [activeRange, records]);
-  const aiInsights = useMemo(
-    () => (settings.aiInsightEnabled ? getAiInsights(records) : []),
-    [records, settings.aiInsightEnabled],
-  );
+  
+  const aiInsights = useMemo(() => {
+    if (!settings.aiInsightEnabled) return [];
+    return insights.map((insight, idx) => ({
+      id: `insight-${idx}`,
+      title: insight.title,
+      detail: insight.reason,
+      tone: (insight.severity === "alert" ? "red" : insight.severity === "notice" ? "orange" : "green") as "red" | "orange" | "green"
+    }));
+  }, [insights, settings.aiInsightEnabled]);
+
   const metrics = useMemo(() => getAnalysisMetrics(records), [records]);
   const vetBrief = useMemo(() => getVetBrief(records), [records]);
   const trendChart = useMemo(() => getAnalysisTrendChart(metrics, activeMetric), [activeMetric, metrics]);
@@ -147,6 +153,14 @@ export default function AnalysisPage() {
         <section>
           <SectionHeader title="AI 분석 결과" />
           <div className="space-y-3">
+            {isAnalysisLoading && aiInsights.length === 0 && (
+              <Card className="flex items-center justify-center py-12" motion="rise">
+                <div className="flex flex-col items-center gap-3">
+                  <span className="pet-log-pulse-dot h-3 w-3 bg-[#16804b]" />
+                  <p className="text-sm font-bold text-[#16804b]">AI가 최근 기록을 심층 분석하고 있어요</p>
+                </div>
+              </Card>
+            )}
             {settings.aiInsightEnabled ? (
               aiInsights.map((insight) => (
                 <Card key={insight.id} motion="rise">

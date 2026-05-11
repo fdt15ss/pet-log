@@ -12,6 +12,8 @@ import {
   fetchPets,
   fetchRecords,
   fetchSchedules,
+  fetchAiInsights,
+  fetchAiSuggestions,
   updateExpansionState as updateExpansionStateApi,
   updateProfile as updateProfileApi,
   updateReadNotifications,
@@ -23,6 +25,8 @@ import { defaultExpansionState, normalizeExpansionState } from "@/lib/expansion-
 import { defaultAppSettings } from "@/lib/settings";
 import type { ExpansionState, HospitalState, SharedCareState, ShoppingState } from "@/lib/expansion-state";
 import type {
+  AiInsight,
+  AiSuggestion,
   AppSettings,
   CareSchedule,
   PetProfile,
@@ -66,7 +70,10 @@ type PetLogContextValue = {
   settings: AppSettings;
   readNotificationIds: string[];
   expansionState: ExpansionState;
+  insights: AiInsight[];
+  suggestions: AiSuggestion[];
   isLoading: boolean;
+  isAnalysisLoading: boolean;
   error: string;
   syncStatus: "idle" | "synced" | "offline" | "error";
   addRecord: (input: NewRecordInput) => Promise<RecordEntry>;
@@ -83,6 +90,7 @@ type PetLogContextValue = {
   addSchedule: (input: NewScheduleInput) => Promise<CareSchedule>;
   toggleScheduleDone: (id: string) => Promise<void>;
   deleteSchedule: (id: string) => Promise<void>;
+  refreshAnalysis: (petId: string) => Promise<void>;
 };
 
 const storageKey = "pet-log-state-v1";
@@ -121,12 +129,31 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
   const [expansionState, setExpansionState] = useState<ExpansionState>(
     normalizeExpansionState(undefined),
   );
+  const [insights, setInsights] = useState<AiInsight[]>([]);
+  const [suggestions, setSuggestions] = useState<AiSuggestion[]>([]);
   const [isStorageReady, setIsStorageReady] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAnalysisLoading, setIsAnalysisLoading] = useState(false);
   const [error, setError] = useState("API 연결에 실패했습니다. 서버 연결을 확인해주세요.");
   const [syncStatus, setSyncStatus] = useState<"idle" | "synced" | "offline" | "error">(
     "error",
   );
+
+  const refreshAnalysis = useCallback(async (petId: string) => {
+    setIsAnalysisLoading(true);
+    try {
+      const [insightsData, suggestionsData] = await Promise.all([
+        fetchAiInsights(petId),
+        fetchAiSuggestions(petId),
+      ]);
+      setInsights(insightsData.insights);
+      setSuggestions(suggestionsData.suggestions);
+    } catch (err) {
+      console.error("[provider] AI 분석 갱신 실패:", err);
+    } finally {
+      setIsAnalysisLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -170,6 +197,9 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
         setSettings(defaultAppSettings); 
         setReadNotificationIds(notificationsData.notifications.filter((n: any) => n.isRead).map((n: any) => n.id));
         setExpansionState(defaultExpansionState);
+
+        // 4. AI 분석 초기 데이터 로드
+        void refreshAnalysis(activePet.id);
 
         setError("");
         setSyncStatus("synced");
@@ -218,6 +248,12 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
     try {
       const { record } = await createRecordApi(input);
       setRecords((current) => [record, ...current]);
+
+      // 분석 데이터 갱신 (비동기)
+      if (profile.id) {
+        void refreshAnalysis(profile.id);
+      }
+
       setError("");
       setSyncStatus("synced");
       return record;
@@ -232,6 +268,12 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
     try {
       const { record } = await updateRecordApi(id, input);
       setRecords((current) => current.map((item) => (item.id === id ? record : item)));
+
+      // 분석 데이터 갱신 (비동기)
+      if (profile.id) {
+        void refreshAnalysis(profile.id);
+      }
+
       setError("");
       setSyncStatus("synced");
     } catch {
@@ -246,6 +288,12 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
 
     try {
       await deleteRecordApi(id);
+
+      // 분석 데이터 갱신 (비동기)
+      if (profile.id) {
+        void refreshAnalysis(profile.id);
+      }
+
       setError("");
       setSyncStatus("synced");
     } catch {
@@ -466,7 +514,10 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
       settings,
       readNotificationIds,
       expansionState,
+      insights,
+      suggestions,
       isLoading,
+      isAnalysisLoading,
       error,
       syncStatus,
       addRecord,
@@ -483,6 +534,7 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
       addSchedule,
       toggleScheduleDone,
       deleteSchedule,
+      refreshAnalysis,
     }),
     [
       profile,
@@ -491,7 +543,10 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
       settings,
       readNotificationIds,
       expansionState,
+      insights,
+      suggestions,
       isLoading,
+      isAnalysisLoading,
       error,
       syncStatus,
       addRecord,
@@ -508,6 +563,7 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
       addSchedule,
       toggleScheduleDone,
       deleteSchedule,
+      refreshAnalysis,
     ],
   );
 

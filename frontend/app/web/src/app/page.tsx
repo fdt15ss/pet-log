@@ -2,11 +2,10 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import { usePetLog } from "@/components/pet-log-provider";
 import { AiMascot, Card, CategoryBadge, SectionHeader } from "@/components/ui";
-import { getAiCareSuggestions } from "@/lib/ai-insights";
 import { getRecentChange, getRecordStatusLabel, getTodaySummary, type HomeSummaryTone } from "@/lib/home-summary";
 import { getCareNotifications } from "@/lib/notifications";
 import { PetIcon } from "@/components/pet-icons";
@@ -83,7 +82,7 @@ type PetChatMessage = {
 };
 
 export default function Home() {
-  const { profile, records, schedules, settings } = usePetLog();
+  const { profile, records, schedules, settings, insights, suggestions, isAnalysisLoading } = usePetLog();
   const [isChatbotOpen, setIsChatbotOpen] = useState(false);
   const [isPetChatOpen, setIsPetChatOpen] = useState(false);
   const [chatbotQuestion, setChatbotQuestion] = useState("");
@@ -104,9 +103,41 @@ export default function Home() {
   const latestRecords = records.slice(0, 3);
   const notifications = getCareNotifications(records, schedules, undefined, settings.notificationPreferences).slice(0, 2);
   const todaySummary = getTodaySummary(records);
-  const recentChange = getRecentChange(records);
-  const aiSuggestions = settings.aiInsightEnabled ? getAiCareSuggestions(records) : [];
-  const homeSuggestions = settings.aiInsightEnabled ? aiSuggestions.slice(0, 2) : [];
+  
+  // AI Insights mapping (Replacing legacy recentChange)
+  const topInsight = insights[0];
+  const severityToTone: Record<string, HomeSummaryTone> = {
+    alert: "red",
+    notice: "orange",
+    info: "green"
+  };
+  
+  const recentChange = useMemo(() => {
+    if (topInsight) {
+      return {
+        label: `AI 분석 · ${topInsight.severity === "alert" ? "주의" : topInsight.severity === "notice" ? "변화" : "안정"}`,
+        title: topInsight.title,
+        detail: topInsight.reason,
+        tone: severityToTone[topInsight.severity] || "green"
+      };
+    }
+    return getRecentChange(records);
+  }, [topInsight, records]);
+
+  // AI Suggestions mapping (Replacing legacy getAiCareSuggestions)
+  const homeSuggestions = useMemo(() => {
+    if (!settings.aiInsightEnabled) return [];
+    return suggestions.slice(0, 2).map((s, idx) => ({
+      id: `suggestion-${idx}`,
+      category: "케어 가이드" as const,
+      title: s.title,
+      detail: s.reason,
+      action: s.action,
+      actionHref: s.action.includes("타임라인") ? "/timeline" : "/record",
+      tone: "green" as const
+    }));
+  }, [suggestions, settings.aiInsightEnabled]);
+
   const pendingSchedules = schedules.filter((schedule) => !schedule.isDone).length;
   const chatbotMessageCount = chatbotThread?.messages.length ?? 0;
   const petChatMessageCount = petChatMessages.length;
@@ -542,7 +573,10 @@ export default function Home() {
           <Card className={`border-l-4 p-4 ${toneCard[recentChange.tone]}`} motion="rise">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className={`text-xs font-bold ${toneText[recentChange.tone]}`}>{recentChange.label}</p>
+                <p className={`text-xs font-bold ${toneText[recentChange.tone]} flex items-center gap-1.5`}>
+                  {recentChange.label}
+                  {isAnalysisLoading && <span className="pet-log-pulse-dot h-1.5 w-1.5 bg-current opacity-60" />}
+                </p>
                 <h3 className="mt-1 text-sm font-black text-[#1f2922]">{recentChange.title}</h3>
                 <p className="mt-2 text-sm leading-6 text-[#62705f]">{recentChange.detail}</p>
               </div>
@@ -562,6 +596,14 @@ export default function Home() {
               title="AI 제안"
             />
             <div className="space-y-3">
+              {isAnalysisLoading && homeSuggestions.length === 0 && (
+                <Card className="flex items-center justify-center py-8" motion="rise">
+                  <div className="flex flex-col items-center gap-2">
+                    <span className="pet-log-pulse-dot h-2 w-2 bg-[#16804b]" />
+                    <p className="text-xs font-bold text-[#16804b]">AI가 최근 기록을 분석하고 있어요</p>
+                  </div>
+                </Card>
+              )}
               {homeSuggestions.map((suggestion) => (
                 <Card className="p-4" key={suggestion.id} motion="rise">
                   <div className="flex items-start justify-between gap-3">
