@@ -23,6 +23,7 @@ from infrastructure.repositories.record_repository import RecordRepository
 from infrastructure.repositories.schedule_repository import ScheduleRepository
 from infrastructure.shopping import NaverShoppingClient, ShoppingRecommendationProvider
 from infrastructure.speech import SpeechToTextProvider
+from middleware import ShoppingFallbackMiddleware
 
 
 @dataclass(frozen=True)
@@ -50,7 +51,9 @@ def build_app_context(database_path: str | None = None) -> AppContext:
         record_repository=record_repository,
         suggestion_agent=SuggestionAgent(SuggestionComposer()),
         reminder_agent=ReminderAgent(ReminderPlanner()),
-        shopping_agent=ShoppingAgent(ShoppingRecommendationProvider(NaverShoppingClient())),
+        shopping_agent=ShoppingAgent(
+            ShoppingFallbackMiddleware(ShoppingRecommendationProvider(NaverShoppingClient()))
+        ),
     )
     return AppContext(
         pet_log_agent_pipeline=pipeline,
@@ -76,7 +79,9 @@ def build_pet_log_agent_pipeline(database_path: str | None = None) -> LangGraphP
         record_repository=record_repository,
         suggestion_agent=SuggestionAgent(SuggestionComposer()),
         reminder_agent=ReminderAgent(ReminderPlanner()),
-        shopping_agent=ShoppingAgent(ShoppingRecommendationProvider(NaverShoppingClient())),
+        shopping_agent=ShoppingAgent(
+            ShoppingFallbackMiddleware(ShoppingRecommendationProvider(NaverShoppingClient()))
+        ),
     )
 
 

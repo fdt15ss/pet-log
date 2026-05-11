@@ -5,6 +5,7 @@
 ## provider 경계
 
 - `application.agents.shopping.ShoppingAgent`: 파이프라인에서 호출하는 애플리케이션 에이전트이다.
+- `middleware.shopping_fallback.ShoppingFallbackMiddleware`: provider 예외 또는 빈 결과를 기본 네이버 쇼핑 검색 링크로 대체한다.
 - `infrastructure.shopping.ShoppingRecommendationProvider`: 반려견 맥락과 기록 카테고리를 기반으로 검색어를 선택한다.
 - `infrastructure.shopping.NaverShoppingClient`: 네이버 쇼핑 검색 API 호출과 응답 매핑을 담당한다.
 
@@ -30,7 +31,7 @@ NAVER_SHOPPING_EXCLUDE=used:rental:cbshop
 NAVER_SHOPPING_TIMEOUT=3
 ```
 
-키가 비어 있거나 API 호출이 실패하면 쇼핑 추천은 빈 목록으로 반환되고 기록 저장 흐름은 계속된다.
+키가 비어 있거나 API 호출이 실패하면 쇼핑 폴백 미들웨어가 기록 기반 기본 네이버 쇼핑 검색 링크를 반환하고 기록 저장 흐름은 계속된다. 반려견 맥락이 아니면 폴백 추천도 만들지 않는다.
 
 ## 응답 필드
 
@@ -55,6 +56,16 @@ NAVER_SHOPPING_TIMEOUT=3
 
 ## 검증 명령
 
+네이버 쇼핑 연동만 수동 확인하려면 다음 스크립트를 실행한다. 실제 키 값은 출력하지 않는다.
+
+```bash
+uv run python -B scripts/smoke_naver_shopping.py
+```
+
 ```bash
 uv run python -B -m unittest tests.test_shopping_recommendations tests.test_pet_log_agent_pipeline tests.test_http_routes
+```
+
+```bash
+uv run python -B -m unittest tests.test_shopping_fallback_middleware
 ```
