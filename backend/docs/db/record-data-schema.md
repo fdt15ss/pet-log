@@ -264,6 +264,7 @@ SELECT id, pet_id, category, title, detail, status, recorded_at, source
 FROM pet_records
 WHERE pet_id = ?
   AND deleted_at IS NULL
+  AND recorded_at >= ?
 ORDER BY recorded_at, created_at;
 ```
 

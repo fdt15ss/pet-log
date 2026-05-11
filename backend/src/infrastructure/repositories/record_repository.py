@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 from domain.enums import RecordInputSource
@@ -17,19 +17,24 @@ class RecordRepository:
         self._records = list(records)
 
     def list_recent(self, pet_id: str, lookback_days: int) -> tuple[PetRecord, ...]:
+        min_recorded_at = _utc_days_ago(lookback_days)
         if self._connection is not None:
             rows = self._connection.execute(
                 """
                 SELECT id, pet_id, category, title, detail, status, recorded_at, source
                 FROM pet_records
-                WHERE pet_id = ? AND deleted_at IS NULL
+                WHERE pet_id = ? AND deleted_at IS NULL AND recorded_at >= ?
                 ORDER BY recorded_at, created_at
                 """,
-                (pet_id,),
+                (pet_id, min_recorded_at),
             ).fetchall()
             return tuple(_record_from_row(row) for row in rows)
 
-        return tuple(record for record in self._records if record.pet_id == pet_id)
+        return tuple(
+            record
+            for record in self._records
+            if record.pet_id == pet_id and record.recorded_at >= min_recorded_at
+        )
 
     def list_by_ids(self, pet_id: str, record_ids: tuple[str, ...]) -> tuple[PetRecord, ...]:
         if self._connection is not None:
@@ -94,7 +99,7 @@ class RecordRepository:
             title=candidate.title,
             detail=candidate.detail,
             status=candidate.status,
-            recorded_at="",
+            recorded_at=_utc_now(),
             source=source,
         )
         self._records.append(record)
@@ -116,3 +121,8 @@ def _record_from_row(row: sqlite3.Row) -> PetRecord:
 
 def _utc_now() -> str:
     return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def _utc_days_ago(days: int) -> str:
+    value = datetime.now(UTC) - timedelta(days=days)
+    return value.replace(microsecond=0).isoformat().replace("+00:00", "Z")
