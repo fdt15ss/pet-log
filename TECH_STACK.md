@@ -220,9 +220,21 @@ npm run build
 
 ### 백엔드
 
+macOS/Linux:
+
 ```bash
 cd backend
-uv run uvicorn main:app --reload --host 127.0.0.1 --port 8000
+./scripts/run-dev.sh
+uv run python -B -m unittest discover -s tests -v
+uv run python -B -c "import application, agent_runtime, middleware, tools, infrastructure, presentation, composition; print('target imports ok')"
+rg -n "fastapi|openai|sqlalchemy|sqlite|postgres|psycopg" src/application src/domain
+```
+
+Windows:
+
+```bat
+cd backend
+scripts\run-dev.bat
 uv run python -B -m unittest discover -s tests -v
 uv run python -B -c "import application, agent_runtime, middleware, tools, infrastructure, presentation, composition; print('target imports ok')"
 rg -n "fastapi|openai|sqlalchemy|sqlite|postgres|psycopg" src/application src/domain
@@ -238,7 +250,7 @@ rg -n "fastapi|openai|sqlalchemy|sqlite|postgres|psycopg" src/application src/do
 
 ```env
 NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=
-PET_LOG_BACKEND_API_BASE_URL=http://127.0.0.1:8000
+PET_LOG_BACKEND_API_BASE_URL=http://127.0.0.1:27893
 PET_LOG_BACKEND_PET_ID=pet_01JCM7V8H9Q2K4N6R8T0A1B2C3
 PET_LOG_AI_PROVIDER=mock
 PET_LOG_OPENAI_MODEL=gpt-4o-mini

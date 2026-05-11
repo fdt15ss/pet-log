@@ -44,13 +44,13 @@ test("초기 스냅샷 API는 FastAPI DB snapshot endpoint를 호출한다", asy
   const previousBaseUrl = process.env.PET_LOG_BACKEND_API_BASE_URL;
   const previousPetId = process.env.PET_LOG_BACKEND_PET_ID;
   const previousAdapter = axios.defaults.adapter;
-  process.env.PET_LOG_BACKEND_API_BASE_URL = "http://127.0.0.1:8000";
+  process.env.PET_LOG_BACKEND_API_BASE_URL = "http://127.0.0.1:27893";
   process.env.PET_LOG_BACKEND_PET_ID = "pet_01JCM7V8H9Q2K4N6R8T0A1B2C3";
 
   axios.defaults.adapter = (async (config) => {
     assert.equal(
       config.url,
-      "http://127.0.0.1:8000/api/v1/pet-log/snapshot?pet_id=pet_01JCM7V8H9Q2K4N6R8T0A1B2C3",
+      "http://127.0.0.1:27893/api/v1/pet-log/snapshot?pet_id=pet_01JCM7V8H9Q2K4N6R8T0A1B2C3",
     );
     assert.equal(config.method, "get");
 
@@ -114,7 +114,7 @@ test("초기 스냅샷 API는 FastAPI DB snapshot endpoint를 호출한다", asy
 test("초기 스냅샷 API는 백엔드 실패 시 mock snapshot으로 대체하지 않는다", async () => {
   const previousBaseUrl = process.env.PET_LOG_BACKEND_API_BASE_URL;
   const previousAdapter = axios.defaults.adapter;
-  process.env.PET_LOG_BACKEND_API_BASE_URL = "http://127.0.0.1:8000";
+  process.env.PET_LOG_BACKEND_API_BASE_URL = "http://127.0.0.1:27893";
 
   axios.defaults.adapter = (async (config) => ({
     config,
@@ -148,10 +148,10 @@ test("초기 스냅샷 API는 백엔드 실패 시 mock snapshot으로 대체하
 test("음성 입력 API는 multipart audio를 FastAPI transcription endpoint로 프록시한다", async () => {
   const previousBaseUrl = process.env.PET_LOG_BACKEND_API_BASE_URL;
   const previousFetch = global.fetch;
-  process.env.PET_LOG_BACKEND_API_BASE_URL = "http://127.0.0.1:8000";
+  process.env.PET_LOG_BACKEND_API_BASE_URL = "http://127.0.0.1:27893";
 
   global.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
-    assert.equal(String(input), "http://127.0.0.1:8000/api/v1/speech/transcriptions");
+    assert.equal(String(input), "http://127.0.0.1:27893/api/v1/speech/transcriptions");
     assert.equal(init?.method, "POST");
     assert.ok(init?.body instanceof FormData);
     const forwardedAudio = init.body.get("audio");
@@ -190,11 +190,11 @@ test("기록 미리보기 API는 FastAPI 기록 파이프라인을 저장 없이
   const previousBaseUrl = process.env.PET_LOG_BACKEND_API_BASE_URL;
   const previousPetId = process.env.PET_LOG_BACKEND_PET_ID;
   const previousAdapter = axios.defaults.adapter;
-  process.env.PET_LOG_BACKEND_API_BASE_URL = "http://127.0.0.1:8000";
+  process.env.PET_LOG_BACKEND_API_BASE_URL = "http://127.0.0.1:27893";
   process.env.PET_LOG_BACKEND_PET_ID = "pet_01JCM7V8H9Q2K4N6R8T0A1B2C3";
 
   axios.defaults.adapter = (async (config) => {
-    assert.equal(config.url, "http://127.0.0.1:8000/api/v1/pet-log/records");
+    assert.equal(config.url, "http://127.0.0.1:27893/api/v1/pet-log/records");
     assert.equal(config.method, "post");
     assert.equal(config.headers.get("Content-Type"), "application/json");
     assert.deepEqual(
@@ -275,7 +275,7 @@ test("기록 미리보기 API는 전체 기본 분류를 허용하고 서버 추
   const previousBaseUrl = process.env.PET_LOG_BACKEND_API_BASE_URL;
   const previousPetId = process.env.PET_LOG_BACKEND_PET_ID;
   const previousAdapter = axios.defaults.adapter;
-  process.env.PET_LOG_BACKEND_API_BASE_URL = "http://127.0.0.1:8000";
+  process.env.PET_LOG_BACKEND_API_BASE_URL = "http://127.0.0.1:27893";
   process.env.PET_LOG_BACKEND_PET_ID = "pet_01JCM7V8H9Q2K4N6R8T0A1B2C3";
 
   axios.defaults.adapter = (async (config) => {
@@ -342,7 +342,7 @@ test("기록 미리보기 API는 FastAPI 복수 후보의 카테고리를 구조
   const previousAdapter = axios.defaults.adapter;
   const detail =
     "아침 사료는 평소 양의 80% 정도 먹었고, 저녁 산책은 30분 다녀왔으며, 병원 방문은 없었고, 배변은 정상 변 1회, 행동은 평소보다 조금 조용하고 몸무게는 정상";
-  process.env.PET_LOG_BACKEND_API_BASE_URL = "http://127.0.0.1:8000";
+  process.env.PET_LOG_BACKEND_API_BASE_URL = "http://127.0.0.1:27893";
   process.env.PET_LOG_BACKEND_PET_ID = "pet_01JCM7V8H9Q2K4N6R8T0A1B2C3";
 
   axios.defaults.adapter = (async (config) => {
@@ -443,11 +443,11 @@ test("기록 생성 API는 FastAPI 기록 파이프라인을 확정 저장으로
   const previousBaseUrl = process.env.PET_LOG_BACKEND_API_BASE_URL;
   const previousPetId = process.env.PET_LOG_BACKEND_PET_ID;
   const previousAdapter = axios.defaults.adapter;
-  process.env.PET_LOG_BACKEND_API_BASE_URL = "http://127.0.0.1:8000";
+  process.env.PET_LOG_BACKEND_API_BASE_URL = "http://127.0.0.1:27893";
   process.env.PET_LOG_BACKEND_PET_ID = "pet_01JCM7V8H9Q2K4N6R8T0A1B2C3";
 
   axios.defaults.adapter = (async (config) => {
-    assert.equal(config.url, "http://127.0.0.1:8000/api/v1/pet-log/records");
+    assert.equal(config.url, "http://127.0.0.1:27893/api/v1/pet-log/records");
     assert.equal(config.method, "post");
     assert.equal(config.headers.get("Content-Type"), "application/json");
     assert.deepEqual(
