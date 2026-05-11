@@ -1,4 +1,4 @@
-import { categoryLabels } from "./mock-data";
+import { categoryLabels } from "./record-constants";
 import type { RecordCategory, RecordEntry, RecordStatus } from "./types";
 
 export type HomeSummaryTone = "green" | "orange" | "red" | "blue";

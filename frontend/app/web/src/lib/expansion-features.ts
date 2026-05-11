@@ -1,4 +1,4 @@
-import { categoryLabels } from "./mock-data";
+import { categoryLabels } from "./record-constants";
 import type { PreparedSharedCareInvite } from "./expansion-state";
 import type { PetProfile, RecordEntry } from "./types";
 
