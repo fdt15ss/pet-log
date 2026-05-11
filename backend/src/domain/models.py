@@ -124,6 +124,21 @@ class PlannedReminder:
 
 
 @dataclass(frozen=True)
+class Notification:
+    id: str
+    pet_id: str
+    category: str  # "기록", "주의", "일정"
+    title: str
+    detail: str
+    action: str
+    action_href: str
+    due_label: str
+    tone: str  # "green", "orange", "red", "blue"
+    created_at: str
+    read_at: str | None = None
+
+
+@dataclass(frozen=True)
 class CareSchedule:
     id: str
     pet_id: str

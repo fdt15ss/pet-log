@@ -73,6 +73,14 @@ class FileRepository:
             raise KeyError(file_id)
         return _file_from_row(row)
 
+    def delete_metadata(self, file_id: str) -> bool:
+        cursor = self._connection.execute(
+            "UPDATE files SET deleted_at = CURRENT_TIMESTAMP WHERE id = ? AND deleted_at IS NULL",
+            (file_id,),
+        )
+        self._connection.commit()
+        return cursor.rowcount > 0
+
 
 class LocalFileStorage:
     def __init__(self, root_path: str | Path = DEFAULT_UPLOAD_ROOT) -> None:
@@ -86,6 +94,13 @@ class LocalFileStorage:
 
     def path_for(self, storage_key: str) -> Path:
         return self._resolve_storage_key(storage_key)
+
+    def delete(self, storage_key: str) -> bool:
+        target_path = self._resolve_storage_key(storage_key)
+        if target_path.exists():
+            target_path.unlink()
+            return True
+        return False
 
     def _resolve_storage_key(self, storage_key: str) -> Path:
         target_path = (self._root_path / storage_key).resolve()

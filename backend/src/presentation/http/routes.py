@@ -4,6 +4,7 @@ from fastapi import APIRouter
 
 from presentation.http.file_routes import build_file_router
 from presentation.http.hospital_routes import build_hospital_router
+from presentation.http.notification_routes import build_notification_router
 from presentation.http.pet_log_routes import build_pet_log_router
 from presentation.http.speech_routes import build_speech_router
 
@@ -14,6 +15,7 @@ def build_router() -> APIRouter:
     router.include_router(build_file_router())
     router.include_router(build_speech_router())
     router.include_router(build_hospital_router())
+    router.include_router(build_notification_router())
 
     @router.get("/health")
     def health_check() -> dict[str, str]:

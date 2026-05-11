@@ -398,7 +398,11 @@ type ApiFailure = {
 
 | API | 성공 data |
 | --- | --- |
-| `GET /api/v1/me/pet-log` | `PetLogSnapshot` |
+| `GET /api/v1/me` | `{ id, name, email }` |
+| `GET /api/v1/pets` | `{ pets }` |
+| `GET /api/v1/pet-log/records` | `{ records }` |
+| `GET /api/v1/pet-log/schedules` | `{ schedules }` |
+| `GET /api/v1/notifications` | `{ notifications }` |
 | `PUT /api/v1/profile` | `{ profile }` |
 | `POST /api/v1/ai/records/structure` | `{ structured }` |
 | `POST /api/v1/records` | `{ record }` |

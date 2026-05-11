@@ -8,8 +8,8 @@ Pet Log AI는 보호자가 남긴 기록을 해석해 다음 행동을 정리하
 
 - LLM 호출은 클라이언트가 아니라 서버 API 뒤에서 실행합니다.
 - 현재 실행 지점은 `app/web/src/lib/server/pet-log-ai-service.ts`입니다.
-- 프론트는 기록 구조화에서 `POST /api/v1/ai/records/structure`, 챗봇에서 `POST /api/v1/chatbot/messages` 또는 `POST /api/v1/chatbot/threads/:id/messages`를 호출하고, provider가 mock인지 실제 LLM인지 알지 않습니다.
-- 챗봇 대화 이력은 `GET /api/v1/chatbot/threads`로 조회하며, 1차 구현은 서버 메모리 mock store에 저장합니다.
+- 프론트는 기록 구조화에서 `POST /api/v1/ai/records/structure`, 챗봇에서 `POST /api/v1/chatbot/messages` 또는 `POST /api/v1/chatbot/threads/:id/messages`를 호출합니다.
+- 챗봇 대화 이력은 `GET /api/v1/chatbot/threads`로 조회하며, 2차 구현부터는 **SQLite DB**에 영구 저장하여 맥락 파악에 활용합니다.
 - 기본 provider는 `mock`입니다.
 - `PET_LOG_AI_PROVIDER=openai`와 `OPENAI_API_KEY`를 설정하면 서버에서 OpenAI Responses API를 호출할 수 있습니다.
 - `PET_LOG_OPENAI_MODEL`로 모델을 바꿀 수 있고, 기본값은 `gpt-4o-mini`입니다.

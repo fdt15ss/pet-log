@@ -5,7 +5,7 @@ import { AppShell } from "@/components/app-shell";
 import { PetIcon } from "@/components/pet-icons";
 import { usePetLog } from "@/components/pet-log-provider";
 import { Card, CategoryBadge, Pill, SectionHeader } from "@/components/ui";
-import { categoryLabels } from "@/lib/mock-data";
+import { categoryLabels } from "@/lib/record-constants";
 import { getRecordCategoryChoiceLabel, recordCategoryChoiceOptions } from "@/lib/record-input";
 import {
   getTimelineDates,

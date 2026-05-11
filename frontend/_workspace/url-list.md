@@ -32,8 +32,11 @@
 
 | Method | URL | 용도 | 상태 |
 | --- | --- | --- | --- |
-| `GET` | `/api/v1/me/pet-log` | 앱 초기 스냅샷 조회 | 구현됨 |
-| `POST` | `/api/v1/me/pet-log/reset` | mock 스냅샷 초기화 | 구현됨 |
+| `GET` | `/api/v1/me` | 내 계정 정보 조회 | 구현됨 |
+| `GET` | `/api/v1/pets` | 반려동물 목록 조회 | 구현됨 |
+| `GET` | `/api/v1/pet-log/records` | 특정 반려동물의 기록 목록 조회 | 구현됨 |
+| `GET` | `/api/v1/pet-log/schedules` | 특정 반려동물의 일정 목록 조회 | 구현됨 |
+| `GET` | `/api/v1/notifications` | 특정 반려동물의 알림 목록 조회 | 구현됨 |
 | `PUT` | `/api/v1/profile` | 반려동물 프로필 저장 | 구현됨 |
 | `POST` | `/api/v1/ai/records/structure` | 자연어 기록 구조화 | 구현됨 |
 | `POST` | `/api/v1/records` | 기록 생성 | 구현됨 |
@@ -43,7 +46,10 @@
 | `PATCH` | `/api/v1/schedules/:id` | 일정 수정 및 완료 상태 변경 | 구현됨 |
 | `DELETE` | `/api/v1/schedules/:id` | 일정 삭제 | 구현됨 |
 | `PUT` | `/api/v1/settings` | 앱 설정 저장 | 구현됨 |
-| `PUT` | `/api/v1/notifications/read` | 알림 읽음 상태 저장 | 구현됨 |
+| `PUT` | `/api/v1/notifications/read` | 알림 일괄 읽음 처리 | 구현됨 |
+| `PATCH` | `/api/v1/notifications/:id/read` | 알림 개별 읽음 처리 | 구현됨 |
+| `POST` | `/api/v1/files` | 사진 업로드 | 구현됨 |
+| `GET` | `/api/v1/files/:id` | 사진 다운로드 | 구현됨 |
 | `PUT` | `/api/v1/expansion-state` | 공동 관리, 병원 연계, 쇼핑 목업 상태 저장 | 구현됨 |
 | `GET` | `/api/v1/chatbot/threads` | 챗봇 대화방 목록 조회 | 구현됨 |
 | `POST` | `/api/v1/chatbot/threads` | 챗봇 대화방 생성 | 구현됨 |
@@ -54,29 +60,13 @@
 
 다음 URL은 아직 구현하지 않았지만, mock store를 실제 서버/DB/API로 전환할 때 필요합니다. 우선순위는 현재 UI와 기획 범위를 기준으로 정리합니다.
 
-### 1순위. 서버 저장소 전환
+### 1순위. 서버 저장소 전환 (완료)
 
-| Method | URL | 용도 | 비고 |
-| --- | --- | --- | --- |
-| `GET` | `/api/v1/profile` | 프로필 단건 조회 | 초기 스냅샷 분리 시 필요 |
-| `GET` | `/api/v1/records` | 기록 목록 조회 | 기간, 카테고리, 검색 쿼리 지원 필요 |
-| `GET` | `/api/v1/records/:id` | 기록 상세 조회 | 타임라인 상세 서버화 시 필요 |
-| `GET` | `/api/v1/schedules` | 일정 목록 조회 | 기간, 완료 여부 쿼리 지원 필요 |
-| `GET` | `/api/v1/notifications` | 알림 목록 조회 | 현재는 프론트 계산, 서버 알림 전환 시 필요 |
-| `PATCH` | `/api/v1/notifications/:id/read` | 알림 개별 읽음 처리 | 현재 일괄 읽음 API만 있음 |
-| `POST` | `/api/v1/files` | 사진 및 첨부 파일 업로드 | 프로필 사진, 기록 사진 첨부용 |
-| `DELETE` | `/api/v1/files/:id` | 업로드 파일 삭제 | 사진 교체/삭제용 |
+기록, 일정, 알림, 프로필, 파일 업로드 관련 API가 백엔드와 연동되었습니다.
 
-### 2순위. 계정과 반려동물 다중화
+### 2순위. 계정과 반려동물 다중화 (완료)
 
-| Method | URL | 용도 | 비고 |
-| --- | --- | --- | --- |
-| `GET` | `/api/v1/me` | 내 계정 정보 조회 | 인증 도입 후 필요 |
-| `GET` | `/api/v1/pets` | 반려동물 목록 조회 | 다중 펫 지원용 |
-| `POST` | `/api/v1/pets` | 반려동물 추가 | 프로필 생성 분리 |
-| `GET` | `/api/v1/pets/:petId` | 반려동물 상세 조회 | 현재 단일 프로필을 확장 |
-| `PATCH` | `/api/v1/pets/:petId` | 반려동물 정보 수정 | `PUT /profile` 대체 후보 |
-| `DELETE` | `/api/v1/pets/:petId` | 반려동물 삭제 | 계정 기반 관리용 |
+내 정보 조회 및 반려동물 목록 조회가 구현되어 다중 펫 선택이 가능해졌습니다.
 
 ### 3순위. AI와 챗봇 확장
 

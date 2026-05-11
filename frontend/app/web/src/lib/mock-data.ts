@@ -3,11 +3,8 @@ import type {
   CommunityBoard,
   CommunityComment,
   CommunityPost,
-  MetricSeries,
   PetProfile,
-  RecordCategory,
   RecordEntry,
-  Suggestion,
 } from "./types";
 
 export const petProfile: PetProfile = {
@@ -98,56 +95,6 @@ export const schedules: CareSchedule[] = [
     isDone: false,
   },
 ];
-
-export const suggestions: Suggestion[] = [
-  {
-    id: "s1",
-    category: "행동",
-    title: "산책 시간이 줄었어요",
-    detail: "최근 일주일간 산책 시간이 평균보다 18분 짧습니다. 짧은 산책을 2회로 나누어보세요.",
-    action: "자세히 보기",
-    actionHref: "/analysis",
-    tone: "green",
-  },
-  {
-    id: "s2",
-    category: "건강",
-    title: "체중 증가 추세",
-    detail: "최근 4주간 체중이 조금씩 증가하고 있어요. 급여량과 간식 빈도를 함께 확인하세요.",
-    action: "관리 가이드",
-    actionHref: "/analysis",
-    tone: "orange",
-  },
-  {
-    id: "s3",
-    category: "생활",
-    title: "예방접종 시기 도래",
-    detail: "종합백신 접종 시기가 3일 남았습니다. 알림을 확인하고 일정을 잡아보세요.",
-    action: "일정 확인",
-    actionHref: "/schedule",
-    tone: "blue",
-  },
-];
-
-export const metrics: MetricSeries[] = [
-  { id: "meal", label: "식사량", unit: "g", values: [120, 98, 110, 105, 114, 108, 118], trend: "지난주 대비 +5%" },
-  { id: "activity", label: "활동량", unit: "분", values: [42, 35, 28, 31, 24, 30, 26], trend: "지난주 대비 -10%" },
-  { id: "weight", label: "체중", unit: "kg", values: [4.0, 4.0, 4.1, 4.1, 4.2, 4.2, 4.2], trend: "완만한 증가" },
-];
-
-export const todos = [
-  "오늘 배변 상태 기록하기",
-  "저녁 짧은 산책 15분",
-  "사료 변경 시기 확인",
-];
-
-export const categoryLabels: Record<RecordCategory, string> = {
-  meal: "식사",
-  walk: "산책",
-  stool: "배변",
-  medical: "병원/접종",
-  behavior: "행동",
-};
 
 export const communityBoards: CommunityBoard[] = ["유기동물", "용품 나눔", "자유게시판", "행동 고민", "후기"];
 

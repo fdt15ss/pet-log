@@ -1,12 +1,12 @@
 import { defaultExpansionState, normalizeExpansionState } from "@/lib/expansion-state";
 import { petProfile as initialProfile, records as initialRecords, schedules as initialSchedules } from "@/lib/mock-data";
 import { defaultAppSettings } from "@/lib/settings";
-import type { PetLogSnapshot } from "@/lib/api-client";
 import type {
   AppSettings,
   CareSchedule,
   ChatbotMessage,
   ChatbotThread,
+  PetLogSnapshot,
   PetProfile,
   RecordCategory,
   RecordCategoryChoice,

@@ -83,6 +83,24 @@ def build_file_router() -> APIRouter:
             raise HTTPException(status_code=404, detail="File content not found")
         return FileResponse(path, media_type=stored_file.mime_type)
 
+    @router.delete("/api/v1/files/{file_id}")
+    def delete_file(http_request: Request, file_id: str) -> dict[str, object]:
+        app_context = _app_context(http_request)
+        if getattr(app_context, "file_repository", None) is None or getattr(app_context, "file_storage", None) is None:
+            raise HTTPException(status_code=500, detail="File storage is not configured")
+
+        try:
+            stored_file = app_context.file_repository.get_file(file_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="File not found") from exc
+
+        deleted_metadata = app_context.file_repository.delete_metadata(file_id)
+        if not deleted_metadata:
+            raise HTTPException(status_code=404, detail="File metadata not found or already deleted")
+
+        app_context.file_storage.delete(stored_file.storage_key)
+        return success_response({"id": file_id})
+
     return router
 
 

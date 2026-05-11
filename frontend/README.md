@@ -41,9 +41,10 @@
 - `/hospital` 병원 연계
 - `/shopping` 쇼핑
 
-현재 웹 앱은 Next.js Route Handler의 API 경계를 사용합니다. 기록 미리보기와 기록 생성은 FastAPI 백엔드가 연결되어 있으면 axios로 `POST /api/v1/pet-log/records`를 호출하고, 백엔드가 없으면 기존 mock store와 mock AI provider로 fallback합니다. 실제 인증, 파일 업로드, 계정 간 동기화는 아직 연결하지 않았습니다.
+현재 웹 앱은 Next.js Route Handler의 API 경계를 사용합니다. 기록, 일정, 알림, 프로필 데이터는 FastAPI 백엔드와 SQLite 영구 저장소를 기반으로 동작합니다. 브라우저(PetLogProvider)는 초기 구동 시 필요한 데이터를 개별 API를 통해 병렬로 호출하여 로드합니다.
 
-기록 화면의 빠른 입력 기본값은 `전체`입니다. `전체` 상태에서는 자연어 입력의 AI 구조화 결과(`suggestedCategory`)를 실제 저장 분류로 사용하고, 식사/산책/배변/병원/행동을 직접 선택하면 선택한 분류를 우선합니다.
+기록 화면의 빠른 입력 기본값은 `전체`입니다.
+ `전체` 상태에서는 자연어 입력의 AI 구조화 결과(`suggestedCategory`)를 실제 저장 분류로 사용하고, 식사/산책/배변/병원/행동을 직접 선택하면 선택한 분류를 우선합니다.
 
 ## UI 기준
 
@@ -191,7 +192,7 @@ npm run azure:deploy -- pet-log-rg pet-log-kp-20260504 "Azure for Students"
 
 ```bash
 curl -I https://pet-log-kp-20260504.azurewebsites.net
-curl -I https://pet-log-kp-20260504.azurewebsites.net/api/v1/me/pet-log
+curl -I https://pet-log-kp-20260504.azurewebsites.net/api/v1/pets
 ```
 
 현재 환경변수를 따로 설정하지 않으면 AI provider는 기본값인 `mock`으로 동작합니다. 실제 OpenAI 연동이 필요하면 App Service 환경변수에 `PET_LOG_AI_PROVIDER=openai`, `OPENAI_API_KEY`, `PET_LOG_OPENAI_MODEL` 등을 설정합니다.

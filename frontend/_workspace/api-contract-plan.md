@@ -73,57 +73,32 @@ type ApiFailure = {
 - `UNAUTHORIZED`: 인증이 필요한 요청에서 사용자 확인 실패
 - `INTERNAL_ERROR`: 서버 처리 실패
 
-## 초기 스냅샷
+## 초기 데이터 로딩
 
-### `GET /api/v1/me/pet-log`
+앱 시작 시 필요한 상태를 개별 API를 통해 병렬로 조회합니다.
 
-앱 시작 시 필요한 전체 상태를 한 번에 조회합니다.
+### `GET /api/v1/me`
+현재 로그인한 사용자 정보를 조회합니다.
 
-```ts
-type PetLogSnapshot = {
-  version: 1;
-  profile: PetProfile;
-  records: RecordEntry[];
-  schedules: CareSchedule[];
-  settings: AppSettings;
-  readNotificationIds: string[];
-  expansionState: ExpansionState;
-};
-```
+### `GET /api/v1/pets`
+사용자가 관리하는 모든 반려동물 목록을 조회합니다.
 
-응답:
+### `GET /api/v1/pet-log/records?pet_id=...`
+선택된 반려동물의 기록 목록을 조회합니다.
 
-```ts
-ApiSuccess<PetLogSnapshot>
-```
+### `GET /api/v1/pet-log/schedules?pet_id=...`
+선택된 반려동물의 일정 목록을 조회합니다.
+
+### `GET /api/v1/notifications?pet_id=...`
+선택된 반려동물의 알림 목록을 조회합니다.
 
 Next Route Handler 동작:
+- 브라우저는 `PetLogProvider`를 통해 각 API를 병렬로 호출합니다.
+- Route Handler는 요청을 FastAPI 백엔드로 전달(Proxy)합니다.
+- 각 응답은 `ApiSuccess<T>` 형태로 정규화됩니다.
 
-- 브라우저는 FastAPI를 직접 호출하지 않고 `GET /api/v1/me/pet-log`만 호출합니다.
-- Route Handler는 FastAPI `GET /api/v1/pet-log/snapshot?pet_id={PET_LOG_BACKEND_PET_ID}`를 호출합니다.
-- FastAPI 응답이 성공하면 DB 기반 `profile`, `records`, `schedules`를 프론트 `PetLogSnapshot`으로 반환합니다.
-- FastAPI 호출 실패, pet 없음, 응답 형식 불일치 시 기존 `mock-pet-log-store` snapshot을 반환하지 않고 `ApiFailure`로 정규화합니다.
-- settings, read notification, expansion state는 아직 백엔드 DB 소유가 아니므로 FastAPI snapshot 전환 후에도 프론트 기본값 또는 mock store 값을 사용합니다.
+## 프로필 관리
 
-FastAPI backend 계약:
-
-```http
-GET /api/v1/pet-log/snapshot?pet_id=pet_01JCM7V8H9Q2K4N6R8T0A1B2C3
-```
-
-```ts
-type BackendPetLogSnapshot = {
-  version: 1;
-  profile: PetProfile;
-  records: RecordEntry[];
-  schedules: CareSchedule[];
-  settings: AppSettings;
-  readNotificationIds: string[];
-  expansionState: ExpansionState;
-};
-```
-
-백엔드 snapshot 범위:
 
 - `profile`: `pets` table의 `name`, `breed`, `age_label`, `personality`, `notes`를 프론트 프로필 필드로 매핑합니다. 아직 DB에 값이 없는 `sex`, `weight`, `birthday`, `photoDataUrl`은 빈 값으로 둡니다.
 - `records`: `pet_records` table의 최신 기록을 `RecordEntry`로 매핑합니다. `structured`는 DB 저장 필드가 아직 없으므로 생략합니다.
