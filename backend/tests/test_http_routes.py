@@ -1,11 +1,14 @@
 import unittest
+from datetime import datetime
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
+from application.agents.hospital import KST, HospitalRecommendationResult
 from application.dto import PetLogAgentResult
 from composition import AppContext
-from domain.models import CareSchedule, PetProfile, PetRecord, StructuredRecordCandidate
+from domain.models import CareSchedule, PetProfile, PetRecord, StructuredRecordCandidate, VeterinaryHospitalRecommendation
+from infrastructure.maps import GooglePlacesConfigurationError
 from presentation.http.app import create_app
 
 
@@ -87,6 +90,7 @@ class FakeAppContext:
         self.record_reader = FakeRecordReader()
         self.schedule_reader = FakeScheduleReader()
         self.speech_to_text = FakeSpeechToText()
+        self.hospital_recommendation_agent = FakeHospitalRecommendationAgent()
         self.closed = False
 
     def close(self) -> None:
@@ -102,6 +106,46 @@ class FakeSpeechToText:
         self.transcribed_audio = audio
         self.transcribed_content_type = content_type
         return "오늘 아침 사료를 조금 남겼어"
+
+
+class FakeHospitalRecommendationAgent:
+    def __init__(self) -> None:
+        self.handled_query = None
+
+    def recommend(self, query):
+        self.handled_query = query
+        return HospitalRecommendationResult(
+            current_time=datetime(2026, 5, 11, 15, 30, tzinfo=KST),
+            center_latitude=query.latitude,
+            center_longitude=query.longitude,
+            radius_meters=query.radius_meters,
+            location_source=query.location_source,
+            accuracy_meters=query.accuracy_meters,
+            emergency_mode=query.emergency,
+            recommendations=(
+                VeterinaryHospitalRecommendation(
+                    place_id="hospital-1",
+                    name="24시 반려동물병원",
+                    address="서울시 강남구",
+                    phone_number="02-1234-5678",
+                    google_maps_url="https://maps.google.com/?cid=1",
+                    latitude=37.501,
+                    longitude=127.001,
+                    rating=4.6,
+                    user_rating_count=42,
+                    is_open_now=True,
+                    is_24_hours=True,
+                    weekday_text=("월요일: 24시간",),
+                    distance_meters=130,
+                    reason="24시간 영업으로 확인되어 현재 시각 기준 우선 추천합니다.",
+                ),
+            ),
+        )
+
+
+class MissingGoogleMapsKeyHospitalAgent:
+    def recommend(self, query):
+        raise GooglePlacesConfigurationError("missing key")
 
 
 class TestHttpRoutes(unittest.TestCase):
@@ -380,6 +424,78 @@ class TestHttpRoutes(unittest.TestCase):
             )
 
         self.assertEqual(response.status_code, 415)
+
+    def test_hospital_recommendation_route_converts_request_and_result(self):
+        context = FakeAppContext()
+
+        with TestClient(create_app(app_context_factory=lambda: context)) as client:
+            response = client.post(
+                "/api/v1/hospitals/recommendations",
+                json={
+                    "latitude": 37.5,
+                    "longitude": 127.0,
+                    "accuracy_meters": 25,
+                    "location_source": "gps",
+                    "radius_meters": 1500,
+                    "max_results": 3,
+                    "open_now_only": True,
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(context.hospital_recommendation_agent.handled_query.latitude, 37.5)
+        self.assertEqual(context.hospital_recommendation_agent.handled_query.longitude, 127.0)
+        self.assertEqual(context.hospital_recommendation_agent.handled_query.accuracy_meters, 25)
+        self.assertEqual(context.hospital_recommendation_agent.handled_query.location_source, "gps")
+        self.assertEqual(context.hospital_recommendation_agent.handled_query.radius_meters, 1500)
+        self.assertEqual(
+            response.json(),
+            {
+                "success": True,
+                "data": {
+                    "current_time": "2026-05-11T15:30:00+09:00",
+                    "search_center": {
+                        "latitude": 37.5,
+                        "longitude": 127.0,
+                        "radius_meters": 1500,
+                        "location_source": "gps",
+                        "accuracy_meters": 25.0,
+                        "emergency_mode": False,
+                    },
+                    "recommendations": [
+                        {
+                            "place_id": "hospital-1",
+                            "name": "24시 반려동물병원",
+                            "address": "서울시 강남구",
+                            "phone_number": "02-1234-5678",
+                            "google_maps_url": "https://maps.google.com/?cid=1",
+                            "latitude": 37.501,
+                            "longitude": 127.001,
+                            "rating": 4.6,
+                            "user_rating_count": 42,
+                            "is_open_now": True,
+                            "is_24_hours": True,
+                            "weekday_text": ["월요일: 24시간"],
+                            "distance_meters": 130,
+                            "reason": "24시간 영업으로 확인되어 현재 시각 기준 우선 추천합니다.",
+                        }
+                    ],
+                },
+            },
+        )
+
+    def test_hospital_recommendation_route_returns_503_without_google_maps_key(self):
+        context = FakeAppContext()
+        context.hospital_recommendation_agent = MissingGoogleMapsKeyHospitalAgent()
+
+        with TestClient(create_app(app_context_factory=lambda: context)) as client:
+            response = client.post(
+                "/api/v1/hospitals/recommendations",
+                json={"latitude": 37.5, "longitude": 127.0},
+            )
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json(), {"detail": "Google Maps API key is not configured"})
 
 
 if __name__ == "__main__":

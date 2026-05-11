@@ -83,6 +83,24 @@ class ShoppingRecommendation:
 
 
 @dataclass(frozen=True)
+class VeterinaryHospitalRecommendation:
+    place_id: str
+    name: str
+    address: str
+    phone_number: str
+    google_maps_url: str
+    latitude: float | None
+    longitude: float | None
+    rating: float | None
+    user_rating_count: int
+    is_open_now: bool | None
+    is_24_hours: bool
+    weekday_text: tuple[str, ...]
+    distance_meters: int | None
+    reason: str
+
+
+@dataclass(frozen=True)
 class PlannedReminder:
     title: str
     due_date: str
