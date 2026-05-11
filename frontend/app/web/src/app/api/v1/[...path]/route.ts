@@ -9,8 +9,7 @@ import {
   updateMockSettings,
 } from "@/lib/server/mock-pet-log-store";
 import { createPetLogChatbotMessage } from "@/lib/server/pet-log-ai-service";
-import type {
-  PetLogSnapshot,
+import {
   ExtractedMeasurement,
   RecordCategory,
   RecordCategoryChoice,
@@ -29,7 +28,7 @@ const recordCategories: RecordCategory[] = ["meal", "walk", "stool", "medical", 
 const recordStatuses: RecordStatus[] = ["normal", "notice", "alert"];
 const defaultBackendApiBaseUrl = "http://127.0.0.1:27893";
 const defaultBackendPetId = "pet_01JCM7V8H9Q2K4N6R8T0A1B2C3";
-const defaultBackendTimeoutMs = 1200;
+const defaultBackendTimeoutMs = 60000;
 
 type BackendPetLogCandidate = {
   title?: unknown;
@@ -513,8 +512,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
     try {
       const { structured } = await requestBackendPetLogRecord(body.detail, body.fallbackCategory, false);
       return ok({ structured });
-    } catch {
-      return fail("BACKEND_RECORD_FAILED", "기록 서버 요청을 처리하지 못했습니다.", 502);
+    } catch (error) {
+      console.error("[api/ai/records/structure] Error:", error);
+      const status = error instanceof BackendRouteError ? error.status : 502;
+      const code = error instanceof BackendRouteError ? error.code : "BACKEND_RECORD_FAILED";
+      const message = error instanceof Error ? error.message : "기록 서버 요청을 처리하지 못했습니다.";
+      return fail(code, message, status);
     }
   }
 

@@ -22,7 +22,7 @@ test("fetchAiInsights returns insights from API", async () => {
     assert.equal(getMock.mock.callCount(), 1);
     const firstCall = getMock.mock.calls[0];
     assert.equal(firstCall.arguments[0], "/ai/insights");
-    assert.deepEqual((firstCall.arguments[1] as any).params, { pet_id: "pet-123" });
+    assert.deepEqual((firstCall.arguments[1] as { params: object }).params, { pet_id: "pet-123" });
   } finally {
     getMock.mock.restore();
   }
@@ -48,7 +48,7 @@ test("fetchAiSuggestions returns suggestions from API", async () => {
     assert.equal(getMock.mock.callCount(), 1);
     const firstCall = getMock.mock.calls[0];
     assert.equal(firstCall.arguments[0], "/ai/suggestions");
-    assert.deepEqual((firstCall.arguments[1] as any).params, { pet_id: "pet-123" });
+    assert.deepEqual((firstCall.arguments[1] as { params: object }).params, { pet_id: "pet-123" });
   } finally {
     getMock.mock.restore();
   }

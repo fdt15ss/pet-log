@@ -1,6 +1,5 @@
 "use client";
 
-import axios from "axios";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   createRecord as createRecordApi,
@@ -34,6 +33,11 @@ import type {
   RecordEntry,
   ScheduleCategory,
 } from "@/lib/types";
+
+type PetNotification = {
+  id: string;
+  isRead: boolean;
+};
 
 type NewRecordInput = {
   category: RecordCategoryChoice;
@@ -164,7 +168,7 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
         console.log("[provider] 개별 API 병렬 로딩 시작");
         
         // 1. 유저 정보와 반려동물 목록을 먼저 가져옴
-        const [me, { pets }] = await Promise.all([
+        const [, { pets }] = await Promise.all([
           fetchMe(),
           fetchPets()
         ]);
@@ -195,7 +199,7 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
         // 알림 및 설정은 현재 스냅샷 호환성을 위해 기본값 또는 서버 데이터를 적절히 매핑
         // (필요시 fetchMe에서 설정을 가져오거나 별도 API 추가 가능)
         setSettings(defaultAppSettings); 
-        setReadNotificationIds(notificationsData.notifications.filter((n: any) => n.isRead).map((n: any) => n.id));
+        setReadNotificationIds((notificationsData.notifications as PetNotification[]).filter((n: PetNotification) => n.isRead).map((n: PetNotification) => n.id));
         setExpansionState(defaultExpansionState);
 
         // 4. AI 분석 초기 데이터 로드
@@ -407,7 +411,7 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
       // 스냅샷 초기화 대신 loadInitialState와 동일한 로직으로 데이터를 다시 불러옴
       // (실제 프로덕션에서는 서버 측 초기화 API 호출 후 리로딩)
       console.log("[provider] 데이터 리로딩 시작");
-      const [me, { pets }] = await Promise.all([fetchMe(), fetchPets()]);
+      const [, { pets }] = await Promise.all([fetchMe(), fetchPets()]);
       const activePet = pets[0];
       if (activePet) {
         const [recordsData, schedulesData, notificationsData] = await Promise.all([
@@ -418,7 +422,7 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
         setProfile(activePet);
         setRecords(recordsData.records);
         setSchedules(schedulesData.schedules);
-        setReadNotificationIds(notificationsData.notifications.filter((n: any) => n.isRead).map((n: any) => n.id));
+        setReadNotificationIds((notificationsData.notifications as PetNotification[]).filter((n: PetNotification) => n.isRead).map((n: PetNotification) => n.id));
       }
       setError("");
       setSyncStatus("synced");

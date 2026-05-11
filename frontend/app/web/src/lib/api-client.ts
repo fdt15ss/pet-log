@@ -8,7 +8,6 @@ import type {
   ChatbotMessage,
   ChatbotThread,
   PetProfile,
-  RecordCategory,
   RecordCategoryChoice,
   RecordEntry,
   ScheduleCategory,
@@ -160,7 +159,7 @@ export function fetchSchedules(petId: string) {
 }
 
 export function fetchNotifications(petId: string) {
-  return requestData<{ notifications: any[] }>(apiClient.get("/notifications", { params: { pet_id: petId } }));
+  return requestData<{ notifications: unknown[] }>(apiClient.get("/notifications", { params: { pet_id: petId } }));
 }
 
 export function updateProfile(input: PetProfile) {

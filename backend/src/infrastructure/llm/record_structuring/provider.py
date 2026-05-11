@@ -23,7 +23,7 @@ class RecordStructurer(BaseLLMProvider[LLMModel]):
         api_key: str | None = None,
         model: str | None = None,
         fallback_model: str | None = None,
-        timeout: float = 30.0,
+        timeout: float = 60.0,
         model_factory: ModelFactory[LLMModel] = build_record_structuring_model,
         structured_model: LLMModel | None = None,
     ) -> None:
