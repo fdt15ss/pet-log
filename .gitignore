@@ -51,3 +51,4 @@ dev-server.*.log
 # Editors
 .idea/
 .vscode/
+.worktrees/
