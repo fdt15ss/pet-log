@@ -5,10 +5,9 @@ import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { AppShell } from "@/components/app-shell";
 import { PetIcon } from "@/components/pet-icons";
 import { usePetLog } from "@/components/pet-log-provider";
-import { Card, MiniLineChart, Pill, SectionHeader } from "@/components/ui";
+import { Card, Pill, SectionHeader } from "@/components/ui";
 import { uploadProfilePhoto } from "@/lib/api-client";
 import { ageInputValue, ageLabelFromInput, weightInputValue, weightLabelFromInput } from "@/lib/profile-field-formatters";
-import { metrics } from "@/lib/mock-data";
 import { profileSexOptions } from "@/lib/profile-sex-options";
 import { canUseProfileCameraStream, getProfileCameraConstraints, getProfilePhotoError } from "@/lib/profile-photo";
 import type { PetProfile } from "@/lib/types";
@@ -33,7 +32,6 @@ const profileTextFields: Array<[string, keyof PetProfile]> = [
 
 export default function ProfilePage() {
   const { profile, updateProfile } = usePetLog();
-  const weightMetric = metrics.find((metric) => metric.label === "체중") ?? metrics[0];
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -554,11 +552,10 @@ export default function ProfilePage() {
                       <PetIcon className="h-4 w-4" name="activity" />
                       {profile.weight}
                     </p>
-                    <h2 className="text-base font-black text-[#1f2922]">최근 7회 기록</h2>
+                    <h2 className="text-base font-black text-[#1f2922]">체중 추이</h2>
                   </div>
-                  <p className="text-xs font-bold text-[#7b8576]">{weightMetric.trend}</p>
                 </div>
-                <MiniLineChart values={weightMetric.values} />
+                <p className="text-center text-sm text-[#7b8576]">체중 기록 데이터가 없습니다.</p>
               </Card>
             </section>
 

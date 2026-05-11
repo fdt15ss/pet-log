@@ -1,35 +1,34 @@
 "use client";
 
+import axios from "axios";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   createRecord as createRecordApi,
   createSchedule as createScheduleApi,
   deleteRecord as deleteRecordApi,
   deleteSchedule as deleteScheduleApi,
-  getPetLogSnapshot,
-  resetPetLogSnapshot,
-  structureRecordPreview,
+  fetchMe,
+  fetchNotifications,
+  fetchPets,
+  fetchRecords,
+  fetchSchedules,
   updateExpansionState as updateExpansionStateApi,
   updateProfile as updateProfileApi,
   updateReadNotifications,
   updateRecord as updateRecordApi,
   updateSchedule as updateScheduleApi,
   updateSettings as updateSettingsApi,
-  type PetLogSnapshot,
 } from "@/lib/api-client";
 import { defaultExpansionState, normalizeExpansionState } from "@/lib/expansion-state";
-import { petProfile as initialProfile, records as initialRecords, schedules as initialSchedules } from "@/lib/mock-data";
 import { defaultAppSettings } from "@/lib/settings";
 import type { ExpansionState, HospitalState, SharedCareState, ShoppingState } from "@/lib/expansion-state";
 import type {
   AppSettings,
   CareSchedule,
   PetProfile,
-  RecordCategory,
   RecordCategoryChoice,
   RecordEntry,
   ScheduleCategory,
-  StructuredRecord,
 } from "@/lib/types";
 
 type NewRecordInput = {
@@ -89,54 +88,16 @@ type PetLogContextValue = {
 const storageKey = "pet-log-state-v1";
 const PetLogContext = createContext<PetLogContextValue | null>(null);
 
-function formatDateLabel(date: Date) {
-  return `${date.getMonth() + 1}월 ${date.getDate()}일`;
-}
-
-function formatTimeLabel(date: Date) {
-  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
-}
-
-function createTitle(detail: string) {
-  const firstLine = detail.trim().split(/\n|[.!?。]/)[0]?.trim() ?? "";
-  if (firstLine.length <= 24) {
-    return firstLine || "새 기록";
-  }
-  return `${firstLine.slice(0, 24)}...`;
-}
-
-function createFallbackStructuredRecord(detail: string, category: RecordCategory): StructuredRecord {
-  const sourceText = detail.trim();
-  return {
-    sourceText,
-    normalizedSummary: createTitle(sourceText),
-    suggestedCategory: category,
-    detectedCategories: [category],
-    confidence: 0.4,
-    measurements: [],
-    needsConfirmation: true,
-  };
-}
-
-function resolveInputCategory(category: RecordCategoryChoice, structured: StructuredRecord): RecordCategory {
-  return category === "all" ? structured.suggestedCategory : category;
-}
-
-function createLocalRecord(input: NewRecordInput, structured: StructuredRecord, createdAt = new Date()): RecordEntry {
-  const detail = input.detail.trim();
-  const category = resolveInputCategory(input.category, structured);
-  return {
-    id: `local-${createdAt.getTime()}`,
-    date: formatDateLabel(createdAt),
-    time: formatTimeLabel(createdAt),
-    category,
-    categoryChoice: input.category,
-    title: createTitle(detail),
-    detail,
-    status: "normal",
-    structured,
-  };
-}
+const emptyProfile: PetProfile = {
+  name: "",
+  breed: "",
+  age: "",
+  sex: "",
+  weight: "",
+  birthday: "",
+  personality: "",
+  notes: [],
+};
 
 function createLocalSchedule(input: NewScheduleInput, createdAt = new Date()): CareSchedule {
   return {
@@ -150,187 +111,86 @@ function createLocalSchedule(input: NewScheduleInput, createdAt = new Date()): C
   };
 }
 
-function isRecordCategory(value: unknown): value is RecordCategory {
-  return value === "meal" || value === "walk" || value === "stool" || value === "medical" || value === "behavior";
-}
-
-function isRecordCategoryChoice(value: unknown): value is RecordCategoryChoice {
-  return value === "all" || isRecordCategory(value);
-}
-
-function isScheduleCategory(value: unknown): value is ScheduleCategory {
-  return value === "vaccination" || value === "medication" || value === "checkup" || value === "grooming" || value === "food";
-}
-
-function isRecordEntry(value: unknown): value is RecordEntry {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-
-  const record = value as RecordEntry;
-  return (
-    typeof record.id === "string" &&
-    typeof record.date === "string" &&
-    typeof record.time === "string" &&
-    isRecordCategory(record.category) &&
-    (record.categoryChoice === undefined || isRecordCategoryChoice(record.categoryChoice)) &&
-    typeof record.title === "string" &&
-    typeof record.detail === "string" &&
-    (record.status === "normal" || record.status === "notice" || record.status === "alert")
-  );
-}
-
-function isCareSchedule(value: unknown): value is CareSchedule {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-
-  const schedule = value as CareSchedule;
-  return (
-    typeof schedule.id === "string" &&
-    isScheduleCategory(schedule.category) &&
-    typeof schedule.title === "string" &&
-    typeof schedule.dueDate === "string" &&
-    typeof schedule.repeatLabel === "string" &&
-    typeof schedule.note === "string" &&
-    typeof schedule.isDone === "boolean"
-  );
-}
-
-function isPetProfile(value: unknown): value is PetProfile {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-
-  const profile = value as PetProfile;
-  return (
-    typeof profile.name === "string" &&
-    typeof profile.breed === "string" &&
-    typeof profile.age === "string" &&
-    typeof profile.sex === "string" &&
-    typeof profile.weight === "string" &&
-    typeof profile.birthday === "string" &&
-    typeof profile.personality === "string" &&
-    (profile.photoDataUrl === undefined || typeof profile.photoDataUrl === "string") &&
-    Array.isArray(profile.notes) &&
-    profile.notes.every((note) => typeof note === "string")
-  );
-}
-
-function isAppSettings(value: unknown): value is AppSettings {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-
-  const settings = value as AppSettings;
-  return (
-    typeof settings.aiInsightEnabled === "boolean" &&
-    !!settings.notificationPreferences &&
-    typeof settings.notificationPreferences.missingRecord === "boolean" &&
-    typeof settings.notificationPreferences.alert === "boolean" &&
-    typeof settings.notificationPreferences.schedule === "boolean"
-  );
-}
-
-function parseStoredState(value: string | null): StoredPetLogState | null {
-  if (!value) {
-    return null;
-  }
-
-  try {
-    const parsed = JSON.parse(value) as Partial<StoredPetLogState>;
-    if (
-      parsed.version === 1 &&
-      isPetProfile(parsed.profile) &&
-      Array.isArray(parsed.records) &&
-      parsed.records.every(isRecordEntry) &&
-      (parsed.schedules === undefined || (Array.isArray(parsed.schedules) && parsed.schedules.every(isCareSchedule))) &&
-      (parsed.settings === undefined || isAppSettings(parsed.settings)) &&
-      (parsed.readNotificationIds === undefined ||
-        (Array.isArray(parsed.readNotificationIds) && parsed.readNotificationIds.every((id) => typeof id === "string")))
-    ) {
-      return {
-        ...(parsed as StoredPetLogState),
-        expansionState: normalizeExpansionState(parsed.expansionState),
-      };
-    }
-  } catch {
-    return null;
-  }
-
-  return null;
-}
-
 export function PetLogProvider({ children }: { children: ReactNode }) {
-  const [profile, setProfile] = useState<PetProfile>(initialProfile);
-  const [records, setRecords] = useState<RecordEntry[]>(initialRecords);
-  const [schedules, setSchedules] = useState<CareSchedule[]>(initialSchedules);
+  console.log("[provider] 초기화 시작 → 클라이언트 fetch 예정");
+  const [profile, setProfile] = useState<PetProfile>(emptyProfile);
+  const [records, setRecords] = useState<RecordEntry[]>([]);
+  const [schedules, setSchedules] = useState<CareSchedule[]>([]);
   const [settings, setSettings] = useState<AppSettings>(defaultAppSettings);
   const [readNotificationIds, setReadNotificationIds] = useState<string[]>([]);
-  const [expansionState, setExpansionState] = useState<ExpansionState>(defaultExpansionState);
+  const [expansionState, setExpansionState] = useState<ExpansionState>(
+    normalizeExpansionState(undefined),
+  );
   const [isStorageReady, setIsStorageReady] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [syncStatus, setSyncStatus] = useState<"idle" | "synced" | "offline" | "error">("idle");
-
-  const applySnapshot = useCallback((snapshot: PetLogSnapshot) => {
-    setProfile(snapshot.profile);
-    setRecords(snapshot.records);
-    setSchedules(snapshot.schedules);
-    setSettings(snapshot.settings);
-    setReadNotificationIds(snapshot.readNotificationIds);
-    setExpansionState(normalizeExpansionState(snapshot.expansionState));
-  }, []);
+  const [error, setError] = useState("API 연결에 실패했습니다. 서버 연결을 확인해주세요.");
+  const [syncStatus, setSyncStatus] = useState<"idle" | "synced" | "offline" | "error">(
+    "error",
+  );
 
   useEffect(() => {
     let cancelled = false;
 
     async function loadInitialState() {
       setIsLoading(true);
-      let storedState: StoredPetLogState | null = null;
       try {
-        storedState = parseStoredState(window.localStorage.getItem(storageKey));
-      } catch {
-        storedState = null;
-      }
+        console.log("[provider] 개별 API 병렬 로딩 시작");
+        
+        // 1. 유저 정보와 반려동물 목록을 먼저 가져옴
+        const [me, { pets }] = await Promise.all([
+          fetchMe(),
+          fetchPets()
+        ]);
+        
+        if (cancelled) return;
 
-      if (storedState) {
-        setProfile(storedState.profile);
-        setRecords(storedState.records);
-        setSchedules(storedState.schedules ?? initialSchedules);
-        setSettings(storedState.settings ?? defaultAppSettings);
-        setReadNotificationIds(storedState.readNotificationIds ?? []);
-        setExpansionState(storedState.expansionState ?? defaultExpansionState);
-      }
-
-      try {
-        const snapshot = await getPetLogSnapshot();
-        if (cancelled) {
-          return;
+        const activePet = pets[0];
+        if (!activePet) {
+          throw new Error("등록된 반려동물이 없습니다.");
         }
-        applySnapshot(snapshot);
+
+        // 2. 해당 반려동물의 상세 데이터들을 병렬로 가져옴
+        const [recordsData, schedulesData, notificationsData] = await Promise.all([
+          fetchRecords(activePet.id),
+          fetchSchedules(activePet.id),
+          fetchNotifications(activePet.id)
+        ]);
+
+        if (cancelled) return;
+
+        console.log(`[provider] 로딩 완료: pet=${activePet.name}, records=${recordsData.records.length}, schedules=${schedulesData.schedules.length}`);
+
+        // 3. 상태 업데이트
+        setProfile(activePet);
+        setRecords(recordsData.records);
+        setSchedules(schedulesData.schedules);
+        
+        // 알림 및 설정은 현재 스냅샷 호환성을 위해 기본값 또는 서버 데이터를 적절히 매핑
+        // (필요시 fetchMe에서 설정을 가져오거나 별도 API 추가 가능)
+        setSettings(defaultAppSettings); 
+        setReadNotificationIds(notificationsData.notifications.filter((n: any) => n.isRead).map((n: any) => n.id));
+        setExpansionState(defaultExpansionState);
+
         setError("");
         setSyncStatus("synced");
-      } catch {
-        if (cancelled) {
-          return;
-        }
-        setError("API 연결에 실패해 로컬 데모 상태를 사용합니다.");
-        setSyncStatus("offline");
-      } finally {
-        if (!cancelled) {
-          setIsStorageReady(true);
-          setIsLoading(false);
-        }
+        setIsStorageReady(true);
+        setIsLoading(false);
+      } catch (err) {
+        console.error("[provider] 로딩 실패:", err);
+        if (cancelled) return;
+        
+        setError("데이터를 불러오지 못했습니다. 서버 연결을 확인해주세요.");
+        setSyncStatus("error");
+        setIsLoading(false);
       }
     }
 
-    void loadInitialState();
+    void loadInitialState().catch(() => {});
 
     return () => {
       cancelled = true;
     };
-  }, [applySnapshot]);
+  }, []);
 
   useEffect(() => {
     if (!isStorageReady) {
@@ -362,14 +222,9 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
       setSyncStatus("synced");
       return record;
     } catch {
-      const fallbackStructured = await structureRecordPreview({ detail: input.detail, fallbackCategory: input.category })
-        .then((response) => response.structured)
-        .catch(() => createFallbackStructuredRecord(input.detail, input.category === "all" ? "meal" : input.category));
-      const fallbackRecord = createLocalRecord(input, fallbackStructured);
-      setRecords((current) => [fallbackRecord, ...current]);
-      setError("API 저장에 실패해 로컬 기록으로 유지했습니다.");
-      setSyncStatus("offline");
-      return fallbackRecord;
+      setError("API 저장에 실패했습니다.");
+      setSyncStatus("error");
+      throw new Error("API 저장에 실패했습니다.");
     }
   }, []);
 
@@ -501,21 +356,29 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
 
   const resetPetLogData = useCallback(async () => {
     try {
-      const snapshot = await resetPetLogSnapshot();
-      applySnapshot(snapshot);
+      // 스냅샷 초기화 대신 loadInitialState와 동일한 로직으로 데이터를 다시 불러옴
+      // (실제 프로덕션에서는 서버 측 초기화 API 호출 후 리로딩)
+      console.log("[provider] 데이터 리로딩 시작");
+      const [me, { pets }] = await Promise.all([fetchMe(), fetchPets()]);
+      const activePet = pets[0];
+      if (activePet) {
+        const [recordsData, schedulesData, notificationsData] = await Promise.all([
+          fetchRecords(activePet.id),
+          fetchSchedules(activePet.id),
+          fetchNotifications(activePet.id)
+        ]);
+        setProfile(activePet);
+        setRecords(recordsData.records);
+        setSchedules(schedulesData.schedules);
+        setReadNotificationIds(notificationsData.notifications.filter((n: any) => n.isRead).map((n: any) => n.id));
+      }
       setError("");
       setSyncStatus("synced");
     } catch {
-      setProfile(initialProfile);
-      setRecords(initialRecords);
-      setSchedules(initialSchedules);
-      setSettings(defaultAppSettings);
-      setReadNotificationIds([]);
-      setExpansionState(defaultExpansionState);
-      setError("API 초기화에 실패해 로컬 예시 데이터로 되돌렸습니다.");
-      setSyncStatus("offline");
+      setError("데이터 초기화에 실패했습니다. 서버 연결을 확인해주세요.");
+      setSyncStatus("error");
     }
-  }, [applySnapshot]);
+  }, []);
 
   const persistReadNotificationIds = useCallback(async (ids: string[]) => {
     try {

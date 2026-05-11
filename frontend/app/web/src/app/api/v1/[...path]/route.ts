@@ -3,23 +3,21 @@ import axios from "axios";
 import {
   appendMockChatbotExchange,
   createMockChatbotThread,
-  createMockRecord,
-  createMockSchedule,
-  deleteMockRecord,
-  deleteMockSchedule,
   getMockChatbotThreads,
   getMockPetLogSnapshot,
-  resetMockPetLogSnapshot,
   updateMockExpansionState,
-  updateMockProfile,
-  updateMockReadNotifications,
-  updateMockRecord,
-  updateMockSchedule,
   updateMockSettings,
 } from "@/lib/server/mock-pet-log-store";
-import { createPetLogChatbotMessage, createPetLogStructuredRecord } from "@/lib/server/pet-log-ai-service";
-import type { PetLogSnapshot } from "@/lib/api-client";
-import type { ExtractedMeasurement, RecordCategory, RecordCategoryChoice, RecordEntry, RecordStatus, StructuredRecord } from "@/lib/types";
+import { createPetLogChatbotMessage } from "@/lib/server/pet-log-ai-service";
+import type {
+  PetLogSnapshot,
+  ExtractedMeasurement,
+  RecordCategory,
+  RecordCategoryChoice,
+  RecordEntry,
+  RecordStatus,
+  StructuredRecord,
+} from "@/lib/types";
 
 type RouteContext = {
   params: Promise<{
@@ -52,16 +50,20 @@ type BackendPetLogRecord = {
   recorded_at?: unknown;
 };
 
+type BackendRecordEntry = {
+  id?: unknown;
+  date?: unknown;
+  time?: unknown;
+  category?: unknown;
+  title?: unknown;
+  detail?: unknown;
+  status?: unknown;
+};
+
 type BackendPetLogResult = {
   candidates?: unknown;
   saved_records?: unknown;
   needs_confirmation?: unknown;
-};
-
-type BackendSnapshotResponse = {
-  success?: boolean;
-  data?: unknown;
-  detail?: unknown;
 };
 
 class BackendRouteError extends Error {
@@ -268,52 +270,6 @@ function mapBackendRecordToEntry(
   };
 }
 
-function isPetLogSnapshot(value: unknown): value is PetLogSnapshot {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-  const snapshot = value as Partial<PetLogSnapshot>;
-  return (
-    snapshot.version === 1 &&
-    !!snapshot.profile &&
-    typeof snapshot.profile === "object" &&
-    Array.isArray(snapshot.records) &&
-    Array.isArray(snapshot.schedules) &&
-    !!snapshot.settings &&
-    typeof snapshot.settings === "object" &&
-    Array.isArray(snapshot.readNotificationIds) &&
-    !!snapshot.expansionState &&
-    typeof snapshot.expansionState === "object"
-  );
-}
-
-function backendSnapshotError(payload: BackendSnapshotResponse | null, status: number) {
-  const message = typeof payload?.detail === "string" ? payload.detail : "DB 스냅샷을 불러오지 못했습니다.";
-  const code = status === 404 ? "NOT_FOUND" : "BACKEND_SNAPSHOT_FAILED";
-  return new BackendRouteError(code, message, status || 502);
-}
-
-async function requestBackendPetLogSnapshot() {
-  const response = await axios.get<BackendSnapshotResponse>(
-    backendApiUrl(`/api/v1/pet-log/snapshot?pet_id=${encodeURIComponent(backendPetId())}`),
-    {
-      timeout: backendTimeoutMs(),
-      validateStatus: () => true,
-    },
-  );
-
-  const payload = response.data;
-  if (response.status < 200 || response.status >= 300 || payload?.success !== true) {
-    throw backendSnapshotError(payload, response.status);
-  }
-
-  if (!isPetLogSnapshot(payload.data)) {
-    throw new BackendRouteError("INVALID_BACKEND_SNAPSHOT", "DB 스냅샷 응답 형식이 올바르지 않습니다.");
-  }
-
-  return payload.data;
-}
-
 async function requestBackendPetLogRecord(detail: string, fallbackCategory: RecordCategoryChoice, confirm: boolean) {
   const response = await axios.post<{ success?: boolean; data?: BackendPetLogResult; detail?: unknown }>(
     backendApiUrl("/api/v1/pet-log/records"),
@@ -335,12 +291,12 @@ async function requestBackendPetLogRecord(detail: string, fallbackCategory: Reco
   const payload = response.data;
   if (response.status < 200 || response.status >= 300 || payload?.success !== true || !payload.data) {
     const message = typeof payload?.detail === "string" ? payload.detail : "기록 서버 요청을 처리하지 못했습니다.";
-    throw new Error(message);
+    throw new BackendRouteError("BACKEND_RECORD_FAILED", message, response.status || 502);
   }
 
   const candidate = firstBackendCandidate(payload.data);
   if (!candidate) {
-    throw new Error("기록 서버 응답에 구조화 후보가 없습니다.");
+    throw new BackendRouteError("BACKEND_RECORD_FAILED", "기록 서버 응답에 구조화 후보가 없습니다.");
   }
 
   const structured = mapBackendCandidateToStructured(
@@ -430,14 +386,60 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     return proxyFileDownload(path[1]);
   }
 
-  if (path[0] === "me" && path[1] === "pet-log" && path.length === 2) {
+  if (path[0] === "me" && path.length === 1) {
     try {
-      return ok(await requestBackendPetLogSnapshot());
-    } catch (error) {
-      if (error instanceof BackendRouteError) {
-        return fail(error.code, error.message, error.status);
-      }
-      return fail("BACKEND_SNAPSHOT_FAILED", "DB 스냅샷을 불러오지 못했습니다.", 502);
+      const response = await axios.get(backendApiUrl("/api/v1/me"), { timeout: backendTimeoutMs(), validateStatus: () => true });
+      return ok(response.data.data);
+    } catch {
+      return fail("BACKEND_ME_FAILED", "내 정보를 불러오지 못했습니다.", 502);
+    }
+  }
+
+  if (path[0] === "pets" && path.length === 1) {
+    try {
+      const response = await axios.get(backendApiUrl("/api/v1/pets"), { timeout: backendTimeoutMs(), validateStatus: () => true });
+      return ok(response.data.data);
+    } catch {
+      return fail("BACKEND_PETS_FAILED", "반려동물 목록을 불러오지 못했습니다.", 502);
+    }
+  }
+
+  if (path[0] === "notifications" && path.length === 1) {
+    const petId = _request.nextUrl.searchParams.get("pet_id") || backendPetId();
+    try {
+      const response = await axios.get(backendApiUrl(`/api/v1/notifications?pet_id=${encodeURIComponent(petId)}`), {
+        timeout: backendTimeoutMs(),
+        validateStatus: () => true,
+      });
+      return ok(response.data.data);
+    } catch {
+      return fail("BACKEND_NOTIFICATION_FAILED", "알림 목록을 불러오지 못했습니다.", 502);
+    }
+  }
+
+  if (path[0] === "pet-log" && path[1] === "records" && path.length === 2) {
+    const petId = _request.nextUrl.searchParams.get("pet_id") || backendPetId();
+    try {
+      const response = await axios.get(backendApiUrl(`/api/v1/pet-log/records?pet_id=${encodeURIComponent(petId)}`), {
+        timeout: backendTimeoutMs(),
+        validateStatus: () => true,
+      });
+      return ok(response.data.data);
+    } catch {
+      return fail("BACKEND_RECORDS_FAILED", "기록 목록을 불러오지 못했습니다.", 502);
+    }
+  }
+
+  if (path[0] === "pet-log" && path[1] === "schedules" && path.length === 2) {
+    const petId = _request.nextUrl.searchParams.get("pet_id") || backendPetId();
+    try {
+      const response = await axios.get(backendApiUrl(`/api/v1/pet-log/schedules?pet_id=${encodeURIComponent(petId)}`), {
+        timeout: backendTimeoutMs(),
+        validateStatus: () => true,
+      });
+      return ok(response.data.data);
+    } catch {
+      return fail("BACKEND_SCHEDULES_FAILED", "일정 목록을 불러오지 못했습니다.", 502);
     }
   }
 
@@ -459,10 +461,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   const body = await readJson(request);
 
-  if (path[0] === "me" && path[1] === "pet-log" && path[2] === "reset" && path.length === 3) {
-    return ok(resetMockPetLogSnapshot());
-  }
-
   if (path[0] === "records" && path.length === 1) {
     if (!body || typeof body.detail !== "string" || !isRecordCategoryChoice(body.category)) {
       return fail("VALIDATION_ERROR", "기록 카테고리와 내용을 입력해주세요.");
@@ -476,12 +474,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
       if (record) {
         return ok({ record }, 201);
       }
+      return fail("BACKEND_RECORD_FAILED", "기록 서버 응답에 저장된 기록이 없습니다.", 502);
     } catch {
-      // 백엔드가 준비되지 않은 개발 환경에서는 기존 mock 저장 경로를 유지합니다.
+      return fail("BACKEND_RECORD_FAILED", "기록 서버 요청을 처리하지 못했습니다.", 502);
     }
-    const structured = await createPetLogStructuredRecord({ fallbackCategory: body.category, detail: body.detail });
-    const category = body.category === "all" ? structured.suggestedCategory : body.category;
-    return ok({ record: createMockRecord({ category, categoryChoice: body.category, detail: body.detail, structured }) }, 201);
   }
 
   if (path[0] === "ai" && path[1] === "records" && path[2] === "structure" && path.length === 3) {
@@ -492,28 +488,34 @@ export async function POST(request: NextRequest, context: RouteContext) {
       const { structured } = await requestBackendPetLogRecord(body.detail, body.fallbackCategory, false);
       return ok({ structured });
     } catch {
-      // 백엔드 미연결 시 프론트 서버의 mock AI 구조화를 그대로 사용합니다.
+      return fail("BACKEND_RECORD_FAILED", "기록 서버 요청을 처리하지 못했습니다.", 502);
     }
-    const structured = await createPetLogStructuredRecord({ detail: body.detail, fallbackCategory: body.fallbackCategory });
-    return ok({ structured });
   }
 
   if (path[0] === "schedules" && path.length === 1) {
     if (!body || typeof body.title !== "string" || typeof body.dueDate !== "string" || typeof body.category !== "string") {
       return fail("VALIDATION_ERROR", "일정 분류, 제목, 예정일을 입력해주세요.");
     }
-    return ok(
-      {
-        schedule: createMockSchedule({
+    try {
+      const response = await axios.post<{ success?: boolean; data?: unknown; detail?: unknown }>(
+        backendApiUrl("/api/v1/pet-log/schedules"),
+        {
+          pet_id: backendPetId(),
           category: body.category,
           title: body.title,
           dueDate: body.dueDate,
           repeatLabel: typeof body.repeatLabel === "string" ? body.repeatLabel : "한 번",
           note: typeof body.note === "string" ? body.note : "",
-        }),
-      },
-      201,
-    );
+        },
+        { headers: { "Content-Type": "application/json" }, timeout: backendTimeoutMs(), validateStatus: () => true },
+      );
+      if (response.status < 200 || response.status >= 300 || response.data?.success !== true || !response.data.data) {
+        return fail("BACKEND_SCHEDULE_FAILED", "일정 생성을 처리하지 못했습니다.", 502);
+      }
+      return ok({ schedule: response.data.data }, 201);
+    } catch {
+      return fail("BACKEND_SCHEDULE_FAILED", "일정 생성을 처리하지 못했습니다.", 502);
+    }
   }
 
   if (path[0] === "chatbot" && path[1] === "threads" && path.length === 2) {
@@ -564,6 +566,18 @@ export async function POST(request: NextRequest, context: RouteContext) {
     });
   }
 
+  if (path[0] === "pets" && path.length === 1) {
+    if (!body || typeof body.name !== "string") {
+      return fail("VALIDATION_ERROR", "이름은 필수입니다.");
+    }
+    try {
+      const response = await axios.post(backendApiUrl("/api/v1/pets"), body, { timeout: backendTimeoutMs(), validateStatus: () => true });
+      return ok(response.data.data, 201);
+    } catch {
+      return fail("BACKEND_PET_CREATE_FAILED", "반려동물을 추가하지 못했습니다.", 502);
+    }
+  }
+
   return fail("NOT_FOUND", "요청한 API를 찾을 수 없습니다.", 404);
 }
 
@@ -575,7 +589,22 @@ export async function PUT(request: NextRequest, context: RouteContext) {
     if (!body || typeof body.name !== "string" || typeof body.breed !== "string") {
       return fail("VALIDATION_ERROR", "이름과 품종은 필수입니다.");
     }
-    return ok({ profile: updateMockProfile(body) });
+    try {
+      const response = await axios.put<{ success?: boolean; data?: unknown; detail?: unknown }>(
+        backendApiUrl("/api/v1/pet-log/profile"),
+        {
+          pet_id: backendPetId(),
+          ...body,
+        },
+        { headers: { "Content-Type": "application/json" }, timeout: backendTimeoutMs(), validateStatus: () => true },
+      );
+      if (response.status < 200 || response.status >= 300 || response.data?.success !== true || !response.data.data) {
+        return fail("BACKEND_PROFILE_FAILED", "프로필 수정을 처리하지 못했습니다.", 502);
+      }
+      return ok({ profile: response.data.data });
+    } catch {
+      return fail("BACKEND_PROFILE_FAILED", "프로필 수정을 처리하지 못했습니다.", 502);
+    }
   }
 
   if (path[0] === "settings" && path.length === 1) {
@@ -589,7 +618,20 @@ export async function PUT(request: NextRequest, context: RouteContext) {
     if (!body || !Array.isArray(body.readNotificationIds)) {
       return fail("VALIDATION_ERROR", "읽음 처리할 알림 ID가 필요합니다.");
     }
-    return ok({ readNotificationIds: updateMockReadNotifications(body.readNotificationIds) });
+    try {
+      // 현재 백엔드는 pet_id 기준 일괄 읽음만 지원하므로 루프 돌리거나 일괄 API 호출
+      const response = await axios.put<{ success?: boolean; data?: unknown; detail?: unknown }>(
+        backendApiUrl(`/api/v1/notifications/read?pet_id=${encodeURIComponent(backendPetId())}`),
+        {},
+        { timeout: backendTimeoutMs(), validateStatus: () => true },
+      );
+      if (response.status < 200 || response.status >= 300 || response.data?.success !== true) {
+        return fail("BACKEND_NOTIFICATION_FAILED", "알림 읽음 처리를 실패했습니다.", 502);
+      }
+      return ok({ readNotificationIds: body.readNotificationIds });
+    } catch {
+      return fail("BACKEND_NOTIFICATION_FAILED", "알림 읽음 처리를 실패했습니다.", 502);
+    }
   }
 
   if (path[0] === "expansion-state" && path.length === 1) {
@@ -610,32 +652,89 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     if (!body || typeof body.detail !== "string" || !isRecordCategoryChoice(body.category)) {
       return fail("VALIDATION_ERROR", "기록 카테고리와 내용을 입력해주세요.");
     }
+    try {
+      const { result, structured } = await requestBackendPetLogRecord(body.detail, body.category, false);
+      const candidate = firstBackendCandidate(result);
+      const category: RecordCategory = isRecordCategory(candidate?.category)
+        ? (candidate!.category as RecordCategory)
+        : body.category === "all" ? "meal" : (body.category as RecordCategory);
+      const title = typeof candidate?.title === "string" && candidate.title.trim()
+        ? candidate.title.trim()
+        : (body.detail as string).slice(0, 80);
+      const status: RecordStatus = isRecordStatus(candidate?.status) ? (candidate!.status as RecordStatus) : "normal";
 
-    const structured = await createPetLogStructuredRecord({ fallbackCategory: body.category, detail: body.detail });
-    const existingRecord = getMockPetLogSnapshot().records.find((record) => record.id === path[1]);
-    const category =
-      body.category === "all"
-        ? structured.confidence < 0.7
-          ? existingRecord?.category ?? structured.suggestedCategory
-          : structured.suggestedCategory
-        : body.category;
-    const record = updateMockRecord(path[1], { category, categoryChoice: body.category, detail: body.detail, structured });
-    if (!record) {
-      return fail("NOT_FOUND", "수정할 기록을 찾을 수 없습니다.", 404);
+      const patchResp = await axios.patch<{ success?: boolean; data?: unknown; detail?: unknown }>(
+        backendApiUrl(`/api/v1/pet-log/records/${encodeURIComponent(path[1])}`),
+        { detail: body.detail, category, title, status },
+        { headers: { "Content-Type": "application/json" }, timeout: backendTimeoutMs(), validateStatus: () => true },
+      );
+      if (patchResp.status === 404) {
+        return fail("NOT_FOUND", "수정할 기록을 찾을 수 없습니다.", 404);
+      }
+      if (patchResp.status < 200 || patchResp.status >= 300 || patchResp.data?.success !== true) {
+        return fail("BACKEND_RECORD_FAILED", "기록 수정을 처리하지 못했습니다.", 502);
+      }
+      const updated = patchResp.data.data as BackendRecordEntry | null;
+      if (!updated || typeof updated.id !== "string") {
+        return fail("BACKEND_RECORD_FAILED", "기록 수정 응답 형식이 올바르지 않습니다.", 502);
+      }
+      const record: RecordEntry = {
+        id: updated.id,
+        date: typeof updated.date === "string" ? updated.date : "",
+        time: typeof updated.time === "string" ? updated.time : "",
+        category,
+        categoryChoice: body.category,
+        title,
+        detail: body.detail,
+        status,
+        structured,
+      };
+      return ok({ record });
+    } catch {
+      return fail("BACKEND_RECORD_FAILED", "기록 수정을 처리하지 못했습니다.", 502);
     }
-    return ok({ record });
   }
 
   if (path[0] === "schedules" && path[1] && path.length === 2) {
     if (!body || typeof body !== "object") {
       return fail("VALIDATION_ERROR", "일정 수정 내용이 필요합니다.");
     }
-
-    const schedule = updateMockSchedule(path[1], body);
-    if (!schedule) {
-      return fail("NOT_FOUND", "수정할 일정을 찾을 수 없습니다.", 404);
+    try {
+      const patchResp = await axios.patch<{ success?: boolean; data?: unknown; detail?: unknown }>(
+        backendApiUrl(`/api/v1/pet-log/schedules/${encodeURIComponent(path[1])}`),
+        body,
+        { headers: { "Content-Type": "application/json" }, timeout: backendTimeoutMs(), validateStatus: () => true },
+      );
+      if (patchResp.status === 404) {
+        return fail("NOT_FOUND", "수정할 일정을 찾을 수 없습니다.", 404);
+      }
+      if (patchResp.status < 200 || patchResp.status >= 300 || patchResp.data?.success !== true || !patchResp.data.data) {
+        return fail("BACKEND_SCHEDULE_FAILED", "일정 수정을 처리하지 못했습니다.", 502);
+      }
+      return ok({ schedule: patchResp.data.data });
+    } catch {
+      return fail("BACKEND_SCHEDULE_FAILED", "일정 수정을 처리하지 못했습니다.", 502);
     }
-    return ok({ schedule });
+  }
+
+  if (path[0] === "pets" && path[1] && path.length === 2) {
+    try {
+      const response = await axios.patch(backendApiUrl(`/api/v1/pets/${encodeURIComponent(path[1])}`), body, { timeout: backendTimeoutMs(), validateStatus: () => true });
+      if (response.status === 404) return fail("NOT_FOUND", "반려동물을 찾을 수 없습니다.", 404);
+      return ok(response.data.data);
+    } catch {
+      return fail("BACKEND_PET_UPDATE_FAILED", "반려동물 정보를 수정하지 못했습니다.", 502);
+    }
+  }
+
+  if (path[0] === "notifications" && path[1] && path[2] === "read" && path.length === 3) {
+    try {
+      const response = await axios.patch(backendApiUrl(`/api/v1/notifications/${encodeURIComponent(path[1])}/read`), {}, { timeout: backendTimeoutMs(), validateStatus: () => true });
+      if (response.status === 404) return fail("NOT_FOUND", "알림을 찾을 수 없습니다.", 404);
+      return ok(response.data.data);
+    } catch {
+      return fail("BACKEND_NOTIFICATION_FAILED", "알림 읽음 처리를 실패했습니다.", 502);
+    }
   }
 
   return fail("NOT_FOUND", "요청한 API를 찾을 수 없습니다.", 404);
@@ -645,17 +744,49 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
   const path = await getPath(context);
 
   if (path[0] === "records" && path[1] && path.length === 2) {
-    if (!deleteMockRecord(path[1])) {
-      return fail("NOT_FOUND", "삭제할 기록을 찾을 수 없습니다.", 404);
+    try {
+      const response = await axios.delete<{ success?: boolean; data?: unknown; detail?: unknown }>(
+        backendApiUrl(`/api/v1/pet-log/records/${encodeURIComponent(path[1])}`),
+        { timeout: backendTimeoutMs(), validateStatus: () => true },
+      );
+      if (response.status === 404) {
+        return fail("NOT_FOUND", "삭제할 기록을 찾을 수 없습니다.", 404);
+      }
+      if (response.status < 200 || response.status >= 300 || response.data?.success !== true) {
+        return fail("BACKEND_RECORD_FAILED", "기록 삭제를 처리하지 못했습니다.", 502);
+      }
+      return ok({ deletedId: path[1] });
+    } catch {
+      return fail("BACKEND_RECORD_FAILED", "기록 삭제를 처리하지 못했습니다.", 502);
     }
-    return ok({ deletedId: path[1] });
   }
 
   if (path[0] === "schedules" && path[1] && path.length === 2) {
-    if (!deleteMockSchedule(path[1])) {
-      return fail("NOT_FOUND", "삭제할 일정을 찾을 수 없습니다.", 404);
+    try {
+      const response = await axios.delete<{ success?: boolean; data?: unknown; detail?: unknown }>(
+        backendApiUrl(`/api/v1/pet-log/schedules/${encodeURIComponent(path[1])}`),
+        { timeout: backendTimeoutMs(), validateStatus: () => true },
+      );
+      if (response.status === 404) {
+        return fail("NOT_FOUND", "삭제할 일정을 찾을 수 없습니다.", 404);
+      }
+      if (response.status < 200 || response.status >= 300 || response.data?.success !== true) {
+        return fail("BACKEND_SCHEDULE_FAILED", "일정 삭제를 처리하지 못했습니다.", 502);
+      }
+      return ok({ deletedId: path[1] });
+    } catch {
+      return fail("BACKEND_SCHEDULE_FAILED", "일정 삭제를 처리하지 못했습니다.", 502);
     }
-    return ok({ deletedId: path[1] });
+  }
+
+  if (path[0] === "pets" && path[1] && path.length === 2) {
+    try {
+      const response = await axios.delete(backendApiUrl(`/api/v1/pets/${encodeURIComponent(path[1])}`), { timeout: backendTimeoutMs(), validateStatus: () => true });
+      if (response.status === 404) return fail("NOT_FOUND", "삭제할 반려동물을 찾을 수 없습니다.", 404);
+      return ok({ deletedId: path[1] });
+    } catch {
+      return fail("BACKEND_PET_DELETE_FAILED", "반려동물을 삭제하지 못했습니다.", 502);
+    }
   }
 
   return fail("NOT_FOUND", "요청한 API를 찾을 수 없습니다.", 404);
