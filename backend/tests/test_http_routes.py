@@ -1,4 +1,6 @@
 import unittest
+import tempfile
+from pathlib import Path
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
@@ -6,6 +8,10 @@ from fastapi.testclient import TestClient
 from application.dto import PetLogAgentResult
 from composition import AppContext
 from domain.models import CareSchedule, PetProfile, PetRecord, StructuredRecordCandidate
+from infrastructure.database import connect
+from infrastructure.repositories import FileRepository, PetProfileRepository
+from infrastructure.repositories.file_repository import LocalFileStorage
+from infrastructure.seed_data import SAMPLE_PET_ID
 from presentation.http.app import create_app
 
 
@@ -39,6 +45,9 @@ class FakePetProfileReader:
                 breed="말티푸",
                 species="dog",
                 age_label="3살",
+                sex_label="암컷",
+                weight_label="3.4kg",
+                birthday="2018.5.11",
                 personality="저녁 산책을 좋아해요",
                 notes=("아침 식사는 천천히 먹는 편",),
             )
@@ -182,9 +191,9 @@ class TestHttpRoutes(unittest.TestCase):
                         "name": "초코",
                         "breed": "말티푸",
                         "age": "3살",
-                        "sex": "",
-                        "weight": "",
-                        "birthday": "",
+                        "sex": "암컷",
+                        "weight": "3.4kg",
+                        "birthday": "2018.5.11",
                         "personality": "저녁 산책을 좋아해요",
                         "notes": ["아침 식사는 천천히 먹는 편"],
                     },
@@ -378,6 +387,72 @@ class TestHttpRoutes(unittest.TestCase):
                 "/api/v1/speech/transcriptions",
                 files={"audio": ("notes.txt", b"not audio", "text/plain")},
             )
+
+        self.assertEqual(response.status_code, 415)
+
+    def test_file_upload_route_saves_profile_photo_and_serves_it(self):
+        with tempfile.TemporaryDirectory() as directory:
+            connection = connect(":memory:")
+            connection.execute(
+                "INSERT INTO pets (id, name, notes) VALUES (?, ?, ?)",
+                (SAMPLE_PET_ID, "꾸꾸", "[]"),
+            )
+            connection.commit()
+            context = AppContext(
+                pet_log_agent_pipeline=FakePetLogAgentPipeline(),
+                pet_profile_reader=PetProfileRepository(connection=connection),
+                speech_to_text=FakeSpeechToText(),
+                file_repository=FileRepository(connection=connection),
+                file_storage=LocalFileStorage(Path(directory)),
+                close=connection.close,
+            )
+
+            with TestClient(create_app(app_context=context)) as client:
+                response = client.post(
+                    "/api/v1/files",
+                    data={"pet_id": SAMPLE_PET_ID, "purpose": "profile_photo"},
+                    files={"file": ("kukku.jpg", b"image-bytes", "image/jpeg")},
+                )
+
+                self.assertEqual(response.status_code, 201)
+                payload = response.json()
+                file_data = payload["data"]["file"]
+                self.assertEqual(file_data["pet_id"], SAMPLE_PET_ID)
+                self.assertEqual(file_data["purpose"], "profile_photo")
+                self.assertEqual(file_data["mime_type"], "image/jpeg")
+                self.assertEqual(file_data["byte_size"], len(b"image-bytes"))
+                self.assertEqual(file_data["url"], f"/api/v1/files/{file_data['id']}")
+
+                linked_pet = connection.execute(
+                    "SELECT photo_file_id FROM pets WHERE id = ?",
+                    (SAMPLE_PET_ID,),
+                ).fetchone()
+                self.assertEqual(linked_pet["photo_file_id"], file_data["id"])
+
+                image_response = client.get(file_data["url"])
+
+            self.assertEqual(image_response.status_code, 200)
+            self.assertEqual(image_response.content, b"image-bytes")
+            self.assertEqual(image_response.headers["content-type"], "image/jpeg")
+
+    def test_file_upload_route_rejects_non_image_file(self):
+        with tempfile.TemporaryDirectory() as directory:
+            connection = connect(":memory:")
+            context = AppContext(
+                pet_log_agent_pipeline=FakePetLogAgentPipeline(),
+                pet_profile_reader=PetProfileRepository(connection=connection),
+                speech_to_text=FakeSpeechToText(),
+                file_repository=FileRepository(connection=connection),
+                file_storage=LocalFileStorage(Path(directory)),
+                close=connection.close,
+            )
+
+            with TestClient(create_app(app_context=context)) as client:
+                response = client.post(
+                    "/api/v1/files",
+                    data={"pet_id": SAMPLE_PET_ID, "purpose": "profile_photo"},
+                    files={"file": ("notes.txt", b"not-image", "text/plain")},
+                )
 
         self.assertEqual(response.status_code, 415)
 

@@ -84,9 +84,34 @@ def initialize_schema(connection: sqlite3.Connection) -> None:
 
         CREATE INDEX IF NOT EXISTS idx_care_schedules_pet_due_date
             ON care_schedules (pet_id, due_date);
+
+        CREATE TABLE IF NOT EXISTS files (
+            id TEXT PRIMARY KEY,
+            owner_user_id TEXT NOT NULL,
+            pet_id TEXT,
+            purpose TEXT NOT NULL,
+            storage_key TEXT NOT NULL UNIQUE,
+            mime_type TEXT NOT NULL,
+            byte_size INTEGER NOT NULL,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            deleted_at TEXT
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_files_pet_purpose_created_at
+            ON files (pet_id, purpose, created_at);
         """
     )
+    _add_column_if_missing(connection, "pets", "photo_file_id", "TEXT")
     connection.commit()
+
+
+def _add_column_if_missing(connection: sqlite3.Connection, table: str, column: str, column_definition: str) -> None:
+    columns = {
+        row["name"]
+        for row in connection.execute(f"PRAGMA table_info({table})").fetchall()
+    }
+    if column not in columns:
+        connection.execute(f"ALTER TABLE {table} ADD COLUMN {column} {column_definition}")
 
 
 def _default_sample_pet_missing(connection: sqlite3.Connection) -> bool:
