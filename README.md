@@ -143,6 +143,20 @@ OPENAI_RECORD_STRUCTURING_FALLBACK_MODEL=gpt-5-nano
 
 백엔드는 Python 3.12 이상과 `uv` 기준으로 구성되어 있습니다.
 
+macOS/Linux:
+
+```bash
+cd backend
+./scripts/run-dev.sh
+```
+
+Windows:
+
+```bat
+cd backend
+scripts\run-dev.bat
+```
+
 ```bash
 cd backend
 uv run python -B -m unittest discover -s tests -v
