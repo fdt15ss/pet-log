@@ -202,6 +202,104 @@ def seed_default_data(connection: sqlite3.Connection, today: date | None = None)
             ),
         ),
     )
+    connection.executemany(
+        """
+        INSERT OR IGNORE INTO community_posts
+            (id, board, title, body, author_name, created_at, comment_count, like_count, distance, tags)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            (
+                "community-1",
+                "행동 고민",
+                "말티즈 산책 시간이 줄면 쉽게 흥분하나요?",
+                "산책 시간이 줄어든 뒤 현관 앞에서 기다리거나 소리에 예민하게 반응하는 날이 늘었어요. 짧게라도 산책을 나누는 게 도움이 될까요?",
+                "초코 보호자",
+                _at(base_date, time(9, 20)),
+                2,
+                26,
+                None,
+                json.dumps(["산책", "흥분", "말티즈"], ensure_ascii=False),
+            ),
+            (
+                "community-2",
+                "용품 나눔",
+                "소형 반려동물 하네스 나눔합니다",
+                "3~5kg 소형 반려동물용 하네스입니다. 세탁해두었고 동네에서 직접 전달 가능해요.",
+                "산책메이트",
+                _at(base_date - timedelta(days=1), time(18, 10)),
+                0,
+                15,
+                "1.2km",
+                json.dumps(["나눔", "하네스"], ensure_ascii=False),
+            ),
+            (
+                "community-3",
+                "자유게시판",
+                "분리불안 기록 방식 공유해요",
+                "외출 전후 행동을 기록하고 있는데 어떤 항목을 남기면 분석에 더 도움이 되는지 정리해봤습니다.",
+                "두부네",
+                _at(base_date - timedelta(days=1), time(12, 40)),
+                0,
+                32,
+                None,
+                json.dumps(["분리불안", "기록팁"], ensure_ascii=False),
+            ),
+            (
+                "community-4",
+                "후기",
+                "AI 제안대로 산책을 나눠본 후기",
+                "저녁 산책을 한 번 길게 하던 것을 아침과 저녁으로 나눴더니 밤에 낑낑거리는 시간이 줄었어요.",
+                "밤산책",
+                _at(base_date, time(7, 50)),
+                1,
+                18,
+                None,
+                json.dumps(["AI제안", "산책"], ensure_ascii=False),
+            ),
+            (
+                "community-5",
+                "유기동물",
+                "근처 임시 보호 정보 공유합니다",
+                "동네 보호소에서 임시 보호처를 찾는 공지가 올라왔습니다. 관심 있는 분들은 보호소 공지를 먼저 확인해주세요.",
+                "동네보호자",
+                _at(base_date, time(6, 30)),
+                0,
+                21,
+                "2.4km",
+                json.dumps(["임시보호", "동네"], ensure_ascii=False),
+            ),
+        ),
+    )
+    connection.executemany(
+        """
+        INSERT OR IGNORE INTO community_comments (id, post_id, author_name, body, created_at)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (
+            (
+                "comment-community-1-1",
+                "community-1",
+                "밤산책",
+                "흥분이 심한 날은 10분씩 두 번 나눠 걷는 방식이 저희 집에는 더 맞았어요.",
+                _at(base_date, time(9, 42)),
+            ),
+            (
+                "comment-community-1-2",
+                "community-1",
+                "두부네",
+                "산책 전후 행동 기록을 같이 남기면 패턴 찾기가 쉬웠습니다.",
+                _at(base_date, time(10, 5)),
+            ),
+            (
+                "comment-community-4-1",
+                "community-4",
+                "초코 보호자",
+                "저도 오늘부터 짧은 아침 산책을 추가해보려고요.",
+                _at(base_date, time(8, 10)),
+            ),
+        ),
+    )
     connection.commit()
 
 

@@ -21,6 +21,7 @@ from infrastructure.policies.reminder_planner import ReminderPlanner
 from infrastructure.policies.risk_signal_policy import RiskSignalPolicy
 from infrastructure.policies.suggestion_composer import SuggestionComposer
 from infrastructure.repositories.file_repository import FileRepository, LocalFileStorage
+from infrastructure.repositories.community_repository import CommunityRepository
 from infrastructure.repositories.pet_profile_repository import PetProfileRepository
 from infrastructure.repositories.record_repository import RecordRepository
 from infrastructure.repositories.schedule_repository import ScheduleRepository
@@ -39,6 +40,7 @@ class AppContext:
     schedule_reader: ScheduleRepository | None = None
     file_repository: FileRepository | None = None
     file_storage: LocalFileStorage | None = None
+    community_repository: CommunityRepository | None = None
     close: Callable[[], None] = field(default=lambda: None)
 
 
@@ -49,6 +51,7 @@ def build_app_context(database_path: str | None = None) -> AppContext:
     schedule_repository = ScheduleRepository(connection=database)
     pet_profile_reader = PetProfileRepository(connection=database)
     file_repository = FileRepository(connection=database)
+    community_repository = CommunityRepository(connection=database)
     pipeline = LangGraphPetLogAgentPipeline(
         record_structuring_agent=RecordStructuringAgent(RecordStructurer()),
         record_history_reader=record_repository,
@@ -71,6 +74,7 @@ def build_app_context(database_path: str | None = None) -> AppContext:
         schedule_reader=schedule_repository,
         file_repository=file_repository,
         file_storage=LocalFileStorage(),
+        community_repository=community_repository,
         close=database.close,
     )
 

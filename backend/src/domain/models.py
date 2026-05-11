@@ -2,7 +2,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from domain.enums import FilePurpose, InsightSeverity, RecordCategory, RecordInputSource, RecordStatus
+from domain.enums import (
+    CommunityBoard,
+    CommunityFeed,
+    CommunityReactionType,
+    FilePurpose,
+    InsightSeverity,
+    RecordCategory,
+    RecordInputSource,
+    RecordStatus,
+)
 
 
 @dataclass(frozen=True)
@@ -42,6 +51,38 @@ class StoredFile:
     mime_type: str
     byte_size: int
     created_at: str | None = None
+
+
+@dataclass(frozen=True)
+class CommunityPost:
+    id: str
+    board: CommunityBoard
+    title: str
+    body: str
+    author_name: str
+    created_at: str
+    comments: int = 0
+    likes: int = 0
+    distance: str | None = None
+    tags: tuple[str, ...] = ()
+    feeds: tuple[CommunityFeed, ...] = ("최신글",)
+
+
+@dataclass(frozen=True)
+class CommunityComment:
+    id: str
+    post_id: str
+    author_name: str
+    body: str
+    created_at: str
+
+
+@dataclass(frozen=True)
+class CommunityReaction:
+    id: str
+    post_id: str
+    reaction_type: CommunityReactionType
+    created_at: str
 
 
 @dataclass(frozen=True)
