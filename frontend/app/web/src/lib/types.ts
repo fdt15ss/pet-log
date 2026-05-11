@@ -4,9 +4,21 @@ export type RecordCategoryChoice = RecordCategory | "all";
 
 export type RecordStatus = "normal" | "notice" | "alert";
 
+export type InsightSeverity = "info" | "notice" | "alert";
+
 export type ExtractedMeasurement = {
   label: string;
   value: string;
+};
+
+export type StructuredRecordCandidate = {
+  title: string;
+  detail: string;
+  category: RecordCategory;
+  status: RecordStatus;
+  confidence: number;
+  needsConfirmation: boolean;
+  measurements?: string[];
 };
 
 export type StructuredRecord = {
@@ -17,6 +29,21 @@ export type StructuredRecord = {
   confidence: number;
   measurements: ExtractedMeasurement[];
   needsConfirmation: boolean;
+  candidates?: StructuredRecordCandidate[];
+};
+
+export type AiInsight = {
+  severity: InsightSeverity;
+  title: string;
+  reason: string;
+  sourceRecordIds?: string[];
+};
+
+export type AiSuggestion = {
+  title: string;
+  action: string;
+  reason: string;
+  sourceRecordIds?: string[];
 };
 
 export type PetProfile = {
