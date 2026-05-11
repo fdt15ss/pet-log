@@ -114,15 +114,24 @@ http://localhost:3000
 
 기록 기능을 실제 FastAPI 서버와 연결하려면 별도 터미널에서 백엔드를 먼저 실행합니다.
 
+macOS/Linux:
+
 ```bash
 cd ../../backend
-uv run uvicorn main:app --reload --host 127.0.0.1 --port 8000
+./scripts/run-dev.sh
+```
+
+Windows:
+
+```bat
+cd ..\..\backend
+scripts\run-dev.bat
 ```
 
 웹 앱 서버 환경변수는 `frontend/app/web/.env.local`에 설정합니다.
 
 ```env
-PET_LOG_BACKEND_API_BASE_URL=http://127.0.0.1:8000
+PET_LOG_BACKEND_API_BASE_URL=http://127.0.0.1:27893
 PET_LOG_BACKEND_PET_ID=pet_01JCM7V8H9Q2K4N6R8T0A1B2C3
 ```
 
