@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 
 from application.dto import PetLogAgentResult
 from composition import AppContext
-from domain.models import PetProfile, StructuredRecordCandidate
+from domain.models import CareSchedule, PetProfile, PetRecord, StructuredRecordCandidate
 from presentation.http.app import create_app
 
 
@@ -48,10 +48,44 @@ class FakePetProfileReader:
         return self.pets[pet_id]
 
 
+class FakeRecordReader:
+    def list_recent(self, pet_id: str, lookback_days: int):
+        return (
+            PetRecord(
+                id="record-1",
+                pet_id=pet_id,
+                category="meal",
+                title="아침 식사",
+                detail="사료를 조금 남겼어요.",
+                status="notice",
+                recorded_at="2026-05-09T08:10:00",
+                source="manual",
+            ),
+        )
+
+
+class FakeScheduleReader:
+    def list_for_pet(self, pet_id: str):
+        return (
+            CareSchedule(
+                id="schedule-1",
+                pet_id=pet_id,
+                category="checkup",
+                title="정기 검진",
+                due_date="2026-05-16",
+                repeat_label="6개월마다",
+                note="식사량 같이 상담",
+                is_done=False,
+            ),
+        )
+
+
 class FakeAppContext:
     def __init__(self) -> None:
         self.pet_log_agent_pipeline = FakePetLogAgentPipeline()
         self.pet_profile_reader = FakePetProfileReader()
+        self.record_reader = FakeRecordReader()
+        self.schedule_reader = FakeScheduleReader()
         self.speech_to_text = FakeSpeechToText()
         self.closed = False
 
@@ -126,6 +160,69 @@ class TestHttpRoutes(unittest.TestCase):
                     "safety_notices": [],
                     "suggestions": [],
                     "reminders": [],
+                },
+            },
+        )
+
+    def test_snapshot_route_returns_db_backed_frontend_snapshot(self):
+        context = FakeAppContext()
+
+        with TestClient(create_app(app_context_factory=lambda: context)) as client:
+            response = client.get("/api/v1/pet-log/snapshot?pet_id=pet_01JCM7V8H9Q2K4N6R8T0A1B2C3")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.json(),
+            {
+                "success": True,
+                "data": {
+                    "version": 1,
+                    "profile": {
+                        "name": "초코",
+                        "breed": "말티푸",
+                        "age": "3살",
+                        "sex": "",
+                        "weight": "",
+                        "birthday": "",
+                        "personality": "저녁 산책을 좋아해요",
+                        "notes": ["아침 식사는 천천히 먹는 편"],
+                    },
+                    "records": [
+                        {
+                            "id": "record-1",
+                            "date": "5월 9일",
+                            "time": "08:10",
+                            "category": "meal",
+                            "title": "아침 식사",
+                            "detail": "사료를 조금 남겼어요.",
+                            "status": "notice",
+                        }
+                    ],
+                    "schedules": [
+                        {
+                            "id": "schedule-1",
+                            "category": "checkup",
+                            "title": "정기 검진",
+                            "dueDate": "2026-05-16",
+                            "repeatLabel": "6개월마다",
+                            "note": "식사량 같이 상담",
+                            "isDone": False,
+                        }
+                    ],
+                    "settings": {
+                        "notificationPreferences": {
+                            "missingRecord": True,
+                            "alert": True,
+                            "schedule": True,
+                        },
+                        "aiInsightEnabled": True,
+                    },
+                    "readNotificationIds": [],
+                    "expansionState": {
+                        "sharedCare": {},
+                        "hospital": {},
+                        "shopping": {},
+                    },
                 },
             },
         )

@@ -4,7 +4,7 @@
 
 현재 `app/web`은 `PetLogProvider`에서 mock data와 `localStorage`를 직접 관리합니다. API 연동 1차 작업은 백엔드 구현 전에 계약을 먼저 고정해, 이후 provider를 axios 기반 데이터 경계로 바꿀 수 있게 만드는 것입니다.
 
-이번 문서는 **API 계약과 mock API 구현 기준 문서**입니다. 프론트는 실제 axios HTTP 호출을 사용하고, 1차 서버 응답은 Next.js Route Handler의 메모리 mock store에서 제공합니다. 기록 미리보기와 기록 생성은 FastAPI 백엔드가 연결되어 있으면 Next Route Handler가 axios로 `backend`의 기록 파이프라인을 호출하고, 백엔드 호출이 실패하면 기존 mock store와 mock AI provider로 fallback합니다. 실제 인증, 파일 업로드, 계정 간 동기화는 후속 스프린트에서 결정합니다.
+이번 문서는 **API 계약과 mock API 구현 기준 문서**입니다. 프론트는 실제 axios HTTP 호출을 사용하고, 1차 서버 응답은 Next.js Route Handler의 메모리 mock store에서 제공합니다. 기록 미리보기와 기록 생성은 FastAPI 백엔드가 연결되어 있으면 Next Route Handler가 axios로 `backend`의 기록 파이프라인을 호출하고, 백엔드 호출이 실패하면 기존 mock store와 mock AI provider로 fallback합니다. 초기 앱 스냅샷은 FastAPI 백엔드의 DB 기반 snapshot endpoint를 필수 경로로 사용하며, 실패 시 mock snapshot으로 대체하지 않고 공통 오류 응답을 반환합니다. 실제 인증, 파일 업로드, 계정 간 동기화는 후속 스프린트에서 결정합니다.
 
 ## 백엔드 연결 환경변수
 
@@ -97,12 +97,45 @@ type PetLogSnapshot = {
 ApiSuccess<PetLogSnapshot>
 ```
 
+Next Route Handler 동작:
+
+- 브라우저는 FastAPI를 직접 호출하지 않고 `GET /api/v1/me/pet-log`만 호출합니다.
+- Route Handler는 FastAPI `GET /api/v1/pet-log/snapshot?pet_id={PET_LOG_BACKEND_PET_ID}`를 호출합니다.
+- FastAPI 응답이 성공하면 DB 기반 `profile`, `records`, `schedules`를 프론트 `PetLogSnapshot`으로 반환합니다.
+- FastAPI 호출 실패, pet 없음, 응답 형식 불일치 시 기존 `mock-pet-log-store` snapshot을 반환하지 않고 `ApiFailure`로 정규화합니다.
+- settings, read notification, expansion state는 아직 백엔드 DB 소유가 아니므로 FastAPI snapshot 전환 후에도 프론트 기본값 또는 mock store 값을 사용합니다.
+
+FastAPI backend 계약:
+
+```http
+GET /api/v1/pet-log/snapshot?pet_id=pet_01JCM7V8H9Q2K4N6R8T0A1B2C3
+```
+
+```ts
+type BackendPetLogSnapshot = {
+  version: 1;
+  profile: PetProfile;
+  records: RecordEntry[];
+  schedules: CareSchedule[];
+  settings: AppSettings;
+  readNotificationIds: string[];
+  expansionState: ExpansionState;
+};
+```
+
+백엔드 snapshot 범위:
+
+- `profile`: `pets` table의 `name`, `breed`, `age_label`, `personality`, `notes`를 프론트 프로필 필드로 매핑합니다. 아직 DB에 값이 없는 `sex`, `weight`, `birthday`, `photoDataUrl`은 빈 값으로 둡니다.
+- `records`: `pet_records` table의 최신 기록을 `RecordEntry`로 매핑합니다. `structured`는 DB 저장 필드가 아직 없으므로 생략합니다.
+- `schedules`: `care_schedules` table의 삭제되지 않은 일정을 `CareSchedule`로 매핑합니다.
+- 계정별 설정, 알림 읽음 상태, 확장 UI 상태는 인증/계정 DB 전환 스프린트에서 서버 소유로 넘깁니다.
+
 프론트 전환 기준:
 
 - `PetLogProvider`는 초기 렌더 후 이 API를 호출합니다.
 - 호출 전에는 기존 mock data를 표시할 수 있습니다.
 - 호출 성공 시 provider 상태를 서버 스냅샷으로 교체합니다.
-- 호출 실패 시 기존 `localStorage` 데모 흐름을 유지하고 `syncStatus`를 `offline` 또는 `error`로 표시합니다.
+- 호출 실패 시 `ApiFailure`를 받아 `syncStatus`를 `offline` 또는 `error`로 표시합니다. 초기 DB 스냅샷 경로 자체는 mock snapshot으로 대체하지 않습니다.
 
 ## 프로필 API
 
@@ -493,7 +526,7 @@ ApiSuccess<{ threads: ChatbotThread[] }>
 
 ## 후속 스프린트 후보
 
-1. Axios API client와 provider 로딩/에러 상태 추가
+1. 실제 DB snapshot endpoint 연결
 2. 실제 DB 및 인증 방식 결정
 3. Route Handler 내부 mock store를 DB service로 교체
 4. 홈 챗봇 실제 답변 생성 및 대화 저장

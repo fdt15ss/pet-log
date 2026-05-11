@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 
 
-DEFAULT_LOCAL_GEMMA_MODEL = "gemma3n:e4b"
+DEFAULT_LOCAL_GEMMA_MODEL = "gemma4:e4b"
 DEFAULT_LOCAL_GEMMA_API_KEY = "local-gemma"
 
 OLLAMA_GEMMA_MODEL_ALIASES = {

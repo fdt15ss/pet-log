@@ -52,6 +52,7 @@ def ensure_local_gemma_runtime() -> None:
 
     base_url = local_gemma_base_url()
     if _is_openai_compatible_server_ready(base_url):
+        _download_model_if_enabled()
         _preload_model_if_enabled(base_url)
         return
 

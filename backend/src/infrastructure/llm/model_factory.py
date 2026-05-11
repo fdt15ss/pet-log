@@ -108,7 +108,8 @@ def build_primary_with_gpt_fallback(
         # Hybrid: GPT primary → (env fallback_model if set) → Gemma fallback
         primary_model = model_factory(provider_model, provider_api_key, timeout)
         fallbacks: list[ModelT] = []
-        if fallback_model:
+        normalized_fallback_model = normalize_local_gemma_model(fallback_model) if fallback_model else None
+        if normalized_fallback_model and normalized_fallback_model != local_gemma_model():
             fallbacks.append(model_factory(fallback_model, provider_api_key, timeout))
         fallbacks.append(model_factory(local_gemma_model(), local_gemma_api_key(), timeout))
         return cast(

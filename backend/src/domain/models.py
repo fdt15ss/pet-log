@@ -78,6 +78,18 @@ class PlannedReminder:
 
 
 @dataclass(frozen=True)
+class CareSchedule:
+    id: str
+    pet_id: str
+    category: str
+    title: str
+    due_date: str
+    repeat_label: str
+    note: str
+    is_done: bool
+
+
+@dataclass(frozen=True)
 class SafetyNotice:
     level: InsightSeverity
     message: str

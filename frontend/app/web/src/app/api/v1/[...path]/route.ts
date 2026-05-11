@@ -18,6 +18,7 @@ import {
   updateMockSettings,
 } from "@/lib/server/mock-pet-log-store";
 import { createPetLogChatbotMessage, createPetLogStructuredRecord } from "@/lib/server/pet-log-ai-service";
+import type { PetLogSnapshot } from "@/lib/api-client";
 import type { ExtractedMeasurement, RecordCategory, RecordCategoryChoice, RecordEntry, RecordStatus, StructuredRecord } from "@/lib/types";
 
 type RouteContext = {
@@ -56,6 +57,24 @@ type BackendPetLogResult = {
   saved_records?: unknown;
   needs_confirmation?: unknown;
 };
+
+type BackendSnapshotResponse = {
+  success?: boolean;
+  data?: unknown;
+  detail?: unknown;
+};
+
+class BackendRouteError extends Error {
+  status: number;
+  code: string;
+
+  constructor(code: string, message: string, status = 502) {
+    super(message);
+    this.name = "BackendRouteError";
+    this.code = code;
+    this.status = status;
+  }
+}
 
 function ok<T>(data: T, status = 200) {
   return NextResponse.json({ ok: true, data }, { status });
@@ -249,6 +268,52 @@ function mapBackendRecordToEntry(
   };
 }
 
+function isPetLogSnapshot(value: unknown): value is PetLogSnapshot {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const snapshot = value as Partial<PetLogSnapshot>;
+  return (
+    snapshot.version === 1 &&
+    !!snapshot.profile &&
+    typeof snapshot.profile === "object" &&
+    Array.isArray(snapshot.records) &&
+    Array.isArray(snapshot.schedules) &&
+    !!snapshot.settings &&
+    typeof snapshot.settings === "object" &&
+    Array.isArray(snapshot.readNotificationIds) &&
+    !!snapshot.expansionState &&
+    typeof snapshot.expansionState === "object"
+  );
+}
+
+function backendSnapshotError(payload: BackendSnapshotResponse | null, status: number) {
+  const message = typeof payload?.detail === "string" ? payload.detail : "DB 스냅샷을 불러오지 못했습니다.";
+  const code = status === 404 ? "NOT_FOUND" : "BACKEND_SNAPSHOT_FAILED";
+  return new BackendRouteError(code, message, status || 502);
+}
+
+async function requestBackendPetLogSnapshot() {
+  const response = await axios.get<BackendSnapshotResponse>(
+    backendApiUrl(`/api/v1/pet-log/snapshot?pet_id=${encodeURIComponent(backendPetId())}`),
+    {
+      timeout: backendTimeoutMs(),
+      validateStatus: () => true,
+    },
+  );
+
+  const payload = response.data;
+  if (response.status < 200 || response.status >= 300 || payload?.success !== true) {
+    throw backendSnapshotError(payload, response.status);
+  }
+
+  if (!isPetLogSnapshot(payload.data)) {
+    throw new BackendRouteError("INVALID_BACKEND_SNAPSHOT", "DB 스냅샷 응답 형식이 올바르지 않습니다.");
+  }
+
+  return payload.data;
+}
+
 async function requestBackendPetLogRecord(detail: string, fallbackCategory: RecordCategoryChoice, confirm: boolean) {
   const response = await axios.post<{ success?: boolean; data?: BackendPetLogResult; detail?: unknown }>(
     backendApiUrl("/api/v1/pet-log/records"),
@@ -319,7 +384,14 @@ export async function GET(_request: NextRequest, context: RouteContext) {
   const path = await getPath(context);
 
   if (path[0] === "me" && path[1] === "pet-log" && path.length === 2) {
-    return ok(getMockPetLogSnapshot());
+    try {
+      return ok(await requestBackendPetLogSnapshot());
+    } catch (error) {
+      if (error instanceof BackendRouteError) {
+        return fail(error.code, error.message, error.status);
+      }
+      return fail("BACKEND_SNAPSHOT_FAILED", "DB 스냅샷을 불러오지 못했습니다.", 502);
+    }
   }
 
   if (path[0] === "chatbot" && path[1] === "threads" && path.length === 2) {

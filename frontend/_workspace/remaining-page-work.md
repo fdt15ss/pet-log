@@ -499,6 +499,22 @@
 
 결과: 병원 연계 화면에서 브라우저 위치 권한 허용 시 현재 좌표를 저장하고, 앱 안의 구글맵에 내 위치 마커와 병원 후보 마커를 함께 표시합니다. 지도는 현재 위치와 병원 후보가 한 화면에 들어오도록 bounds를 조정하며, 실제 주변 병원 검색과 거리 계산은 후속 스프린트로 유지합니다.
 
+### 스프린트 20. 앱 초기 DB 스냅샷 연결
+
+목표: 앱 실행 시 `mock-data`가 아니라 FastAPI 백엔드 DB에 저장된 반려동물 프로필, 기록, 일정을 먼저 불러오도록 초기 스냅샷 경계를 연결합니다.
+
+상태: 진행 예정
+
+- Next Route Handler의 `GET /api/v1/me/pet-log`는 브라우저가 호출하는 기존 계약으로 유지합니다.
+- Route Handler 내부에서 FastAPI `GET /api/v1/pet-log/snapshot?pet_id={PET_LOG_BACKEND_PET_ID}`를 먼저 호출합니다.
+- FastAPI snapshot은 `pets`, `pet_records`, `care_schedules` table을 읽어 프론트 `PetLogSnapshot` 형태로 반환합니다.
+- 백엔드 연결 실패, pet 없음, 응답 형식 불일치 시 기존 `mock-pet-log-store` snapshot으로 fallback하지 않고 `ApiFailure`로 정규화합니다.
+- settings, read notification, shared care/hospital/shopping expansion state는 아직 프론트 mock/local 상태로 유지합니다.
+
+완료 기준: 앱 새로고침 초기 로딩에서 DB seed 또는 실제 저장 기록이 `profile`, `records`, `schedules`에 반영되고, 백엔드 미실행 개발 환경에서는 초기 snapshot API가 명시적 오류 상태를 반환합니다.
+
+후속 분리: 계정 기반 설정 저장, 알림 읽음 상태 DB 저장, 확장 UI 상태 DB 저장, 기록 `structured` 필드 영속화는 별도 DB/auth 스프린트에서 처리합니다.
+
 ## 배포 전 점검 체크리스트
 
 - `app/web`에서 `npm run lint`를 실행합니다.

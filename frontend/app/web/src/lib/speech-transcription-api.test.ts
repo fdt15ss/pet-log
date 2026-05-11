@@ -1,7 +1,7 @@
 import { strict as assert } from "node:assert";
 import test from "node:test";
 import axios, { type AxiosAdapter } from "axios";
-import { PATCH, POST } from "../app/api/v1/[...path]/route";
+import { GET, PATCH, POST } from "../app/api/v1/[...path]/route";
 import { restoreEnvValue } from "./sprint-test-utils";
 
 const nextRouteAxiosAdapter: AxiosAdapter = async (config) => {
@@ -39,6 +39,111 @@ function createNextRouteAxiosClient() {
     baseURL: "http://localhost/api/v1",
   });
 }
+
+test("초기 스냅샷 API는 FastAPI DB snapshot endpoint를 호출한다", async () => {
+  const previousBaseUrl = process.env.PET_LOG_BACKEND_API_BASE_URL;
+  const previousPetId = process.env.PET_LOG_BACKEND_PET_ID;
+  const previousAdapter = axios.defaults.adapter;
+  process.env.PET_LOG_BACKEND_API_BASE_URL = "http://127.0.0.1:8000";
+  process.env.PET_LOG_BACKEND_PET_ID = "pet_01JCM7V8H9Q2K4N6R8T0A1B2C3";
+
+  axios.defaults.adapter = (async (config) => {
+    assert.equal(
+      config.url,
+      "http://127.0.0.1:8000/api/v1/pet-log/snapshot?pet_id=pet_01JCM7V8H9Q2K4N6R8T0A1B2C3",
+    );
+    assert.equal(config.method, "get");
+
+    return {
+      config,
+      data: {
+        success: true,
+        data: {
+          version: 1,
+          profile: {
+            name: "초코",
+            breed: "말티푸",
+            age: "3살",
+            sex: "",
+            weight: "",
+            birthday: "",
+            personality: "저녁 산책을 좋아해요",
+            notes: ["아침 식사는 천천히 먹는 편"],
+          },
+          records: [],
+          schedules: [],
+          settings: {
+            notificationPreferences: {
+              missingRecord: true,
+              alert: true,
+              schedule: true,
+            },
+            aiInsightEnabled: true,
+          },
+          readNotificationIds: [],
+          expansionState: {
+            sharedCare: {},
+            hospital: {},
+            shopping: {},
+          },
+        },
+      },
+      headers: {},
+      request: {},
+      status: 200,
+      statusText: "OK",
+    };
+  }) as AxiosAdapter;
+
+  try {
+    const response = await GET(new Request("http://localhost/api/v1/me/pet-log") as never, {
+      params: Promise.resolve({ path: ["me", "pet-log"] }),
+    });
+    const json = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.equal(json.ok, true);
+    assert.equal(json.data.profile.name, "초코");
+  } finally {
+    axios.defaults.adapter = previousAdapter;
+    restoreEnvValue("PET_LOG_BACKEND_API_BASE_URL", previousBaseUrl);
+    restoreEnvValue("PET_LOG_BACKEND_PET_ID", previousPetId);
+  }
+});
+
+test("초기 스냅샷 API는 백엔드 실패 시 mock snapshot으로 대체하지 않는다", async () => {
+  const previousBaseUrl = process.env.PET_LOG_BACKEND_API_BASE_URL;
+  const previousAdapter = axios.defaults.adapter;
+  process.env.PET_LOG_BACKEND_API_BASE_URL = "http://127.0.0.1:8000";
+
+  axios.defaults.adapter = (async (config) => ({
+    config,
+    data: { success: false, detail: "Pet not found" },
+    headers: {},
+    request: {},
+    status: 404,
+    statusText: "Not Found",
+  })) as AxiosAdapter;
+
+  try {
+    const response = await GET(new Request("http://localhost/api/v1/me/pet-log") as never, {
+      params: Promise.resolve({ path: ["me", "pet-log"] }),
+    });
+    const json = await response.json();
+
+    assert.equal(response.status, 404);
+    assert.deepEqual(json, {
+      ok: false,
+      error: {
+        code: "NOT_FOUND",
+        message: "Pet not found",
+      },
+    });
+  } finally {
+    axios.defaults.adapter = previousAdapter;
+    restoreEnvValue("PET_LOG_BACKEND_API_BASE_URL", previousBaseUrl);
+  }
+});
 
 test("음성 입력 API는 multipart audio를 FastAPI transcription endpoint로 프록시한다", async () => {
   const previousBaseUrl = process.env.PET_LOG_BACKEND_API_BASE_URL;

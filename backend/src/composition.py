@@ -28,6 +28,8 @@ class AppContext:
     pet_log_agent_pipeline: LangGraphPetLogAgentPipeline
     pet_profile_reader: PetProfileRepository
     speech_to_text: SpeechToTextProvider
+    record_reader: RecordRepository | None = None
+    schedule_reader: ScheduleRepository | None = None
     close: Callable[[], None] = field(default=lambda: None)
 
 
@@ -51,6 +53,8 @@ def build_app_context(database_path: str | None = None) -> AppContext:
         pet_log_agent_pipeline=pipeline,
         pet_profile_reader=pet_profile_reader,
         speech_to_text=SpeechToTextProvider(),
+        record_reader=record_repository,
+        schedule_reader=schedule_repository,
         close=database.close,
     )
 

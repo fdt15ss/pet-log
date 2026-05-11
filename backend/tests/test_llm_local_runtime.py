@@ -42,7 +42,7 @@ class TestLLMLocalRuntime(unittest.TestCase):
         prepared: list[str] = []
         env = {
             "LOCAL_LLM_AUTOSTART": "1",
-            "GEMMA_MODEL": "google/gemma-3n-E4B-it",
+            "GEMMA_MODEL": "google/gemma-4-E4B-it",
         }
 
         with patch.dict("os.environ", env, clear=True), patch(
@@ -52,14 +52,14 @@ class TestLLMLocalRuntime(unittest.TestCase):
             "infrastructure.llm.model_factory.ensure_local_gemma_runtime",
             lambda: prepared.append("prepared"),
         ):
-            build_chat_openai_model("google/gemma-3n-E4B-it", "local-gemma", 5.0)
+            build_chat_openai_model("google/gemma-4-E4B-it", "local-gemma", 5.0)
 
         self.assertEqual(prepared, ["prepared"])
         self.assertEqual(
             FakeChatOpenAI.calls,
             [
                 {
-                    "model": "gemma3n:e4b",
+                    "model": "gemma4:e4b",
                     "api_key": "local-gemma",
                     "timeout": 5.0,
                     "base_url": "http://127.0.0.1:11434/v1",
@@ -119,7 +119,7 @@ class TestLLMLocalRuntime(unittest.TestCase):
             "LOCAL_LLM_RUNTIME": "ollama",
             "GEMMA_AUTO_PULL": "1",
             "GEMMA_PRELOAD": "1",
-            "GEMMA_MODEL": "gemma3n:e4b",
+            "GEMMA_MODEL": "gemma4:e4b",
         }
         with patch.dict("os.environ", env, clear=True), patch(
             "infrastructure.llm.local_runtime._is_openai_compatible_server_ready",
@@ -136,8 +136,37 @@ class TestLLMLocalRuntime(unittest.TestCase):
         ):
             ensure_local_gemma_runtime()
 
-        self.assertEqual(run_commands, [["ollama", "pull", "gemma3n:e4b"]])
+        self.assertEqual(run_commands, [["ollama", "pull", "gemma4:e4b"]])
         self.assertEqual(commands, [["ollama", "serve"]])
+        self.assertEqual(warmed_urls, ["http://127.0.0.1:11434/v1"])
+
+    def test_ensure_ollama_runtime_pulls_before_preload_when_server_is_already_ready(self):
+        run_commands: list[list[str]] = []
+        warmed_urls: list[str] = []
+
+        def fake_run(command, **kwargs):
+            run_commands.append(command)
+
+        env = {
+            "LOCAL_LLM_AUTOSTART": "1",
+            "LOCAL_LLM_RUNTIME": "ollama",
+            "GEMMA_AUTO_PULL": "1",
+            "GEMMA_PRELOAD": "1",
+            "GEMMA_MODEL": "gemma4:e4b",
+        }
+        with patch.dict("os.environ", env, clear=True), patch(
+            "infrastructure.llm.local_runtime._is_openai_compatible_server_ready",
+            return_value=True,
+        ), patch(
+            "infrastructure.llm.local_runtime.subprocess.run",
+            fake_run,
+        ), patch(
+            "infrastructure.llm.local_runtime._post_chat_completion",
+            lambda base_url: warmed_urls.append(base_url),
+        ):
+            ensure_local_gemma_runtime()
+
+        self.assertEqual(run_commands, [["ollama", "pull", "gemma4:e4b"]])
         self.assertEqual(warmed_urls, ["http://127.0.0.1:11434/v1"])
 
 
