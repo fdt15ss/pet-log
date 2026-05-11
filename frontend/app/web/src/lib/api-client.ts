@@ -93,6 +93,15 @@ export type SpeechTranscriptionResponse = {
   text: string;
 };
 
+export type UploadedFile = {
+  id: string;
+  url: string;
+  pet_id: string | null;
+  purpose: string;
+  mime_type: string;
+  byte_size: number;
+};
+
 export class PetLogApiError extends Error {
   code: string;
 
@@ -158,6 +167,12 @@ export function transcribeSpeechAudio(audio: File) {
   const formData = new FormData();
   formData.set("audio", audio);
   return requestData<SpeechTranscriptionResponse>(axios.post("/api/v1/speech/transcriptions", formData));
+}
+
+export function uploadProfilePhoto(photo: File) {
+  const formData = new FormData();
+  formData.set("file", photo);
+  return requestData<{ file: UploadedFile }>(axios.post("/api/v1/files", formData));
 }
 
 export function updateRecord(id: string, input: UpdateRecordInput) {
