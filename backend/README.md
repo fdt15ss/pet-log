@@ -262,6 +262,12 @@ uv run python -B scripts/smoke_record_structurer.py
 uv run python -B scripts/smoke_record_input_to_db.py
 ```
 
+Repository 변경사항 수동 확인:
+
+```bash
+uv run python -B scripts/smoke_repository_changes.py
+```
+
 기록 요약 provider 확인:
 
 ```bash

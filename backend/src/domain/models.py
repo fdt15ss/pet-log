@@ -71,6 +71,18 @@ class CareSuggestion:
 
 
 @dataclass(frozen=True)
+class ShoppingRecommendation:
+    title: str
+    product_url: str
+    image_url: str
+    mall_name: str
+    lowest_price: int
+    query: str
+    reason: str
+    source_record_ids: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class PlannedReminder:
     title: str
     due_date: str

@@ -10,6 +10,7 @@ from application.agents.record_structuring import RecordStructuringAgent
 from application.agents.record_summary import RecordSummaryAgent
 from application.agents.reminder import ReminderAgent
 from application.agents.risk_detection import RiskDetectionAgent
+from application.agents.shopping import ShoppingAgent
 from application.agents.suggestion import SuggestionAgent
 
 __all__ = [
@@ -23,5 +24,6 @@ __all__ = [
     "RecordSummaryAgent",
     "ReminderAgent",
     "RiskDetectionAgent",
+    "ShoppingAgent",
     "SuggestionAgent",
 ]

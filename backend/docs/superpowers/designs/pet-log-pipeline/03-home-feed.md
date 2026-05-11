@@ -4,6 +4,11 @@
 
 `HomeFeedPipeline`은 홈 화면에 필요한 today summary, recent changes, alerts, suggestion cards를 조립한다.
 
+## Repository 계약
+
+`PetLogAgentResultRepository.get_latest(pet_id)`는 pet_id별 최신 `PetLogAgentResult`를 반환한다.
+저장된 결과가 없는 pet_id는 `KeyError`를 발생시켜 호출부가 명시적으로 누락 상태를 처리하도록 한다.
+
 ```text
 HomeFeedInput
   -> PetLogAgentResultRepository

@@ -11,6 +11,7 @@ from domain.models import (
     PetProfile,
     PetRecord,
     PlannedReminder,
+    ShoppingRecommendation,
     StructuredRecordBatch,
     StructuredRecordCandidate,
 )
@@ -97,6 +98,31 @@ class FakeReminderAgent:
     ) -> tuple[PlannedReminder, ...]:
         self.records = records
         return ()
+
+
+class FakeShoppingAgent:
+    def __init__(self) -> None:
+        self.records: tuple[PetRecord, ...] = ()
+
+    def recommend(
+        self,
+        pet: PetProfile,
+        text: str,
+        records: tuple[PetRecord, ...],
+    ) -> tuple[ShoppingRecommendation, ...]:
+        self.records = records
+        return (
+            ShoppingRecommendation(
+                title="반려견 사료",
+                product_url="https://shopping.example/products/food",
+                image_url="https://shopping.example/products/food.jpg",
+                mall_name="sample mall",
+                lowest_price=12000,
+                query="반려견 사료",
+                reason="식사 기록과 관련된 상품 추천",
+                source_record_ids=tuple(record.id for record in records),
+            ),
+        )
 
 
 class TestPetLogAgentPipeline(unittest.TestCase):
@@ -256,11 +282,38 @@ class TestPetLogAgentPipeline(unittest.TestCase):
         self.assertIn("pet_log_agent_graph_node_completed node=build_saved_result", log_output)
         self.assertNotIn(input.text, log_output)
 
+    def test_saved_records_are_used_for_shopping_recommendations(self) -> None:
+        candidate = StructuredRecordCandidate(
+            title="아침 식사",
+            detail="사료를 조금 남겼어요.",
+            category="meal",
+            status="notice",
+            confidence=0.86,
+            needs_confirmation=False,
+        )
+        shopping_agent = FakeShoppingAgent()
+
+        result = self._pipeline(
+            StructuredRecordBatch(candidates=(candidate,)),
+            FakeRecordRepository(),
+            shopping_agent=shopping_agent,
+        ).handle(
+            PetLogAgentInput(
+                pet=PetProfile(id="pet-1", name="초코", species="dog"),
+                text="아침 사료를 조금 남겼어요.",
+                source="manual",
+            )
+        )
+
+        self.assertEqual(tuple(record.id for record in shopping_agent.records), ("record-1",))
+        self.assertEqual(result.shopping_recommendations[0].query, "반려견 사료")
+
     def _pipeline(
         self,
         batch: StructuredRecordBatch,
         repository: FakeRecordRepository,
         reminder_agent: FakeReminderAgent | None = None,
+        shopping_agent: FakeShoppingAgent | None = None,
     ) -> PetLogAgentPipeline:
         reminder_agent = reminder_agent or FakeReminderAgent()
         return PetLogAgentPipeline(
@@ -272,6 +325,7 @@ class TestPetLogAgentPipeline(unittest.TestCase):
             record_repository=repository,
             suggestion_agent=FakeSuggestionAgent(),
             reminder_agent=reminder_agent,
+            shopping_agent=shopping_agent,
         )
 
     def _graph_pipeline(
@@ -279,6 +333,7 @@ class TestPetLogAgentPipeline(unittest.TestCase):
         batch: StructuredRecordBatch,
         repository: FakeRecordRepository,
         reminder_agent: FakeReminderAgent | None = None,
+        shopping_agent: FakeShoppingAgent | None = None,
     ) -> LangGraphPetLogAgentPipeline:
         reminder_agent = reminder_agent or FakeReminderAgent()
         return LangGraphPetLogAgentPipeline(
@@ -290,6 +345,7 @@ class TestPetLogAgentPipeline(unittest.TestCase):
             record_repository=repository,
             suggestion_agent=FakeSuggestionAgent(),
             reminder_agent=reminder_agent,
+            shopping_agent=shopping_agent,
         )
 
 

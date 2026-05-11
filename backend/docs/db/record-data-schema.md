@@ -226,6 +226,14 @@ uv run python -B scripts/smoke_record_input_to_db.py
 
 이 스크립트는 자연어 문장을 `StructuredRecordBatch`로 구조화한 뒤 각 candidate를 `RecordRepository.save_candidate()`로 저장하고, 다시 `list_by_ids()`로 읽어 저장 결과를 확인한다.
 
+Repository 변경사항 수동 smoke 확인:
+
+```bash
+uv run python -B scripts/smoke_repository_changes.py
+```
+
+이 스크립트는 `RecordRepository.list_recent()`의 `lookback_days` 필터와 `PetLogAgentResultRepository.get_latest()`의 pet_id별 조회/누락 처리를 출력으로 확인한다.
+
 ## Enum
 
 ```text
@@ -264,6 +272,7 @@ SELECT id, pet_id, category, title, detail, status, recorded_at, source
 FROM pet_records
 WHERE pet_id = ?
   AND deleted_at IS NULL
+  AND recorded_at >= ?
 ORDER BY recorded_at, created_at;
 ```
 

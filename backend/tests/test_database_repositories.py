@@ -188,6 +188,27 @@ class TestDatabaseRepositories(unittest.TestCase):
         self.assertEqual(repository.list_by_ids("pet-1", (saved.id,)), (saved,))
         self.assertEqual(repository.list_recent("pet-2", lookback_days=30), ())
 
+    def test_record_repository_filters_sqlite_records_by_lookback_days(self):
+        connection = connect(":memory:")
+        recent_at = _days_ago(1)
+        old_at = _days_ago(40)
+        connection.executemany(
+            """
+            INSERT INTO pet_records (id, pet_id, category, title, detail, status, recorded_at, source)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                ("record-old", "pet-1", "meal", "Old meal", "Ate last month", "normal", old_at, "manual"),
+                ("record-recent", "pet-1", "meal", "Recent meal", "Ate today", "normal", recent_at, "manual"),
+            ),
+        )
+        connection.commit()
+        repository = RecordRepository(connection=connection)
+
+        records = repository.list_recent("pet-1", lookback_days=30)
+
+        self.assertEqual(tuple(record.id for record in records), ("record-recent",))
+
     def test_record_repository_preserves_requested_id_order(self):
         connection = connect(":memory:")
         connection.executemany(
@@ -232,6 +253,11 @@ class TestDatabaseRepositories(unittest.TestCase):
         self.assertEqual(due_items[0].title, "Checkup")
         self.assertEqual(due_items[0].due_date, due_date)
         self.assertEqual(due_items[0].reason, "Regular visit")
+
+
+def _days_ago(days: int) -> str:
+    value = datetime.now(UTC) - timedelta(days=days)
+    return value.replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 if __name__ == "__main__":

@@ -8,5 +8,6 @@ __all__ = [
     "notifications",
     "policies",
     "repositories",
+    "shopping",
     "speech",
 ]

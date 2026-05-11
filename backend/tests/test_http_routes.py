@@ -159,6 +159,7 @@ class TestHttpRoutes(unittest.TestCase):
                     "needs_confirmation": True,
                     "safety_notices": [],
                     "suggestions": [],
+                    "shopping_recommendations": [],
                     "reminders": [],
                 },
             },
