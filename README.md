@@ -12,11 +12,17 @@ Pet Log는 반려동물의 행동과 건강 기록을 단순히 저장하는 데
 
 ## 현재 구현 상태
 
-이 저장소는 `frontend/app/web`의 Next.js 모바일 우선 MVP와 `backend`의 Python AI agent backend skeleton으로 구성되어 있습니다.
+이 저장소는 `frontend/app/web`의 Next.js 모바일 우선 MVP와 `backend`의 Python AI agent backend로 구성되어 있습니다.
 
-프론트엔드는 Next.js App Router 기반 웹 앱이며, Route Handler mock API와 서버 AI service 경계를 사용합니다. 기본 개발 환경에서는 mock store와 mock AI provider로 동작합니다.
+프론트엔드는 Next.js App Router 기반 웹 앱이며, Route Handler를 통해 백엔드 API와 연동합니다. 기록, 알림, 일정, 프로필 등의 데이터는 실제 FastAPI 백엔드와 SQLite 영구 저장소를 기반으로 동작합니다.
 
-백엔드는 기록 구조화, 상태 분석, 제안, 리마인더, 펫 채팅, 병원 요약 같은 agent pipeline을 위한 계층형 패키지 구조와 in-memory 구현체를 갖춘 skeleton입니다.
+백엔드는 다음 기능을 완전히 구현하여 운영 중입니다:
+- **알림 파이프라인**: NotificationPolicy로 4가지 kind(missing_record, risk, behavior_change, schedule) 알림 후보 생성 및 DB 기반 저장/읽음 처리
+- **쇼핑 추천 AI**: Naver Shopping API + LLM 기반 추천 이유 생성 (ShoppingAgent, ShoppingRecommendationAgent)
+- **기록 입력 파이프라인**: 자연어 → 구조화 → 분석 → 저장 (FastAPI Route 완전 연동)
+- **일정 관리**: 지정된 기간 내 due items 목록 조회
+- **음성 STT**: Whisper 기반 음성 파일 변환
+- **동물병원 추천**: Google Places API 기반 위치별 병원 추천
 
 ## 주요 화면
 
@@ -135,9 +141,16 @@ GEMMA_API_KEY=local-gemma
 OPENAI_API_KEY=
 OPENAI_RECORD_STRUCTURING_MODEL=gpt-5-mini
 OPENAI_RECORD_STRUCTURING_FALLBACK_MODEL=gpt-5-nano
+OPENAI_SHOPPING_REASON_MODEL=gpt-5-mini
+OPENAI_SHOPPING_REASON_FALLBACK_MODEL=gemma4:e4b
+NAVER_SHOPPING_CLIENT_ID=
+NAVER_SHOPPING_CLIENT_SECRET=
+GOOGLE_MAPS_API_KEY=
 ```
 
 `LLM_EAGER_LOAD=1`이면 백엔드 실행 시 configured LLM provider를 미리 생성합니다. `LOCAL_LLM_AUTOSTART=1`이면 백엔드가 `ollama serve`를 자동으로 시작합니다. Ollama 기본 endpoint는 `http://127.0.0.1:11434/v1`입니다. `LOCAL_LLM_ROLE=primary` (기본값)이면 Gemma가 primary이고 GPT는 fallback이며, `LOCAL_LLM_ROLE=fallback`이면 GPT가 primary이고 Gemma는 last fallback입니다. `GEMMA_AUTO_PULL=1`이면 `ollama pull <GEMMA_MODEL>`로 모델을 준비하고, `GEMMA_PRELOAD=1`이면 `/v1/chat/completions` ping으로 모델을 메모리에 올립니다. `GEMMA_MODEL`은 Ollama tag 또는 HuggingFace ID이며, HuggingFace ID는 자동으로 Ollama 형식으로 정규화됩니다.
+
+**쇼핑 추천용 환경변수**: `OPENAI_SHOPPING_REASON_MODEL`과 `OPENAI_SHOPPING_REASON_FALLBACK_MODEL`은 Naver Shopping 추천 결과에 대한 LLM 기반 추천 이유 생성에 사용됩니다. `NAVER_SHOPPING_CLIENT_ID`와 `NAVER_SHOPPING_CLIENT_SECRET`은 Naver Shopping API 호출용 credentials입니다. `GOOGLE_MAPS_API_KEY`는 동물병원 추천용 Google Places API key입니다.
 
 ## 백엔드 실행 및 검증
 
