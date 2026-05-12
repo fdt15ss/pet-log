@@ -123,6 +123,39 @@ def initialize_schema(connection: sqlite3.Connection) -> None:
             notification_id TEXT NOT NULL,
             PRIMARY KEY (pet_id, notification_id)
         );
+
+        CREATE TABLE IF NOT EXISTS community_posts (
+            id TEXT PRIMARY KEY,
+            board TEXT NOT NULL,
+            title TEXT NOT NULL,
+            body TEXT NOT NULL,
+            author_name TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            likes INTEGER NOT NULL DEFAULT 0,
+            distance TEXT,
+            feeds TEXT NOT NULL DEFAULT '[]',
+            tags TEXT NOT NULL DEFAULT '[]',
+            deleted_at TEXT
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_community_posts_created_at
+            ON community_posts (created_at);
+
+        CREATE INDEX IF NOT EXISTS idx_community_posts_board_created_at
+            ON community_posts (board, created_at);
+
+        CREATE TABLE IF NOT EXISTS community_comments (
+            id TEXT PRIMARY KEY,
+            post_id TEXT NOT NULL,
+            author_name TEXT NOT NULL,
+            body TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            deleted_at TEXT,
+            FOREIGN KEY (post_id) REFERENCES community_posts (id)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_community_comments_post_created_at
+            ON community_comments (post_id, created_at);
         """
     )
     _add_column_if_missing(connection, "pets", "photo_file_id", "TEXT")

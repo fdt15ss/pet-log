@@ -21,9 +21,9 @@ from domain.models import (
 )
 from infrastructure.database import connect
 from infrastructure.maps import GooglePlacesConfigurationError
-from infrastructure.repositories import FileRepository, PetProfileRepository
+from infrastructure.repositories import CommunityRepository, FileRepository, PetProfileRepository
 from infrastructure.repositories.file_repository import LocalFileStorage
-from infrastructure.seed_data import SAMPLE_PET_ID
+from infrastructure.seed_data import SAMPLE_PET_ID, seed_default_data
 from presentation.http.app import create_app
 
 
@@ -229,6 +229,75 @@ class TestHttpRoutes(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"status": "ok"})
+
+    def test_community_routes_list_posts_and_detail(self):
+        connection = connect(":memory:")
+        seed_default_data(connection)
+        context = AppContext(
+            pet_log_agent_pipeline=FakePetLogAgentPipeline(),
+            pet_profile_reader=FakePetProfileReader(),
+            speech_to_text=FakeSpeechToText(),
+            community_repository=CommunityRepository(connection=connection),
+            close=connection.close,
+        )
+
+        with TestClient(create_app(app_context=context)) as client:
+            posts_response = client.get(
+                "/api/v1/community/posts",
+                params={"feed": "인기글", "board": "행동 고민"},
+            )
+            detail_response = client.get("/api/v1/community/posts/c1")
+
+        self.assertEqual(posts_response.status_code, 200)
+        self.assertEqual(
+            posts_response.json()["data"]["posts"][0],
+            {
+                "id": "c1",
+                "board": "행동 고민",
+                "title": "말티즈 산책 줄면 쉽게 흥분하나요?",
+                "body": "산책 시간이 줄어든 뒤 현관 앞에서 기다리거나 소리에 예민하게 반응하는 날이 늘었어요. 짧게라도 산책을 나누는 게 도움이 될까요?",
+                "authorName": "코코 보호자",
+                "createdAt": "오늘 09:20",
+                "comments": 2,
+                "likes": 26,
+                "feeds": ["인기글", "최신글"],
+                "tags": ["산책", "흥분", "말티즈"],
+            },
+        )
+        detail = detail_response.json()["data"]["post"]
+        self.assertEqual(detail["meta"], "행동 고민 · 댓글 2 · 공감 26")
+        self.assertEqual([comment["id"] for comment in detail["commentItems"]], ["comment-c1-2", "comment-c1-1"])
+
+    def test_community_routes_create_post_comment_and_reaction(self):
+        connection = connect(":memory:")
+        context = AppContext(
+            pet_log_agent_pipeline=FakePetLogAgentPipeline(),
+            pet_profile_reader=FakePetProfileReader(),
+            speech_to_text=FakeSpeechToText(),
+            community_repository=CommunityRepository(connection=connection),
+            close=connection.close,
+        )
+
+        with TestClient(create_app(app_context=context)) as client:
+            post_response = client.post(
+                "/api/v1/community/posts",
+                json={"board": "자유게시판", "title": "새 글", "body": "본문입니다."},
+            )
+            post_id = post_response.json()["data"]["post"]["id"]
+            comment_response = client.post(
+                f"/api/v1/community/posts/{post_id}/comments",
+                json={"body": "첫 댓글입니다."},
+            )
+            reaction_response = client.post(f"/api/v1/community/posts/{post_id}/reactions")
+
+        self.assertEqual(post_response.status_code, 201)
+        self.assertEqual(post_response.json()["data"]["post"]["authorName"], "나")
+        self.assertEqual(post_response.json()["data"]["post"]["feeds"], ["최신글"])
+        self.assertEqual(comment_response.status_code, 201)
+        self.assertEqual(comment_response.json()["data"]["comment"]["body"], "첫 댓글입니다.")
+        self.assertEqual(comment_response.json()["data"]["post"]["comments"], 1)
+        self.assertEqual(reaction_response.status_code, 200)
+        self.assertEqual(reaction_response.json()["data"]["post"]["likes"], 1)
 
     def test_record_route_converts_request_and_pipeline_result(self):
         context = FakeAppContext()

@@ -8,7 +8,13 @@ from pathlib import Path
 
 from domain.models import StructuredRecordCandidate
 from infrastructure.database import connect, initialize_schema
-from infrastructure.repositories import FileRepository, PetProfileRepository, RecordRepository, ScheduleRepository
+from infrastructure.repositories import (
+    CommunityRepository,
+    FileRepository,
+    PetProfileRepository,
+    RecordRepository,
+    ScheduleRepository,
+)
 from infrastructure.repositories.file_repository import LocalFileStorage
 from infrastructure.seed_data import SAMPLE_PET_ID, SAMPLE_PET_IDS, seed_database, seed_default_data
 
@@ -175,6 +181,46 @@ class TestDatabaseRepositories(unittest.TestCase):
 
         self.assertIn("photo_file_id", pet_columns)
 
+    def test_initialize_schema_creates_community_tables(self):
+        connection = connect(":memory:")
+
+        post_columns = {
+            row["name"]
+            for row in connection.execute("PRAGMA table_info(community_posts)").fetchall()
+        }
+        comment_columns = {
+            row["name"]
+            for row in connection.execute("PRAGMA table_info(community_comments)").fetchall()
+        }
+
+        self.assertEqual(
+            {
+                "id",
+                "board",
+                "title",
+                "body",
+                "author_name",
+                "created_at",
+                "likes",
+                "distance",
+                "feeds",
+                "tags",
+                "deleted_at",
+            },
+            post_columns,
+        )
+        self.assertEqual(
+            {
+                "id",
+                "post_id",
+                "author_name",
+                "body",
+                "created_at",
+                "deleted_at",
+            },
+            comment_columns,
+        )
+
     def test_file_repository_saves_profile_photo_metadata(self):
         connection = connect(":memory:")
         repository = FileRepository(connection=connection)
@@ -319,6 +365,43 @@ class TestDatabaseRepositories(unittest.TestCase):
         records = repository.list_by_ids("pet-1", ("record-2", "record-1"))
 
         self.assertEqual(tuple(record.id for record in records), ("record-2", "record-1"))
+
+    def test_community_repository_lists_seed_posts_by_feed_and_board(self):
+        connection = connect(":memory:")
+        seed_default_data(connection, today=date(2026, 5, 7))
+        repository = CommunityRepository(connection=connection)
+
+        posts = repository.list_posts(feed="인기글", board="행동 고민")
+
+        self.assertEqual(tuple(post.id for post in posts), ("c1",))
+        self.assertEqual(posts[0].board, "행동 고민")
+        self.assertEqual(posts[0].comments, 2)
+        self.assertEqual(posts[0].likes, 26)
+        self.assertIn("산책", posts[0].tags)
+
+    def test_community_repository_creates_comment_and_increments_count(self):
+        connection = connect(":memory:")
+        seed_default_data(connection, today=date(2026, 5, 7))
+        repository = CommunityRepository(connection=connection)
+
+        comment = repository.create_comment(post_id="c1", body="같이 기록해보겠습니다.", author_name="나")
+
+        detail = repository.get_post("c1")
+        self.assertIsNotNone(detail)
+        self.assertEqual(comment.post_id, "c1")
+        self.assertEqual(comment.body, "같이 기록해보겠습니다.")
+        self.assertEqual(detail.comments, 3)
+
+    def test_community_repository_creates_post_and_adds_reaction(self):
+        connection = connect(":memory:")
+        repository = CommunityRepository(connection=connection)
+
+        post = repository.create_post(board="자유게시판", title="새 글", body="본문입니다.", author_name="나")
+        reacted = repository.add_reaction(post.id)
+
+        self.assertEqual(post.feeds, ("최신글",))
+        self.assertEqual(post.tags, ("새 글",))
+        self.assertEqual(reacted.likes, 1)
 
     def test_schedule_repository_reads_due_sqlite_items(self):
         connection = connect(":memory:")
