@@ -251,3 +251,43 @@ export function sendChatbotThreadMessage(threadId: string, question: string, con
 export function sendChatbotMessage(question: string, contextRecordIds?: string[], threadId?: string) {
   return requestData<ChatbotMessageResponse>(apiClient.post("/chatbot/messages", { question, contextRecordIds, threadId }));
 }
+
+export type HospitalRecommendationItem = {
+  place_id: string;
+  name: string;
+  address: string;
+  phone_number: string;
+  google_maps_url: string;
+  latitude: number | null;
+  longitude: number | null;
+  rating: number | null;
+  user_rating_count: number;
+  is_open_now: boolean | null;
+  is_24_hours: boolean;
+  weekday_text: string[];
+  distance_meters: number | null;
+  reason: string;
+};
+
+export type HospitalRecommendationsResponse = {
+  current_time: string;
+  search_center: {
+    latitude: number;
+    longitude: number;
+    radius_meters: number;
+    location_source: string;
+    accuracy_meters: number | null;
+    emergency_mode: boolean;
+  };
+  recommendations: HospitalRecommendationItem[];
+};
+
+export function fetchHospitalRecommendations(
+  latitude: number,
+  longitude: number,
+  options?: { text?: string; emergency?: boolean; radius_meters?: number }
+) {
+  return requestData<HospitalRecommendationsResponse>(
+    apiClient.post("/hospitals/recommendations", { latitude, longitude, ...options })
+  );
+}

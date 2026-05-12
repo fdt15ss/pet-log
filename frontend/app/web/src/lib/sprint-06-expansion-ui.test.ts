@@ -3,7 +3,6 @@ import test from "node:test";
 import { createPreparedInvite } from "./expansion-state";
 import {
   getHospitalConnectSummary,
-  getNearbyAnimalHospitals,
   getSharedCareSummary,
   getShoppingRecommendations,
 } from "./expansion-features";
@@ -13,12 +12,10 @@ test("스프린트 6: 공동 관리, 병원 연계, 쇼핑 요약 데이터가 �
   const invite = createPreparedInvite("가족 보호자", "기록 담당", 1_000);
   const sharedCare = getSharedCareSummary(petProfile, records, [invite]);
   const hospital = getHospitalConnectSummary(petProfile, records, "기침이 어제보다 잦음");
-  const nearbyHospitals = getNearbyAnimalHospitals(false);
   const shopping = getShoppingRecommendations(petProfile, records);
 
   assert.ok(sharedCare.members.some((member) => member.name === "가족 보호자"));
   assert.ok(hospital.reportPreview.some((item) => item.includes("보호자 증상 메모")));
-  assert.ok(nearbyHospitals.every((item) => item.distanceLabel.startsWith("예상 ")));
   assert.ok(shopping.some((item) => item.category === "사료"));
 });
 
