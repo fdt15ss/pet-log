@@ -32,23 +32,19 @@
 
 | Method | URL | 용도 | 상태 |
 | --- | --- | --- | --- |
-| `GET` | `/api/v1/me/pet-log` | 앱 초기 스냅샷 조회 | 구현됨 |
-| `POST` | `/api/v1/me/pet-log/reset` | mock 스냅샷 초기화 | 구현됨 |
-| `PUT` | `/api/v1/profile` | 반려동물 프로필 저장 | 구현됨 |
-| `POST` | `/api/v1/ai/records/structure` | 자연어 기록 구조화 | 구현됨 |
-| `POST` | `/api/v1/records` | 기록 생성 | 구현됨 |
-| `PATCH` | `/api/v1/records/:id` | 기록 수정 | 구현됨 |
-| `DELETE` | `/api/v1/records/:id` | 기록 삭제 | 구현됨 |
-| `POST` | `/api/v1/schedules` | 일정 생성 | 구현됨 |
-| `PATCH` | `/api/v1/schedules/:id` | 일정 수정 및 완료 상태 변경 | 구현됨 |
-| `DELETE` | `/api/v1/schedules/:id` | 일정 삭제 | 구현됨 |
-| `PUT` | `/api/v1/settings` | 앱 설정 저장 | 구현됨 |
-| `PUT` | `/api/v1/notifications/read` | 알림 읽음 상태 저장 | 구현됨 |
-| `PUT` | `/api/v1/expansion-state` | 공동 관리, 병원 연계, 쇼핑 목업 상태 저장 | 구현됨 |
-| `GET` | `/api/v1/chatbot/threads` | 챗봇 대화방 목록 조회 | 구현됨 |
-| `POST` | `/api/v1/chatbot/threads` | 챗봇 대화방 생성 | 구현됨 |
-| `POST` | `/api/v1/chatbot/threads/:threadId/messages` | 특정 대화방에 질문 추가 | 구현됨 |
-| `POST` | `/api/v1/chatbot/messages` | 기본 챗봇 질문 전송 | 구현됨 |
+| `GET` | `/api/v1/me` | 현재 로그인 유저 정보 | **완전 구현** |
+| `GET` | `/api/v1/pets` | 반려동물 목록 | **완전 구현** |
+| `GET` | `/api/v1/pet-log/records?pet_id=...` | 기록 목록 조회 | **완전 구현** |
+| `GET` | `/api/v1/pet-log/schedules?pet_id=...` | 일정 목록 조회 | **완전 구현** |
+| `POST` | `/api/v1/pet-log/records` | 기록 입력 파이프라인 (자연어 → 구조화 → 분석 → 저장) | **완전 구현** |
+| `POST` | `/api/v1/files` | 파일 업로드 | **완전 구현** |
+| `GET` | `/api/v1/files/{file_id}` | 파일 다운로드 | **완전 구현** |
+| `POST` | `/api/v1/speech/transcriptions` | 음성 STT (Whisper) | **완전 구현** |
+| `POST` | `/api/v1/hospitals/recommendations` | 동물병원 추천 (Google Places API) | **완전 구현** |
+| `GET` | `/api/v1/notifications?pet_id=...` | 알림 목록 (실시간 생성 + DB 저장) | **완전 구현** (missing_record만 DB 저장) |
+| `PATCH` | `/api/v1/notifications/{id}/read` | 개별 알림 읽음 처리 | **완전 구현** |
+| `PUT` | `/api/v1/notifications/read?pet_id=...` | 일괄 알림 읽음 처리 | **완전 구현** |
+| `GET` | `/api/v1/shopping/recommendations?pet_id=...` | 쇼핑 추천 (Naver Shopping + LLM 이유) | **완전 구현** |
 
 ## 추가 필요 API 후보
 

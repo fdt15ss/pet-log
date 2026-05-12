@@ -64,17 +64,40 @@ src/composition.py
 
 ## 프론트 연동 API 상태
 
+### 완전 구현 및 운영 중인 API
+
 - `GET /api/v1/me`: 현재 로그인한 유저 정보를 반환한다. (현재는 `local-user` 고정)
 - `GET /api/v1/pets`: 유저가 소유한 모든 반려동물 목록을 반환한다.
 - `GET /api/v1/pet-log/records?pet_id=...`: 특정 반려동물의 최근 기록 목록을 반환한다.
 - `GET /api/v1/pet-log/schedules?pet_id=...`: 특정 반려동물의 일정 목록을 반환한다.
-- `GET /api/v1/notifications?pet_id=...`: 특정 반려동물의 알림 목록을 반환한다.
-- `PATCH /api/v1/notifications/{id}/read`: 특정 알림을 읽음 처리한다.
-- `PUT /api/v1/notifications/read?pet_id=...`: 특정 반려동물의 모든 알림을 일괄 읽음 처리한다.
-- `POST /api/v1/pet-log/records`: 기록 입력 pipeline을 실행한다.
+- `POST /api/v1/pet-log/records`: 기록 입력 pipeline을 실행한다. (자연어 → 구조화 → 분석 → DB 저장)
 - `POST /api/v1/files`: 이미지를 업로드하고 `file_id`를 반환한다. (프로필 사진 등)
 - `GET /api/v1/files/{file_id}`: 업로드된 이미지 파일을 다운로드한다.
-- `POST /api/v1/speech/transcriptions`: 음성 파일을 STT provider로 넘긴다.
+- `POST /api/v1/speech/transcriptions`: 음성 파일을 STT provider(Whisper)로 변환한다.
+- `POST /api/v1/hospitals/recommendations`: 위치 기반 동물병원 추천 (Google Places API)
+
+### 알림 파이프라인 (완전 구현)
+
+- `GET /api/v1/notifications?pet_id=...`: 실시간 알림 후보 생성 + DB 조회 (missing_record 타입만 upsert, dedupe_key 기반 중복 제거)
+- `PATCH /api/v1/notifications/{id}/read`: 특정 알림을 읽음 처리 (DB에 반영)
+- `PUT /api/v1/notifications/read?pet_id=...`: 특정 반려동물의 모든 알림을 일괄 읽음 처리 (DB에 반영)
+
+**동작 방식**: 
+1. 프론트에서 `GET /api/v1/notifications?pet_id=xxx` 호출
+2. 백엔드 `NotificationPolicy.plan()`이 `ContextAnalysisAgent`로부터 분석 결과를 받음
+3. 4가지 kind(missing_record, risk, behavior_change, schedule) 중 missing_record만 `NotificationRepository.upsert_from_candidate()`로 DB에 저장 (dedupe_key로 중복 제거)
+4. 저장된 알림 + 실시간 생성 알림을 merge 후 프론트에 반환
+5. 프론트 읽음 처리 시 `mark_as_read()` 또는 `set_read_ids()` 호출하여 DB 업데이트
+
+### 쇼핑 추천 (완전 구현)
+
+- `GET /api/v1/shopping/recommendations?pet_id=...&text=...&lookback_days=30`: Naver Shopping + LLM 기반 추천
+  - `ShoppingAgent`가 `ShoppingRecommendationProvider(NaverShoppingClient)`로부터 상품 검색
+  - `ShoppingReasonProvider`(LLM 기반)로 추천 이유 생성
+  - 프론트에 추천 리스트 반환
+
+### 미연동 기능
+
 - `record summary`, `care answer`, `pet persona`, `photo understanding` provider는 아직 프론트 초기 로딩이나 기록 입력 route에 연결하지 않는다.
 
 ## 검증 명령
@@ -135,6 +158,8 @@ POST /api/v1/pet-log/records
 HTTP 계층은 request/response 변환과 pipeline 호출만 담당한다. FastAPI import는 `src/presentation/http/`와 `main.py`에만 둔다.
 DB-backed repository와 pipeline은 `composition.build_app_context()`에서 만들고, FastAPI `lifespan`에서 열고 닫는다.
 
+**구현 상태**: 완전 구현. 자연어 텍스트 → `RecordStructurer`(LLM 기반 구조화) → `ContextAnalysisAgent`(분석) → DB 저장까지 모두 연동. `source=ai_preview, mode=preview`인 경우 미리보기 응답, `mode=saved`인 경우 실제 저장 응답.
+
 기록 입력 결과 확인 로그:
 
 ```text
@@ -166,6 +191,8 @@ Google Places API(New) Text Search를 사용한다. 공식 endpoint는
 type과 `동물병원` query, `X-Goog-FieldMask`로 이름, 주소, 연락처,
 Google Maps URL, 현재 영업 여부, 주간 영업 시간만 요청한다. Google 후보는 `locationBias`로 받고 서버에서 요청 반경 밖 결과를 제외한다. 응답은 24시간 영업 병원을 우선 정렬하고, 기본값으로 현재
 영업 중인 병원만 내려준다.
+
+**구현 상태**: 완전 구현. `HospitalRecommendationAgent` + `GooglePlacesClient` + `HospitalFallbackMiddleware` 조합으로 Google API 호출 및 fallback 처리 완료.
 
 ```json
 {
@@ -305,6 +332,14 @@ OPENAI_CARE_ANSWER_MODEL=gpt-4-turbo
 | `OPENAI_API_KEY` | (empty) | GPT fallback 사용 시 필수 |
 | `OPENAI_*_MODEL` | (empty) | Task별 GPT primary 모델 |
 | `OPENAI_*_FALLBACK_MODEL` | (empty) | Task별 추가 fallback 모델 |
+| `OPENAI_SHOPPING_REASON_MODEL` | (empty) | 쇼핑 추천 이유 생성용 GPT 모델 |
+| `OPENAI_SHOPPING_REASON_FALLBACK_MODEL` | (empty) | 쇼핑 추천 이유 생성용 fallback 모델 |
+| `NAVER_SHOPPING_CLIENT_ID` | (empty) | Naver Shopping API client ID |
+| `NAVER_SHOPPING_CLIENT_SECRET` | (empty) | Naver Shopping API client secret |
+| `NAVER_SHOPPING_DISPLAY` | `3` | 한 번에 반환할 상품 수 |
+| `NAVER_SHOPPING_SORT` | `sim` | 정렬 기준 (sim: 정확도, date: 최신순, price: 가격순) |
+| `NAVER_SHOPPING_EXCLUDE` | `used:rental:cbshop` | 제외할 상품 타입 |
+| `NAVER_SHOPPING_TIMEOUT` | `3` | Naver Shopping API timeout |
 | `GOOGLE_MAPS_API_KEY` | (empty) | 동물병원 추천용 Google Places API key |
 | `GOOGLE_PLACES_TIMEOUT` | `3` | Google Places API timeout |
 
