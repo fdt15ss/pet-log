@@ -56,9 +56,9 @@ def ensure_local_gemma_runtime() -> None:
         _preload_model_if_enabled(base_url)
         return
 
-    _download_model_if_enabled()
     _start_local_server()
     _wait_for_server(base_url)
+    _download_model_if_enabled()
     _preload_model_if_enabled(base_url)
 
 

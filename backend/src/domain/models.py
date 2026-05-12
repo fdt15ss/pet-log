@@ -103,6 +103,20 @@ class ShoppingRecommendation:
 
 
 @dataclass(frozen=True)
+class ShoppingCategoryRequest:
+    query: str
+    category: str = "생활 용품"
+    reason: str = ""
+    source_record_ids: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class ShoppingSelectionResult:
+    product_url: str
+    reason: str
+
+
+@dataclass(frozen=True)
 class VeterinaryHospitalRecommendation:
     place_id: str
     name: str

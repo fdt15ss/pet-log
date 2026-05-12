@@ -19,8 +19,10 @@ def build_shopping_router() -> APIRouter:
         app_context = _app_context(http_request)
         if app_context.shopping_agent is None:
             raise HTTPException(status_code=500, detail="Shopping recommendation agent is not configured")
-        if app_context.record_reader is None:
-            raise HTTPException(status_code=500, detail="Record reader not configured")
+        if app_context.record_reader is None or app_context.schedule_reader is None:
+            raise HTTPException(status_code=500, detail="Repository not configured")
+        if app_context.context_analysis_agent is None or app_context.suggestion_agent is None:
+            raise HTTPException(status_code=500, detail="Shopping suggestion context is not configured")
 
         try:
             pet = app_context.pet_profile_reader.get_pet(pet_id)
@@ -28,7 +30,10 @@ def build_shopping_router() -> APIRouter:
             raise HTTPException(status_code=404, detail="Pet not found") from exc
 
         records = app_context.record_reader.list_recent(pet_id, lookback_days=lookback_days)
-        recommendations = app_context.shopping_agent.recommend(pet, text, records)
+        due_items = app_context.schedule_reader.list_due_items(pet_id, days_ahead=14)
+        context = app_context.context_analysis_agent.analyze(pet, records, due_items)
+        suggestions = app_context.suggestion_agent.suggest(pet, context, ())
+        recommendations = app_context.shopping_agent.recommend(pet, text, records, suggestions)
         return success_response(
             {
                 "recommendations": [

@@ -3,8 +3,10 @@ from __future__ import annotations
 import json
 import logging
 import os
+import time
 from dataclasses import dataclass
 from html import unescape
+from typing import Callable
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
@@ -16,6 +18,10 @@ logger = logging.getLogger(__name__)
 
 NAVER_SHOPPING_ENDPOINT = "https://openapi.naver.com/v1/search/shop.json"
 ALLOWED_SORTS = {"sim", "date", "asc", "dsc"}
+PLACEHOLDER_CREDENTIALS = {
+    "your-naver-client-id",
+    "your-naver-client-secret",
+}
 
 
 @dataclass(frozen=True)
@@ -27,6 +33,8 @@ class NaverShoppingConfig:
     filter: str | None = None
     exclude: str | None = "used:rental:cbshop"
     timeout: float = 3.0
+    cache_ttl_seconds: float = 300.0
+    rate_limit_cooldown_seconds: float = 60.0
 
     @classmethod
     def from_env(cls) -> NaverShoppingConfig:
@@ -38,16 +46,34 @@ class NaverShoppingConfig:
             filter=os.environ.get("NAVER_SHOPPING_FILTER") or None,
             exclude=os.environ.get("NAVER_SHOPPING_EXCLUDE", "used:rental:cbshop") or None,
             timeout=_bounded_float(os.environ.get("NAVER_SHOPPING_TIMEOUT"), default=3.0, minimum=0.1),
+            cache_ttl_seconds=_bounded_float(
+                os.environ.get("NAVER_SHOPPING_CACHE_TTL_SECONDS"),
+                default=300.0,
+                minimum=0.0,
+            ),
+            rate_limit_cooldown_seconds=_bounded_float(
+                os.environ.get("NAVER_SHOPPING_RATE_LIMIT_COOLDOWN_SECONDS"),
+                default=60.0,
+                minimum=0.0,
+            ),
         )
 
     @property
     def has_credentials(self) -> bool:
-        return bool(self.client_id and self.client_secret)
+        return bool(
+            self.client_id
+            and self.client_secret
+            and self.client_id not in PLACEHOLDER_CREDENTIALS
+            and self.client_secret not in PLACEHOLDER_CREDENTIALS
+        )
 
 
 class NaverShoppingClient:
-    def __init__(self, config: NaverShoppingConfig | None = None) -> None:
+    def __init__(self, config: NaverShoppingConfig | None = None, *, clock: Callable[[], float] | None = None) -> None:
         self._config = config or NaverShoppingConfig.from_env()
+        self._clock = clock or time.monotonic
+        self._cache: dict[tuple[tuple[str, str], ...], tuple[float, tuple[dict[str, object], ...]]] = {}
+        self._rate_limited_until = 0.0
 
     def search(
         self,
@@ -57,6 +83,9 @@ class NaverShoppingClient:
         source_record_ids: tuple[str, ...],
     ) -> tuple[ShoppingRecommendation, ...]:
         if not self._config.has_credentials:
+            return ()
+        if self._is_rate_limited():
+            logger.info("naver_shopping_search_skipped query=%s reason=rate_limited", query)
             return ()
 
         params = {
@@ -70,6 +99,11 @@ class NaverShoppingClient:
         if self._config.exclude:
             params["exclude"] = self._config.exclude
 
+        cache_key = tuple(sorted(params.items()))
+        cached_items = self._cached_items(cache_key)
+        if cached_items is not None:
+            return _items_to_recommendations(cached_items, query, reason, source_record_ids)
+
         request = Request(
             f"{NAVER_SHOPPING_ENDPOINT}?{urlencode(params)}",
             headers={
@@ -82,15 +116,51 @@ class NaverShoppingClient:
         try:
             with urlopen(request, timeout=self._config.timeout) as response:
                 payload = json.loads(response.read().decode("utf-8"))
-        except (HTTPError, URLError, TimeoutError, json.JSONDecodeError) as exc:
+        except HTTPError as exc:
+            if exc.code == 429:
+                self._rate_limited_until = self._clock() + self._config.rate_limit_cooldown_seconds
+            logger.warning(
+                "naver_shopping_search_failed query=%s status=%s reason=%s body=%s",
+                query,
+                exc.code,
+                exc.reason,
+                _read_error_body(exc),
+            )
+            return ()
+        except (URLError, TimeoutError, json.JSONDecodeError) as exc:
             logger.warning("naver_shopping_search_failed query=%s error=%s", query, exc.__class__.__name__)
             return ()
 
-        return tuple(
-            _item_to_recommendation(item, query, reason, source_record_ids)
-            for item in payload.get("items", ())
-            if isinstance(item, dict)
-        )
+        items = tuple(dict(item) for item in payload.get("items", ()) if isinstance(item, dict))
+        self._cache_items(cache_key, items)
+        return _items_to_recommendations(items, query, reason, source_record_ids)
+
+    def _is_rate_limited(self) -> bool:
+        return self._clock() < self._rate_limited_until
+
+    def _cached_items(self, cache_key: tuple[tuple[str, str], ...]) -> tuple[dict[str, object], ...] | None:
+        cached = self._cache.get(cache_key)
+        if cached is None:
+            return None
+        expires_at, items = cached
+        if self._clock() >= expires_at:
+            del self._cache[cache_key]
+            return None
+        return items
+
+    def _cache_items(self, cache_key: tuple[tuple[str, str], ...], items: tuple[dict[str, object], ...]) -> None:
+        if self._config.cache_ttl_seconds <= 0:
+            return
+        self._cache[cache_key] = (self._clock() + self._config.cache_ttl_seconds, items)
+
+
+def _items_to_recommendations(
+    items: tuple[dict[str, object], ...],
+    query: str,
+    reason: str,
+    source_record_ids: tuple[str, ...],
+) -> tuple[ShoppingRecommendation, ...]:
+    return tuple(_item_to_recommendation(item, query, reason, source_record_ids) for item in items)
 
 
 def _item_to_recommendation(
@@ -161,3 +231,11 @@ def _bounded_float(value: str | None, *, default: float, minimum: float) -> floa
 
 def _allowed_sort(value: str) -> str:
     return value if value in ALLOWED_SORTS else "sim"
+
+
+def _read_error_body(error: HTTPError) -> str:
+    try:
+        body = error.read().decode("utf-8", errors="replace")
+    except Exception:
+        return ""
+    return body[:300]

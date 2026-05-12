@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from urllib.parse import quote
 
-from domain.models import PetProfile, PetRecord, ShoppingRecommendation
+from domain.models import CareSuggestion, PetProfile, PetRecord, ShoppingCategoryRequest, ShoppingRecommendation
 
 
 logger = logging.getLogger(__name__)
@@ -20,15 +20,26 @@ class ShoppingFallbackMiddleware:
         pet: PetProfile,
         text: str,
         records: tuple[PetRecord, ...],
+        *,
+        category_requests: tuple[ShoppingCategoryRequest, ...] = (),
+        suggestions: tuple[CareSuggestion, ...] = (),
     ) -> tuple[ShoppingRecommendation, ...]:
         try:
-            recommendations = self._recommendation_provider.recommend(pet, text, records)
+            recommendations = self._recommendation_provider.recommend(
+                pet,
+                text,
+                records,
+                category_requests=category_requests,
+                suggestions=suggestions,
+            )
         except Exception as exc:
             logger.warning("shopping_recommendation_provider_failed error=%s", exc.__class__.__name__)
             recommendations = ()
 
         if recommendations:
             return recommendations
+        if category_requests:
+            return ()
         return build_fallback_shopping_recommendations(pet, text, records)
 
 

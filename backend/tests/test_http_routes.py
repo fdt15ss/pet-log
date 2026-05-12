@@ -11,6 +11,8 @@ from application.dto import PetLogAgentResult
 from composition import AppContext
 from domain.models import (
     CareSchedule,
+    CareSuggestion,
+    ContextAnalysisResult,
     PetProfile,
     PetRecord,
     ShoppingRecommendation,
@@ -98,6 +100,26 @@ class FakeScheduleReader:
             ),
         )
 
+    def list_due_items(self, pet_id: str, days_ahead: int):
+        return ()
+
+
+class FakeContextAnalysisAgent:
+    def analyze(self, pet, recent_records, due_items):
+        return ContextAnalysisResult()
+
+
+class FakeSuggestionAgent:
+    def suggest(self, pet, context, safety_notices):
+        return (
+            CareSuggestion(
+                title="식사 관리",
+                action="식사량을 꾸준히 확인하세요.",
+                reason="최근 식사 기록이 있어요.",
+                source_record_ids=("record-1",),
+            ),
+        )
+
 
 class FakeAppContext:
     def __init__(self) -> None:
@@ -105,6 +127,8 @@ class FakeAppContext:
         self.pet_profile_reader = FakePetProfileReader()
         self.record_reader = FakeRecordReader()
         self.schedule_reader = FakeScheduleReader()
+        self.context_analysis_agent = FakeContextAnalysisAgent()
+        self.suggestion_agent = FakeSuggestionAgent()
         self.speech_to_text = FakeSpeechToText()
         self.shopping_agent = FakeShoppingAgent()
         self.hospital_recommendation_agent = FakeHospitalRecommendationAgent()
@@ -165,11 +189,13 @@ class FakeShoppingAgent:
         self.handled_pet = None
         self.handled_text = None
         self.handled_records = None
+        self.handled_suggestions = None
 
-    def recommend(self, pet, text, records):
+    def recommend(self, pet, text, records, suggestions=()):
         self.handled_pet = pet
         self.handled_text = text
         self.handled_records = records
+        self.handled_suggestions = suggestions
         return (
             ShoppingRecommendation(
                 title="반려견 사료",
@@ -269,6 +295,7 @@ class TestHttpRoutes(unittest.TestCase):
         self.assertEqual(context.shopping_agent.handled_pet.name, "초코")
         self.assertEqual(context.shopping_agent.handled_text, "사료를 조금 남겼어요")
         self.assertEqual(context.shopping_agent.handled_records[0].id, "record-1")
+        self.assertEqual(context.shopping_agent.handled_suggestions[0].title, "식사 관리")
 
     def test_snapshot_route_returns_db_backed_frontend_snapshot(self):
         context = FakeAppContext()
