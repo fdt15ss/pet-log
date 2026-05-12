@@ -39,6 +39,13 @@ class FakeIngester:
 
 
 class TestWebKnowledgeIngestionPipeline(unittest.TestCase):
+    def test_requires_explicit_ingester(self) -> None:
+        with self.assertRaisesRegex(ValueError, "Knowledge ingester"):
+            WebKnowledgeIngestionPipeline(
+                searcher=FakeSearcher(()),
+                evaluator=FakeEvaluator(()),
+            )
+
     def test_ingest_query_runs_search_evaluate_and_ingest(self) -> None:
         search_results = (
             WebSearchResult(

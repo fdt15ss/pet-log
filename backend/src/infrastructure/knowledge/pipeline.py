@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Protocol
 
-from infrastructure.knowledge.ingester import CareKnowledgeIngester, KnowledgeIngestionReport
+from infrastructure.knowledge.ingester import KnowledgeIngestionReport
 from infrastructure.knowledge.web_evaluator import EvaluatedWebKnowledge, WebKnowledgeEvaluator
 from infrastructure.knowledge.web_search import TavilyWebSearcher, WebSearchResult
 
@@ -43,9 +43,12 @@ class WebKnowledgeIngestionPipeline:
         evaluator: KnowledgeEvaluator | None = None,
         ingester: KnowledgeIngester | None = None,
     ) -> None:
+        if ingester is None:
+            raise ValueError("Knowledge ingester must be configured explicitly.")
+
         self._searcher = searcher or TavilyWebSearcher()
         self._evaluator = evaluator or WebKnowledgeEvaluator()
-        self._ingester = ingester or CareKnowledgeIngester()
+        self._ingester = ingester
 
     def ingest_query(self, query: str, limit: int = 5) -> WebKnowledgeIngestionReport:
         results = self._searcher.search(query, limit=limit)
