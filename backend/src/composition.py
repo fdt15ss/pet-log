@@ -35,6 +35,9 @@ class AppContext:
     pet_log_agent_pipeline: LangGraphPetLogAgentPipeline
     pet_profile_reader: PetProfileRepository
     speech_to_text: SpeechToTextProvider
+    risk_detection_agent: RiskDetectionAgent
+    context_analysis_agent: ContextAnalysisAgent
+    suggestion_agent: SuggestionAgent
     hospital_recommendation_agent: HospitalRecommendationAgent | None = None
     record_reader: RecordRepository | None = None
     schedule_reader: ScheduleRepository | None = None
@@ -52,14 +55,19 @@ def build_app_context(database_path: str | None = None) -> AppContext:
     pet_profile_reader = PetProfileRepository(connection=database)
     file_repository = FileRepository(connection=database)
     notification_repository = NotificationRepository(connection=database)
+
+    risk_detection_agent = RiskDetectionAgent(RiskSignalPolicy())
+    context_analysis_agent = ContextAnalysisAgent(PatternAnalyzer(), MissingRecordPolicy())
+    suggestion_agent = SuggestionAgent(SuggestionComposer())
+
     pipeline = LangGraphPetLogAgentPipeline(
         record_structuring_agent=RecordStructuringAgent(_record_structurer()),
         record_history_reader=record_repository,
         schedule_context_reader=schedule_repository,
-        context_analysis_agent=ContextAnalysisAgent(PatternAnalyzer(), MissingRecordPolicy()),
-        risk_detection_agent=RiskDetectionAgent(RiskSignalPolicy()),
+        context_analysis_agent=context_analysis_agent,
+        risk_detection_agent=risk_detection_agent,
         record_repository=record_repository,
-        suggestion_agent=SuggestionAgent(SuggestionComposer()),
+        suggestion_agent=suggestion_agent,
         reminder_agent=ReminderAgent(ReminderPlanner()),
         shopping_agent=ShoppingAgent(
             ShoppingFallbackMiddleware(ShoppingRecommendationProvider(NaverShoppingClient()))
@@ -69,6 +77,9 @@ def build_app_context(database_path: str | None = None) -> AppContext:
         pet_log_agent_pipeline=pipeline,
         pet_profile_reader=pet_profile_reader,
         speech_to_text=SpeechToTextProvider(),
+        risk_detection_agent=risk_detection_agent,
+        context_analysis_agent=context_analysis_agent,
+        suggestion_agent=suggestion_agent,
         hospital_recommendation_agent=HospitalRecommendationAgent(HospitalFallbackMiddleware(GooglePlacesClient())),
         record_reader=record_repository,
         schedule_reader=schedule_repository,

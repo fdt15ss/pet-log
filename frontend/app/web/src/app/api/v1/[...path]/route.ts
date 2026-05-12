@@ -9,8 +9,7 @@ import {
   updateMockSettings,
 } from "@/lib/server/mock-pet-log-store";
 import { createPetLogChatbotMessage } from "@/lib/server/pet-log-ai-service";
-import type {
-  PetLogSnapshot,
+import {
   ExtractedMeasurement,
   RecordCategory,
   RecordCategoryChoice,
@@ -29,7 +28,7 @@ const recordCategories: RecordCategory[] = ["meal", "walk", "stool", "medical", 
 const recordStatuses: RecordStatus[] = ["normal", "notice", "alert"];
 const defaultBackendApiBaseUrl = "http://127.0.0.1:27893";
 const defaultBackendPetId = "pet_01JCM7V8H9Q2K4N6R8T0A1B2C3";
-const defaultBackendTimeoutMs = 1200;
+const defaultBackendTimeoutMs = 60000;
 
 type BackendPetLogCandidate = {
   title?: unknown;
@@ -398,7 +397,11 @@ export async function GET(_request: NextRequest, context: RouteContext) {
   if (path[0] === "pets" && path.length === 1) {
     try {
       const response = await axios.get(backendApiUrl("/api/v1/pets"), { timeout: backendTimeoutMs(), validateStatus: () => true });
-      return ok(response.data.data);
+      const data = response.data?.data;
+      if (data && Array.isArray(data.pets)) {
+        return ok(data);
+      }
+      return fail("BACKEND_PETS_FAILED", "반려동물 목록 응답 형식이 올바르지 않습니다.", 502);
     } catch {
       return fail("BACKEND_PETS_FAILED", "반려동물 목록을 불러오지 못했습니다.", 502);
     }
@@ -440,6 +443,32 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       return ok(response.data.data);
     } catch {
       return fail("BACKEND_SCHEDULES_FAILED", "일정 목록을 불러오지 못했습니다.", 502);
+    }
+  }
+
+  if (path[0] === "ai" && path[1] === "insights" && path.length === 2) {
+    const petId = _request.nextUrl.searchParams.get("pet_id") || backendPetId();
+    try {
+      const response = await axios.get(backendApiUrl(`/api/v1/ai/insights?pet_id=${encodeURIComponent(petId)}`), {
+        timeout: backendTimeoutMs(),
+        validateStatus: () => true,
+      });
+      return ok(response.data.data);
+    } catch {
+      return fail("BACKEND_INSIGHTS_FAILED", "AI 분석 결과를 불러오지 못했습니다.", 502);
+    }
+  }
+
+  if (path[0] === "ai" && path[1] === "suggestions" && path.length === 2) {
+    const petId = _request.nextUrl.searchParams.get("pet_id") || backendPetId();
+    try {
+      const response = await axios.get(backendApiUrl(`/api/v1/ai/suggestions?pet_id=${encodeURIComponent(petId)}`), {
+        timeout: backendTimeoutMs(),
+        validateStatus: () => true,
+      });
+      return ok(response.data.data);
+    } catch {
+      return fail("BACKEND_SUGGESTIONS_FAILED", "AI 케어 제안을 불러오지 못했습니다.", 502);
     }
   }
 
@@ -487,8 +516,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
     try {
       const { structured } = await requestBackendPetLogRecord(body.detail, body.fallbackCategory, false);
       return ok({ structured });
-    } catch {
-      return fail("BACKEND_RECORD_FAILED", "기록 서버 요청을 처리하지 못했습니다.", 502);
+    } catch (error) {
+      console.error("[api/ai/records/structure] Error:", error);
+      const status = error instanceof BackendRouteError ? error.status : 502;
+      const code = error instanceof BackendRouteError ? error.code : "BACKEND_RECORD_FAILED";
+      const message = error instanceof Error ? error.message : "기록 서버 요청을 처리하지 못했습니다.";
+      return fail(code, message, status);
     }
   }
 

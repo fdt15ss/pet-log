@@ -1,12 +1,13 @@
 import axios, { AxiosError } from "axios";
 import type { ExpansionState } from "./expansion-state";
 import type {
+  AiInsight,
+  AiSuggestion,
   AppSettings,
   CareSchedule,
   ChatbotMessage,
   ChatbotThread,
   PetProfile,
-  RecordCategory,
   RecordCategoryChoice,
   RecordEntry,
   ScheduleCategory,
@@ -158,7 +159,7 @@ export function fetchSchedules(petId: string) {
 }
 
 export function fetchNotifications(petId: string) {
-  return requestData<{ notifications: any[] }>(apiClient.get("/notifications", { params: { pet_id: petId } }));
+  return requestData<{ notifications: unknown[] }>(apiClient.get("/notifications", { params: { pet_id: petId } }));
 }
 
 export function updateProfile(input: PetProfile) {
@@ -171,6 +172,14 @@ export function createRecord(input: NewRecordInput) {
 
 export function structureRecordPreview(input: StructureRecordInput) {
   return requestData<{ structured: StructuredRecord }>(apiClient.post("/ai/records/structure", input));
+}
+
+export function fetchAiInsights(petId: string) {
+  return requestData<{ insights: AiInsight[] }>(apiClient.get("/ai/insights", { params: { pet_id: petId } }));
+}
+
+export function fetchAiSuggestions(petId: string) {
+  return requestData<{ suggestions: AiSuggestion[] }>(apiClient.get("/ai/suggestions", { params: { pet_id: petId } }));
 }
 
 export function transcribeSpeechAudio(audio: File) {

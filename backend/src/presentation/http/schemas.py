@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from application.dto import PetLogAgentResult
 from application.agents.hospital import HospitalRecommendationResult
@@ -155,8 +155,8 @@ def pet_log_agent_result_to_dict(result: PetLogAgentResult) -> dict[str, Any]:
         "candidates": [_candidate_to_dict(candidate) for candidate in result.candidates],
         "saved_records": [_record_to_dict(record) for record in result.saved_records],
         "needs_confirmation": result.record_batch.needs_confirmation,
-        "safety_notices": [_safety_notice_to_dict(notice) for notice in result.safety_notices],
-        "suggestions": [_suggestion_to_dict(suggestion) for suggestion in result.suggestions],
+        "safety_notices": [safety_notice_to_dict(notice) for notice in result.safety_notices],
+        "suggestions": [suggestion_to_dict(suggestion) for suggestion in result.suggestions],
         "shopping_recommendations": [
             _shopping_recommendation_to_dict(recommendation)
             for recommendation in result.shopping_recommendations
@@ -190,14 +190,14 @@ def _record_to_dict(record: PetRecord) -> dict[str, Any]:
     }
 
 
-def _safety_notice_to_dict(notice: SafetyNotice) -> dict[str, Any]:
+def safety_notice_to_dict(notice: SafetyNotice) -> dict[str, Any]:
     return {
         "level": notice.level,
         "message": notice.message,
     }
 
 
-def _suggestion_to_dict(suggestion: CareSuggestion) -> dict[str, Any]:
+def suggestion_to_dict(suggestion: CareSuggestion) -> dict[str, Any]:
     return {
         "title": suggestion.title,
         "action": suggestion.action,

@@ -58,7 +58,7 @@ function createPendingPreview(detail: string, category: RecordCategoryChoice): S
 }
 
 export default function RecordPage() {
-  const { addRecord, records } = usePetLog();
+  const { addRecord, profile, records } = usePetLog();
   const [detail, setDetail] = useState("");
   const [category, setCategory] = useState<RecordCategoryChoice>(defaultRecordCategoryChoice);
   const [inputMode, setInputMode] = useState<RecordInputMode>("voice");
@@ -81,6 +81,7 @@ export default function RecordPage() {
 
   const preview = records.slice(0, 3);
   const trimmedDetail = detail.trim();
+  const hasActivePet = !!profile.id;
   const isInvalid = trimmedDetail.length < 5 || trimmedDetail.length > maxLength;
   const fallbackPreview = useMemo(() => createPendingPreview(trimmedDetail, category), [category, trimmedDetail]);
   const activePreview = aiPreview?.detail === trimmedDetail && aiPreview.category === category ? aiPreview.structured : null;
@@ -102,7 +103,7 @@ export default function RecordPage() {
   }, [trimmedDetail]);
 
   useEffect(() => {
-    if (!trimmedDetail) {
+    if (!trimmedDetail || !hasActivePet) {
       return;
     }
 
@@ -135,7 +136,7 @@ export default function RecordPage() {
       cancelled = true;
       window.clearTimeout(timeoutId);
     };
-  }, [category, trimmedDetail]);
+  }, [category, hasActivePet, trimmedDetail]);
 
   useEffect(() => {
     return () => {
@@ -150,6 +151,12 @@ export default function RecordPage() {
   }
 
   async function handleSave() {
+    if (!hasActivePet) {
+      setError("반려동물을 먼저 등록해주세요.");
+      setSavedId(null);
+      return;
+    }
+
     if (!trimmedDetail) {
       setError("기록 내용을 입력해주세요.");
       setSavedId(null);
@@ -349,7 +356,7 @@ export default function RecordPage() {
           className={`pet-log-pressable h-12 w-full rounded-2xl text-base font-bold text-white shadow-[0_8px_22px_rgba(22,128,75,0.25)] disabled:bg-[#8ab99f] ${
             isInvalid ? "bg-[#8ab99f]" : "bg-[#16804b]"
           }`}
-          disabled={isSaving}
+          disabled={isSaving || !hasActivePet}
           onClick={handleSave}
           type="button"
         >
@@ -509,9 +516,9 @@ export default function RecordPage() {
         <section>
           <SectionHeader title="AI 구조화 미리보기" />
           <div className="space-y-3">
-            <Card className="p-4" motion="rise">
+            <Card className={`p-4 ${showPreviewLoading ? "pet-log-loading-border" : ""}`} motion="rise">
               <div className="flex items-start justify-between gap-3">
-                <div>
+                <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className={`grid h-8 w-8 place-items-center rounded-full ${showPreviewLoading ? "pet-log-pulse-dot bg-[#edf8ed] text-[#16804b]" : "bg-[#edf8ed] text-[#16804b]"}`}>
                       <PetIcon className="h-4 w-4" name="sparkle" />
@@ -529,7 +536,6 @@ export default function RecordPage() {
                       : "입력한 내용이 구조화되어 저장됩니다. 필요하면 저장 전 수정할 수 있습니다.")}
                   </p>
                 </div>
-                <span className="text-sm font-bold text-[#16804b]">{categoryLabels[displayPreview.suggestedCategory]}</span>
               </div>
               {category !== "all" && displayPreview.suggestedCategory !== category ? (
                 <button
@@ -540,16 +546,20 @@ export default function RecordPage() {
                   AI 추천 분류 적용
                 </button>
               ) : null}
-              <div className="mt-3 flex flex-wrap gap-2">
-                {detectedCategories.map((detectedCategory) => (
-                  <span
-                    className="rounded-full bg-[#f4f7f0] px-2.5 py-1 text-xs font-bold text-[#53604f]"
-                    key={detectedCategory}
-                  >
-                    {categoryLabels[detectedCategory]}
-                  </span>
-                ))}
-              </div>
+              {detectedCategories.filter((cat) => cat !== displayPreview.suggestedCategory).length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {detectedCategories
+                    .filter((cat) => cat !== displayPreview.suggestedCategory)
+                    .map((detectedCategory) => (
+                      <span
+                        className="rounded-full bg-[#f4f7f0] px-2.5 py-1 text-xs font-bold text-[#53604f]"
+                        key={detectedCategory}
+                      >
+                        {categoryLabels[detectedCategory]}
+                      </span>
+                    ))}
+                </div>
+              )}
               <div className="mt-3 grid grid-cols-2 gap-2">
                 {displayPreview.measurements.length > 0 ? (
                   displayPreview.measurements.map((measurement) => (

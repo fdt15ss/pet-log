@@ -6,8 +6,7 @@ import { AppShell } from "@/components/app-shell";
 import { PetIcon } from "@/components/pet-icons";
 import { usePetLog } from "@/components/pet-log-provider";
 import { Card, Pill, SectionHeader } from "@/components/ui";
-import { getAiCareSuggestions } from "@/lib/ai-insights";
-import type { SuggestionCategory } from "@/lib/types";
+import type { AiSuggestion, SuggestionCategory, SuggestionTone } from "@/lib/types";
 
 type SuggestionFilter = "전체" | SuggestionCategory;
 
@@ -26,63 +25,79 @@ const suggestionCategoryIcons: Record<SuggestionCategory, "behavior" | "medical"
 };
 
 export default function SuggestionsPage() {
-  const { records, settings } = usePetLog();
+  const { records, settings, suggestions, isAnalysisLoading } = usePetLog();
   const [activeFilter, setActiveFilter] = useState<SuggestionFilter>("전체");
-  const aiSuggestions = useMemo(
-    () => (settings.aiInsightEnabled ? getAiCareSuggestions(records) : []),
-    [records, settings.aiInsightEnabled],
-  );
-  const allSuggestions = useMemo(
-    () => (settings.aiInsightEnabled ? aiSuggestions : []),
-    [aiSuggestions, settings.aiInsightEnabled],
-  );
-	  const filteredSuggestions = useMemo(() => {
-	    if (activeFilter === "전체") {
-	      return allSuggestions;
-	    }
-	    return allSuggestions.filter((suggestion) => suggestion.category === activeFilter);
-	  }, [activeFilter, allSuggestions]);
+  
+  const allSuggestions = useMemo(() => {
+    if (!settings.aiInsightEnabled) return [];
+    return suggestions.map((s, idx) => ({
+      id: `suggestion-${idx}`,
+      category: "생활" as SuggestionCategory, 
+      title: s.title,
+      detail: s.reason,
+      action: s.action,
+      actionHref: s.action.includes("타임라인") ? "/timeline" : "/record",
+      tone: "green" as SuggestionTone
+    }));
+  }, [suggestions, settings.aiInsightEnabled]);
+
+  const filteredSuggestions = useMemo(() => {
+    if (activeFilter === "전체") {
+      return allSuggestions;
+    }
+    return allSuggestions.filter((suggestion) => suggestion.category === activeFilter);
+  }, [activeFilter, allSuggestions]);
+  
   const urgentSuggestionCount = allSuggestions.filter((suggestion) => suggestion.tone === "orange").length;
 
-	  return (
-	    <AppShell subtitle="맞춤형 행동 개선 가이드" title="제안">
-	      <div className="space-y-5">
-	        <Card className="bg-gradient-to-br from-white to-[#edf8ed]">
-	          <p className="inline-flex items-center gap-1.5 text-sm font-bold text-[#16804b]">
-              <PetIcon className="h-4 w-4" name="sparkle" />
-              오늘의 케어 제안
-            </p>
-	          <h2 className="mt-1 text-lg font-black text-[#1f2922]">기록에서 바로 이어지는 행동 가이드</h2>
-	          <div className="mt-4 grid grid-cols-3 gap-2">
-	            <div className="rounded-2xl bg-white/80 px-3 py-3 text-center">
-                <PetIcon className="mx-auto h-4 w-4 text-[#16804b]" name="suggestions" />
-	              <p className="text-[11px] font-bold text-[#778174]">전체</p>
-	              <p className="mt-1 text-base font-black text-[#1f2922]">{allSuggestions.length}</p>
-	            </div>
-	            <div className="rounded-2xl bg-white/80 px-3 py-3 text-center">
-                <PetIcon className="mx-auto h-4 w-4 text-[#bb721e]" name="alert" />
-	              <p className="text-[11px] font-bold text-[#778174]">확인</p>
-	              <p className="mt-1 text-base font-black text-[#bb721e]">{urgentSuggestionCount}</p>
-	            </div>
-	            <div className="rounded-2xl bg-white/80 px-3 py-3 text-center">
-                <PetIcon className="mx-auto h-4 w-4 text-[#356aa8]" name={activeFilter === "전체" ? "more" : suggestionCategoryIcons[activeFilter]} />
-	              <p className="text-[11px] font-bold text-[#778174]">필터</p>
-	              <p className="mt-1 truncate text-base font-black text-[#1f2922]">{activeFilter}</p>
-	            </div>
-	          </div>
-	        </Card>
+  return (
+    <AppShell subtitle="맞춤형 행동 개선 가이드" title="제안">
+      <div className="space-y-5">
+        <Card className="bg-gradient-to-br from-white to-[#edf8ed]">
+          <p className="inline-flex items-center gap-1.5 text-sm font-bold text-[#16804b]">
+            <PetIcon className="h-4 w-4" name="sparkle" />
+            오늘의 케어 제안
+            {isAnalysisLoading && <span className="pet-log-pulse-dot h-1.5 w-1.5 bg-[#16804b]" />}
+          </p>
+          <h2 className="mt-1 text-lg font-black text-[#1f2922]">기록에서 바로 이어지는 행동 가이드</h2>
+          <div className="mt-4 grid grid-cols-3 gap-2">
+            <div className="rounded-2xl bg-white/80 px-3 py-3 text-center">
+              <PetIcon className="mx-auto h-4 w-4 text-[#16804b]" name="suggestions" />
+              <p className="text-[11px] font-bold text-[#778174]">전체</p>
+              <p className="mt-1 text-base font-black text-[#1f2922]">{allSuggestions.length}</p>
+            </div>
+            <div className="rounded-2xl bg-white/80 px-3 py-3 text-center">
+              <PetIcon className="mx-auto h-4 w-4 text-[#bb721e]" name="alert" />
+              <p className="text-[11px] font-bold text-[#778174]">확인</p>
+              <p className="mt-1 text-base font-black text-[#bb721e]">{urgentSuggestionCount}</p>
+            </div>
+            <div className="rounded-2xl bg-white/80 px-3 py-3 text-center">
+              <PetIcon className="mx-auto h-4 w-4 text-[#356aa8]" name={activeFilter === "전체" ? "more" : suggestionCategoryIcons[activeFilter]} />
+              <p className="text-[11px] font-bold text-[#778174]">필터</p>
+              <p className="mt-1 truncate text-base font-black text-[#1f2922]">{activeFilter}</p>
+            </div>
+          </div>
+        </Card>
 
-	        <div className="grid grid-cols-4 gap-2">
-	          {suggestionFilters.map((filter) => (
-	            <Pill active={activeFilter === filter} className="w-full px-2 text-xs" key={filter} onClick={() => setActiveFilter(filter)}>
-	              {filter}
-	            </Pill>
-	          ))}
+        <div className="grid grid-cols-4 gap-2">
+          {suggestionFilters.map((filter) => (
+            <Pill active={activeFilter === filter} className="w-full px-2 text-xs" key={filter} onClick={() => setActiveFilter(filter)}>
+              {filter}
+            </Pill>
+          ))}
         </div>
 
         <section>
           <SectionHeader title="오늘의 제안" />
           <div className="space-y-3">
+            {isAnalysisLoading && allSuggestions.length === 0 && (
+              <Card className="flex items-center justify-center py-12" motion="rise">
+                <div className="flex flex-col items-center gap-3">
+                  <span className="pet-log-pulse-dot h-3 w-3 bg-[#16804b]" />
+                  <p className="text-sm font-bold text-[#16804b]">AI가 최근 기록을 분석하고 있어요</p>
+                </div>
+              </Card>
+            )}
             {!settings.aiInsightEnabled ? (
               <Card className="p-5 text-center">
                 <h2 className="text-sm font-bold text-[#1f2922]">AI 제안이 꺼져 있습니다.</h2>

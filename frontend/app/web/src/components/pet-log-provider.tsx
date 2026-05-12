@@ -1,6 +1,5 @@
 "use client";
 
-import axios from "axios";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   createRecord as createRecordApi,
@@ -12,6 +11,8 @@ import {
   fetchPets,
   fetchRecords,
   fetchSchedules,
+  fetchAiInsights,
+  fetchAiSuggestions,
   updateExpansionState as updateExpansionStateApi,
   updateProfile as updateProfileApi,
   updateReadNotifications,
@@ -23,6 +24,8 @@ import { defaultExpansionState, normalizeExpansionState } from "@/lib/expansion-
 import { defaultAppSettings } from "@/lib/settings";
 import type { ExpansionState, HospitalState, SharedCareState, ShoppingState } from "@/lib/expansion-state";
 import type {
+  AiInsight,
+  AiSuggestion,
   AppSettings,
   CareSchedule,
   PetProfile,
@@ -30,6 +33,11 @@ import type {
   RecordEntry,
   ScheduleCategory,
 } from "@/lib/types";
+
+type PetNotification = {
+  id: string;
+  isRead: boolean;
+};
 
 type NewRecordInput = {
   category: RecordCategoryChoice;
@@ -66,7 +74,10 @@ type PetLogContextValue = {
   settings: AppSettings;
   readNotificationIds: string[];
   expansionState: ExpansionState;
+  insights: AiInsight[];
+  suggestions: AiSuggestion[];
   isLoading: boolean;
+  isAnalysisLoading: boolean;
   error: string;
   syncStatus: "idle" | "synced" | "offline" | "error";
   addRecord: (input: NewRecordInput) => Promise<RecordEntry>;
@@ -83,6 +94,7 @@ type PetLogContextValue = {
   addSchedule: (input: NewScheduleInput) => Promise<CareSchedule>;
   toggleScheduleDone: (id: string) => Promise<void>;
   deleteSchedule: (id: string) => Promise<void>;
+  refreshAnalysis: (petId: string) => Promise<void>;
 };
 
 const storageKey = "pet-log-state-v1";
@@ -121,12 +133,31 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
   const [expansionState, setExpansionState] = useState<ExpansionState>(
     normalizeExpansionState(undefined),
   );
+  const [insights, setInsights] = useState<AiInsight[]>([]);
+  const [suggestions, setSuggestions] = useState<AiSuggestion[]>([]);
   const [isStorageReady, setIsStorageReady] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAnalysisLoading, setIsAnalysisLoading] = useState(false);
   const [error, setError] = useState("API 연결에 실패했습니다. 서버 연결을 확인해주세요.");
   const [syncStatus, setSyncStatus] = useState<"idle" | "synced" | "offline" | "error">(
     "error",
   );
+
+  const refreshAnalysis = useCallback(async (petId: string) => {
+    setIsAnalysisLoading(true);
+    try {
+      const [insightsData, suggestionsData] = await Promise.all([
+        fetchAiInsights(petId),
+        fetchAiSuggestions(petId),
+      ]);
+      setInsights(insightsData.insights);
+      setSuggestions(suggestionsData.suggestions);
+    } catch (err) {
+      console.error("[provider] AI 분석 갱신 실패:", err);
+    } finally {
+      setIsAnalysisLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -137,7 +168,7 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
         console.log("[provider] 개별 API 병렬 로딩 시작");
         
         // 1. 유저 정보와 반려동물 목록을 먼저 가져옴
-        const [me, { pets }] = await Promise.all([
+        const [, { pets }] = await Promise.all([
           fetchMe(),
           fetchPets()
         ]);
@@ -146,7 +177,20 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
 
         const activePet = pets[0];
         if (!activePet) {
-          throw new Error("등록된 반려동물이 없습니다.");
+          console.log("[provider] 등록된 반려동물이 없어 빈 상태로 시작합니다.");
+          setProfile(emptyProfile);
+          setRecords([]);
+          setSchedules([]);
+          setSettings(defaultAppSettings);
+          setReadNotificationIds([]);
+          setExpansionState(defaultExpansionState);
+          setInsights([]);
+          setSuggestions([]);
+          setError("반려동물을 등록하면 기록을 시작할 수 있습니다.");
+          setSyncStatus("synced");
+          setIsStorageReady(true);
+          setIsLoading(false);
+          return;
         }
 
         // 2. 해당 반려동물의 상세 데이터들을 병렬로 가져옴
@@ -168,8 +212,11 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
         // 알림 및 설정은 현재 스냅샷 호환성을 위해 기본값 또는 서버 데이터를 적절히 매핑
         // (필요시 fetchMe에서 설정을 가져오거나 별도 API 추가 가능)
         setSettings(defaultAppSettings); 
-        setReadNotificationIds(notificationsData.notifications.filter((n: any) => n.isRead).map((n: any) => n.id));
+        setReadNotificationIds((notificationsData.notifications as PetNotification[]).filter((n: PetNotification) => n.isRead).map((n: PetNotification) => n.id));
         setExpansionState(defaultExpansionState);
+
+        // 4. AI 분석 초기 데이터 로드
+        void refreshAnalysis(activePet.id);
 
         setError("");
         setSyncStatus("synced");
@@ -218,6 +265,12 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
     try {
       const { record } = await createRecordApi(input);
       setRecords((current) => [record, ...current]);
+
+      // 분석 데이터 갱신 (비동기)
+      if (profile.id) {
+        void refreshAnalysis(profile.id);
+      }
+
       setError("");
       setSyncStatus("synced");
       return record;
@@ -232,6 +285,12 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
     try {
       const { record } = await updateRecordApi(id, input);
       setRecords((current) => current.map((item) => (item.id === id ? record : item)));
+
+      // 분석 데이터 갱신 (비동기)
+      if (profile.id) {
+        void refreshAnalysis(profile.id);
+      }
+
       setError("");
       setSyncStatus("synced");
     } catch {
@@ -246,6 +305,12 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
 
     try {
       await deleteRecordApi(id);
+
+      // 분석 데이터 갱신 (비동기)
+      if (profile.id) {
+        void refreshAnalysis(profile.id);
+      }
+
       setError("");
       setSyncStatus("synced");
     } catch {
@@ -359,7 +424,7 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
       // 스냅샷 초기화 대신 loadInitialState와 동일한 로직으로 데이터를 다시 불러옴
       // (실제 프로덕션에서는 서버 측 초기화 API 호출 후 리로딩)
       console.log("[provider] 데이터 리로딩 시작");
-      const [me, { pets }] = await Promise.all([fetchMe(), fetchPets()]);
+      const [, { pets }] = await Promise.all([fetchMe(), fetchPets()]);
       const activePet = pets[0];
       if (activePet) {
         const [recordsData, schedulesData, notificationsData] = await Promise.all([
@@ -370,7 +435,7 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
         setProfile(activePet);
         setRecords(recordsData.records);
         setSchedules(schedulesData.schedules);
-        setReadNotificationIds(notificationsData.notifications.filter((n: any) => n.isRead).map((n: any) => n.id));
+        setReadNotificationIds((notificationsData.notifications as PetNotification[]).filter((n: PetNotification) => n.isRead).map((n: PetNotification) => n.id));
       }
       setError("");
       setSyncStatus("synced");
@@ -466,7 +531,10 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
       settings,
       readNotificationIds,
       expansionState,
+      insights,
+      suggestions,
       isLoading,
+      isAnalysisLoading,
       error,
       syncStatus,
       addRecord,
@@ -483,6 +551,7 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
       addSchedule,
       toggleScheduleDone,
       deleteSchedule,
+      refreshAnalysis,
     }),
     [
       profile,
@@ -491,7 +560,10 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
       settings,
       readNotificationIds,
       expansionState,
+      insights,
+      suggestions,
       isLoading,
+      isAnalysisLoading,
       error,
       syncStatus,
       addRecord,
@@ -508,6 +580,7 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
       addSchedule,
       toggleScheduleDone,
       deleteSchedule,
+      refreshAnalysis,
     ],
   );
 

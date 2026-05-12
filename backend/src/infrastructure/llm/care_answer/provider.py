@@ -16,7 +16,7 @@ class CareAnswerProvider(BaseLLMProvider[LLMModel]):
         *,
         api_key: str | None = None,
         model: str | None = None,
-        timeout: float = 30.0,
+        timeout: float = 60.0,
         model_factory: ModelFactory[LLMModel] = build_chat_openai_model,
         chat_model: LLMModel | None = None,
         knowledge_retriever: CareKnowledgeRetriever | None = None,
