@@ -83,6 +83,7 @@ class CareSuggestion:
     title: str
     action: str
     reason: str
+    severity: InsightSeverity = "info"
     source_record_ids: tuple[str, ...] = ()
 
 

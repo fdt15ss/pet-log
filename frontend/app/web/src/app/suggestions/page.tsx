@@ -30,15 +30,22 @@ export default function SuggestionsPage() {
   
   const allSuggestions = useMemo(() => {
     if (!settings.aiInsightEnabled) return [];
-    return suggestions.map((s, idx) => ({
-      id: `suggestion-${idx}`,
-      category: "생활" as SuggestionCategory, 
-      title: s.title,
-      detail: s.reason,
-      action: s.action,
-      actionHref: s.action.includes("타임라인") ? "/timeline" : "/record",
-      tone: "green" as SuggestionTone
-    }));
+    return suggestions.map((s, idx) => {
+      const tone: SuggestionTone = s.severity === "alert" || s.severity === "notice" ? "orange" : "green";
+      const category: SuggestionCategory =
+        s.title.includes("행동") ? "행동"
+        : s.title.includes("건강") || s.title.includes("의료") || s.title.includes("주의") ? "건강"
+        : "생활";
+      return {
+        id: `suggestion-${idx}`,
+        category,
+        title: s.title,
+        detail: s.reason,
+        action: s.action,
+        actionHref: s.action.includes("타임라인") ? "/timeline" : "/record",
+        tone,
+      };
+    });
   }, [suggestions, settings.aiInsightEnabled]);
 
   const filteredSuggestions = useMemo(() => {
