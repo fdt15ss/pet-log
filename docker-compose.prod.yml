@@ -1,0 +1,31 @@
+services:
+  nginx:
+    image: ghcr.io/pu3-lab/pet-log-nginx:latest
+    ports:
+      - "80:80"
+    depends_on:
+      - frontend
+
+  frontend:
+    image: ghcr.io/pu3-lab/pet-log-frontend:latest
+    environment:
+      - NODE_ENV=production
+      - PET_LOG_BACKEND_API_BASE_URL=http://backend:27893
+    depends_on:
+      - backend
+
+  backend:
+    image: ghcr.io/pu3-lab/pet-log-backend:latest
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - TAVILY_API_KEY=${TAVILY_API_KEY}
+      - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}
+      - NAVER_SHOPPING_CLIENT_ID=${NAVER_SHOPPING_CLIENT_ID}
+      - NAVER_SHOPPING_CLIENT_SECRET=${NAVER_SHOPPING_CLIENT_SECRET}
+      - WHISPER_MODEL=${WHISPER_MODEL}
+      - EDGE_TTS_VOICE=${EDGE_TTS_VOICE}
+    volumes:
+      - backend-uploads:/app/uploads
+
+volumes:
+  backend-uploads:

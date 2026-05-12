@@ -1,0 +1,30 @@
+services:
+  nginx:
+    build:
+      context: ./nginx
+    ports:
+      - "80:80"
+    depends_on:
+      - frontend
+
+  frontend:
+    build:
+      context: ./frontend/app/web
+    environment:
+      - NODE_ENV=production
+      - PET_LOG_BACKEND_API_BASE_URL=http://backend:27893
+    depends_on:
+      - backend
+
+  backend:
+    build:
+      context: ./backend
+    env_file:
+      - ./backend/.env
+    volumes:
+      - backend-uploads:/app/uploads
+    ports:
+      - "27893:27893"
+
+volumes:
+  backend-uploads:
