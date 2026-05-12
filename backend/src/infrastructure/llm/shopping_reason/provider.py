@@ -107,7 +107,7 @@ def _category_requests_from_payload(
 
     requests: list[ShoppingCategoryRequest] = []
     seen_queries: set[str] = set()
-    for item in queries[:3]:
+    for item in queries[:1]:
         if not isinstance(item, dict):
             continue
         query = str(item.get("query", "")).strip()
