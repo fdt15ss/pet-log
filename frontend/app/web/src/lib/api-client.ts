@@ -13,6 +13,7 @@ import type {
   ScheduleCategory,
   StructuredRecord,
 } from "./types";
+import type { ShoppingRecommendation } from "./expansion-features";
 
 export type ApiSuccess<T> = {
   ok: true;
@@ -180,6 +181,12 @@ export function fetchAiInsights(petId: string) {
 
 export function fetchAiSuggestions(petId: string) {
   return requestData<{ suggestions: AiSuggestion[] }>(apiClient.get("/ai/suggestions", { params: { pet_id: petId } }));
+}
+
+export function fetchShoppingRecommendations(petId: string) {
+  return requestData<{ recommendations: ShoppingRecommendation[] }>(
+    apiClient.get("/shopping/recommendations", { params: { pet_id: petId } }),
+  );
 }
 
 export function transcribeSpeechAudio(audio: File) {

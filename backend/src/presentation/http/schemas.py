@@ -208,14 +208,22 @@ def suggestion_to_dict(suggestion: CareSuggestion) -> dict[str, Any]:
 
 
 def _shopping_recommendation_to_dict(recommendation: ShoppingRecommendation) -> dict[str, Any]:
+    return shopping_recommendation_to_dict(recommendation)
+
+
+def shopping_recommendation_to_dict(recommendation: ShoppingRecommendation) -> dict[str, Any]:
     return {
+        "id": recommendation.id or recommendation.product_url or recommendation.query,
+        "category": recommendation.category,
         "title": recommendation.title,
+        "detail": recommendation.detail,
         "product_url": recommendation.product_url,
         "image_url": recommendation.image_url,
         "mall_name": recommendation.mall_name,
         "lowest_price": recommendation.lowest_price,
         "query": recommendation.query,
         "reason": recommendation.reason,
+        "tone": recommendation.tone,
         "source_record_ids": list(recommendation.source_record_ids),
     }
 

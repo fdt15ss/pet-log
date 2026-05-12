@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from application.dto import PetLogAgentInput, PetLogAgentResult
-from domain.models import PetProfile, PetRecord, ShoppingRecommendation
+from domain.models import CareSuggestion, PetProfile, PetRecord, ShoppingRecommendation
 from infrastructure.repositories import RecordRepository, ScheduleRepository
 
 
@@ -11,6 +11,7 @@ class _NoopShoppingAgent:
         pet: PetProfile,
         text: str,
         records: tuple[PetRecord, ...],
+        suggestions: tuple[CareSuggestion, ...] = (),
     ) -> tuple[ShoppingRecommendation, ...]:
         return ()
 
@@ -61,7 +62,7 @@ class PetLogAgentPipeline:
             for candidate in record_batch.candidates
         )
         suggestions = self._suggestion_agent.suggest(input.pet, context, safety_notices)
-        shopping_recommendations = self._shopping_agent.recommend(input.pet, input.text, saved_records)
+        shopping_recommendations = self._shopping_agent.recommend(input.pet, input.text, saved_records, suggestions)
         reminders = self._reminder_agent.plan(input.pet, recent_records + saved_records, due_items)
 
         return PetLogAgentResult(

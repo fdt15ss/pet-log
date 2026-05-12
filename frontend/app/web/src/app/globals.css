@@ -74,6 +74,17 @@ a {
 
 .pet-log-loading-border {
   --pet-log-border-angle: 0deg;
+  --pet-log-loading-border-muted: rgba(22, 128, 75, 0.18);
+  --pet-log-loading-border-soft: rgba(183, 230, 130, 0.7);
+  --pet-log-loading-border-bright: rgba(74, 222, 128, 0.95);
+  --pet-log-loading-border-strong: rgba(22, 128, 75, 0.9);
+  --pet-log-loading-border-glow: rgba(74, 222, 128, 0.42);
+  --pet-log-loading-border-shadow: rgba(74, 222, 128, 0.08);
+  --pet-log-loading-sheen-strong: rgba(74, 222, 128, 0.2);
+  --pet-log-loading-sheen-soft: rgba(183, 230, 130, 0.08);
+  --pet-log-loading-inner-border: rgba(74, 222, 128, 0.18);
+  --pet-log-loading-inner-glow: rgba(74, 222, 128, 0.08);
+  --pet-log-loading-outer-glow: rgba(74, 222, 128, 0.12);
   position: relative;
   isolation: isolate;
   overflow: hidden !important;
@@ -82,20 +93,34 @@ a {
     linear-gradient(#fff, #fff) padding-box,
     conic-gradient(
       from var(--pet-log-border-angle),
-      rgba(22, 128, 75, 0.18) 0deg,
-      rgba(22, 128, 75, 0.18) 72deg,
-      rgba(183, 230, 130, 0.7) 118deg,
-      rgba(74, 222, 128, 0.95) 142deg,
-      rgba(22, 128, 75, 0.9) 154deg,
-      rgba(74, 222, 128, 0.42) 170deg,
-      rgba(22, 128, 75, 0.18) 220deg,
-      rgba(22, 128, 75, 0.18) 360deg
+      var(--pet-log-loading-border-muted) 0deg,
+      var(--pet-log-loading-border-muted) 72deg,
+      var(--pet-log-loading-border-soft) 118deg,
+      var(--pet-log-loading-border-bright) 142deg,
+      var(--pet-log-loading-border-strong) 154deg,
+      var(--pet-log-loading-border-glow) 170deg,
+      var(--pet-log-loading-border-muted) 220deg,
+      var(--pet-log-loading-border-muted) 360deg
     )
     border-box !important;
   box-shadow:
     0 12px 34px rgba(49, 65, 44, 0.11),
-    0 0 0 1px rgba(74, 222, 128, 0.08);
+    0 0 0 1px var(--pet-log-loading-border-shadow);
   animation: pet-log-border-glide 2.7s linear infinite;
+}
+
+.pet-log-shopping-loading-border {
+  --pet-log-loading-border-muted: rgba(187, 114, 30, 0.18);
+  --pet-log-loading-border-soft: rgba(255, 210, 130, 0.72);
+  --pet-log-loading-border-bright: rgba(245, 158, 11, 0.95);
+  --pet-log-loading-border-strong: rgba(187, 114, 30, 0.9);
+  --pet-log-loading-border-glow: rgba(245, 158, 11, 0.42);
+  --pet-log-loading-border-shadow: rgba(245, 158, 11, 0.1);
+  --pet-log-loading-sheen-strong: rgba(245, 158, 11, 0.18);
+  --pet-log-loading-sheen-soft: rgba(255, 210, 130, 0.1);
+  --pet-log-loading-inner-border: rgba(245, 158, 11, 0.2);
+  --pet-log-loading-inner-glow: rgba(245, 158, 11, 0.08);
+  --pet-log-loading-outer-glow: rgba(245, 158, 11, 0.13);
 }
 
 .pet-log-loading-border::before {
@@ -105,8 +130,8 @@ a {
   border-radius: inherit;
   background: radial-gradient(
     ellipse 74% 42% at 50% 0%,
-    rgba(74, 222, 128, 0.2),
-    rgba(183, 230, 130, 0.08) 42%,
+    var(--pet-log-loading-sheen-strong),
+    var(--pet-log-loading-sheen-soft) 42%,
     transparent 72%
   );
   opacity: 0.72;
@@ -119,11 +144,11 @@ a {
   content: "";
   position: absolute;
   inset: 1px;
-  border: 1px solid rgba(74, 222, 128, 0.18);
+  border: 1px solid var(--pet-log-loading-inner-border);
   border-radius: 15px;
   box-shadow:
-    inset 0 0 18px rgba(74, 222, 128, 0.08),
-    0 0 22px rgba(74, 222, 128, 0.12);
+    inset 0 0 18px var(--pet-log-loading-inner-glow),
+    0 0 22px var(--pet-log-loading-outer-glow);
   pointer-events: none;
   z-index: 1;
   animation: pet-log-border-breathe 1.8s ease-in-out infinite;
@@ -132,6 +157,14 @@ a {
 .pet-log-loading-border > * {
   position: relative;
   z-index: 2;
+}
+
+.pet-log-sync-wave > span {
+  display: inline-block;
+  min-width: 0.24em;
+  transform-origin: 50% 70%;
+  animation: pet-log-sync-letter 2.7s ease-in-out infinite;
+  will-change: transform;
 }
 
 @keyframes pet-log-border-glide {
@@ -168,6 +201,19 @@ a {
     box-shadow:
       inset 0 0 22px rgba(74, 222, 128, 0.11),
       0 0 28px rgba(74, 222, 128, 0.18);
+  }
+}
+
+@keyframes pet-log-sync-letter {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  42% {
+    transform: scale(1.28);
+  }
+  68% {
+    transform: scale(0.94);
   }
 }
 

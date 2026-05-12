@@ -2,22 +2,22 @@ from __future__ import annotations
 
 import unittest
 
-from domain.models import PetProfile, PetRecord, ShoppingRecommendation
+from domain.models import PetProfile, PetRecord, ShoppingCategoryRequest, ShoppingRecommendation
 from middleware import ShoppingFallbackMiddleware, build_fallback_shopping_recommendations
 
 
 class EmptyShoppingProvider:
-    def recommend(self, pet: PetProfile, text: str, records: tuple[PetRecord, ...]):
+    def recommend(self, pet: PetProfile, text: str, records: tuple[PetRecord, ...], **kwargs):
         return ()
 
 
 class FailingShoppingProvider:
-    def recommend(self, pet: PetProfile, text: str, records: tuple[PetRecord, ...]):
+    def recommend(self, pet: PetProfile, text: str, records: tuple[PetRecord, ...], **kwargs):
         raise RuntimeError("shopping provider unavailable")
 
 
 class ResultShoppingProvider:
-    def recommend(self, pet: PetProfile, text: str, records: tuple[PetRecord, ...]):
+    def recommend(self, pet: PetProfile, text: str, records: tuple[PetRecord, ...], **kwargs):
         return (
             ShoppingRecommendation(
                 title="실제 상품",
@@ -54,6 +54,16 @@ class TestShoppingFallbackMiddleware(unittest.TestCase):
 
         self.assertEqual(recommendation.query, "반려견 배변봉투")
         self.assertEqual(recommendation.source_record_ids, ("record-1",))
+
+    def test_does_not_use_rule_fallback_when_agent_category_was_supplied(self) -> None:
+        recommendations = ShoppingFallbackMiddleware(EmptyShoppingProvider()).recommend(
+            _dog_pet(),
+            "반려견이 사료를 남겼어요.",
+            (_record(category="meal", title="식사 기록", detail="사료를 남겼어요."),),
+            category_requests=(ShoppingCategoryRequest(query="반려견 사료", category="사료"),),
+        )
+
+        self.assertEqual(recommendations, ())
 
     def test_keeps_real_provider_results(self) -> None:
         recommendations = ShoppingFallbackMiddleware(ResultShoppingProvider()).recommend(

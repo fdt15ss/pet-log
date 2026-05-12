@@ -8,12 +8,13 @@ from application.agents.hospital import HospitalRecommendationAgent
 from application.agents.record_structuring import RecordStructuringAgent
 from application.agents.reminder import ReminderAgent
 from application.agents.risk_detection import RiskDetectionAgent
-from application.agents.shopping import ShoppingAgent
+from application.agents.shopping import ShoppingAgent, ShoppingRecommendationAgent
 from application.agents.suggestion import SuggestionAgent
 from application.pipelines.pet_log_graph import LangGraphPetLogAgentPipeline
 from infrastructure.database import connect
 from infrastructure.llm.preload import preload_configured_llm_providers
 from infrastructure.llm.record_structuring import RecordStructurer
+from infrastructure.llm.shopping_reason import ShoppingReasonProvider
 from infrastructure.maps import GooglePlacesClient
 from infrastructure.policies.missing_record_policy import MissingRecordPolicy
 from infrastructure.policies.pattern_analyzer import PatternAnalyzer
@@ -35,9 +36,10 @@ class AppContext:
     pet_log_agent_pipeline: LangGraphPetLogAgentPipeline
     pet_profile_reader: PetProfileRepository
     speech_to_text: SpeechToTextProvider
-    risk_detection_agent: RiskDetectionAgent
-    context_analysis_agent: ContextAnalysisAgent
-    suggestion_agent: SuggestionAgent
+    risk_detection_agent: RiskDetectionAgent | None = None
+    context_analysis_agent: ContextAnalysisAgent | None = None
+    suggestion_agent: SuggestionAgent | None = None
+    shopping_agent: ShoppingAgent | None = None
     hospital_recommendation_agent: HospitalRecommendationAgent | None = None
     record_reader: RecordRepository | None = None
     schedule_reader: ScheduleRepository | None = None
@@ -60,6 +62,10 @@ def build_app_context(database_path: str | None = None) -> AppContext:
     context_analysis_agent = ContextAnalysisAgent(PatternAnalyzer(), MissingRecordPolicy())
     suggestion_agent = SuggestionAgent(SuggestionComposer())
 
+    shopping_agent = ShoppingAgent(
+        ShoppingFallbackMiddleware(ShoppingRecommendationProvider(NaverShoppingClient())),
+        recommendation_agent=ShoppingRecommendationAgent(ShoppingReasonProvider()),
+    )
     pipeline = LangGraphPetLogAgentPipeline(
         record_structuring_agent=RecordStructuringAgent(_record_structurer()),
         record_history_reader=record_repository,
@@ -69,9 +75,7 @@ def build_app_context(database_path: str | None = None) -> AppContext:
         record_repository=record_repository,
         suggestion_agent=suggestion_agent,
         reminder_agent=ReminderAgent(ReminderPlanner()),
-        shopping_agent=ShoppingAgent(
-            ShoppingFallbackMiddleware(ShoppingRecommendationProvider(NaverShoppingClient()))
-        ),
+        shopping_agent=shopping_agent,
     )
     return AppContext(
         pet_log_agent_pipeline=pipeline,
@@ -80,6 +84,7 @@ def build_app_context(database_path: str | None = None) -> AppContext:
         risk_detection_agent=risk_detection_agent,
         context_analysis_agent=context_analysis_agent,
         suggestion_agent=suggestion_agent,
+        shopping_agent=shopping_agent,
         hospital_recommendation_agent=HospitalRecommendationAgent(HospitalFallbackMiddleware(GooglePlacesClient())),
         record_reader=record_repository,
         schedule_reader=schedule_repository,
@@ -105,7 +110,8 @@ def build_pet_log_agent_pipeline(database_path: str | None = None) -> LangGraphP
         suggestion_agent=SuggestionAgent(SuggestionComposer()),
         reminder_agent=ReminderAgent(ReminderPlanner()),
         shopping_agent=ShoppingAgent(
-            ShoppingFallbackMiddleware(ShoppingRecommendationProvider(NaverShoppingClient()))
+            ShoppingFallbackMiddleware(ShoppingRecommendationProvider(NaverShoppingClient())),
+            recommendation_agent=ShoppingRecommendationAgent(ShoppingReasonProvider()),
         ),
     )
 

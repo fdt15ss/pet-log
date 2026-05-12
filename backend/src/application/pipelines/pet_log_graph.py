@@ -34,6 +34,7 @@ class _NoopShoppingAgent:
         pet: PetProfile,
         text: str,
         records: tuple[PetRecord, ...],
+        suggestions: tuple[CareSuggestion, ...] = (),
     ) -> tuple[ShoppingRecommendation, ...]:
         return ()
 
@@ -129,9 +130,9 @@ class LangGraphPetLogAgentPipeline:
             },
         )
         graph.add_edge("build_confirmation_result", END)
-        graph.add_edge("save_records", "recommend_shopping")
-        graph.add_edge("recommend_shopping", "suggest_care")
-        graph.add_edge("suggest_care", "plan_reminders")
+        graph.add_edge("save_records", "suggest_care")
+        graph.add_edge("suggest_care", "recommend_shopping")
+        graph.add_edge("recommend_shopping", "plan_reminders")
         graph.add_edge("plan_reminders", "build_saved_result")
         graph.add_edge("build_saved_result", END)
         return graph.compile()
@@ -193,6 +194,7 @@ class LangGraphPetLogAgentPipeline:
                 state["input"].pet,
                 state["input"].text,
                 state["saved_records"],
+                state["suggestions"],
             )
         }
 

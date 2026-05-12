@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from domain.models import PetProfile, PetRecord, ShoppingRecommendation
+from dataclasses import replace
 
-
-DOG_TERMS = ("강아지", "반려견", "애견", "댕댕", "멍멍")
+from domain.models import CareSuggestion, PetProfile, PetRecord, ShoppingCategoryRequest, ShoppingRecommendation
 
 
 class ShoppingRecommendationProvider:
@@ -15,58 +14,48 @@ class ShoppingRecommendationProvider:
         pet: PetProfile,
         text: str,
         records: tuple[PetRecord, ...],
+        *,
+        category_requests: tuple[ShoppingCategoryRequest, ...] = (),
+        suggestions: tuple[CareSuggestion, ...] = (),
     ) -> tuple[ShoppingRecommendation, ...]:
-        if not records or not _is_dog_context(pet, text, records):
+        if not category_requests:
             return ()
 
         recommendations: list[ShoppingRecommendation] = []
         seen_urls: set[str] = set()
-        for record in records:
-            query = _query_for_record(text, record)
-            if query is None:
-                continue
-
+        for category_request in _unique_category_requests(category_requests):
             items = self._shopping_client.search(
-                query,
-                reason=f"{record.title} 기록과 관련된 상품 추천",
-                source_record_ids=(record.id,),
+                category_request.query,
+                reason=category_request.reason or f"{category_request.category} 후보 상품",
+                source_record_ids=category_request.source_record_ids,
             )
             for item in items:
                 if item.product_url in seen_urls:
                     continue
                 seen_urls.add(item.product_url)
-                recommendations.append(item)
+                recommendations.append(
+                    replace(
+                        item,
+                        category=category_request.category or item.category,
+                        source_record_ids=category_request.source_record_ids or item.source_record_ids,
+                    )
+                )
 
         return tuple(recommendations)
 
 
-def _is_dog_context(pet: PetProfile, text: str, records: tuple[PetRecord, ...]) -> bool:
-    if (pet.species or "").lower() == "dog":
-        return True
-    haystack = " ".join((text, pet.breed or "", pet.personality or "", *pet.notes, *(_record_text(record) for record in records)))
-    return any(term in haystack for term in DOG_TERMS)
-
-
-def _query_for_record(text: str, record: PetRecord) -> str | None:
-    haystack = f"{text} {_record_text(record)}"
-    if "배변패드" in haystack or "패드" in haystack:
-        return "반려견 배변패드"
-    if "배변봉투" in haystack or record.category == "stool":
-        return "반려견 배변봉투"
-    if record.category == "meal" or _contains_any(haystack, ("사료", "밥", "급여", "간식")):
-        return "반려견 사료"
-    if record.category == "walk":
-        return "반려견 산책용품"
-    if record.category == "medical":
-        return "반려견 영양제"
-    if record.category == "behavior":
-        return "반려견 장난감"
-    return None
-
-
-def _record_text(record: PetRecord) -> str:
-    return f"{record.title} {record.detail}"
-
-
-def _contains_any(value: str, terms: tuple[str, ...]) -> bool:
-    return any(term in value for term in terms)
+def _unique_category_requests(
+    category_requests: tuple[ShoppingCategoryRequest, ...],
+) -> tuple[ShoppingCategoryRequest, ...]:
+    grouped: dict[str, ShoppingCategoryRequest] = {}
+    for category_request in category_requests:
+        if category_request.query in grouped:
+            grouped[category_request.query] = replace(
+                grouped[category_request.query],
+                source_record_ids=tuple(
+                    dict.fromkeys(grouped[category_request.query].source_record_ids + category_request.source_record_ids)
+                ),
+            )
+            continue
+        grouped[category_request.query] = category_request
+    return tuple(grouped.values())

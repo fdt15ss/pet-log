@@ -97,6 +97,24 @@ class ShoppingRecommendation:
     query: str
     reason: str
     source_record_ids: tuple[str, ...] = ()
+    id: str = ""
+    category: str = "생활 용품"
+    detail: str = ""
+    tone: str = "blue"
+
+
+@dataclass(frozen=True)
+class ShoppingCategoryRequest:
+    query: str
+    category: str = "생활 용품"
+    reason: str = ""
+    source_record_ids: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class ShoppingSelectionResult:
+    product_url: str
+    reason: str
 
 
 @dataclass(frozen=True)

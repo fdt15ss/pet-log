@@ -7,6 +7,7 @@ from application.pipelines.pet_log_graph import LangGraphPetLogAgentPipeline
 from application.pipelines.pet_log_agent import PetLogAgentPipeline
 from domain.enums import RecordInputSource
 from domain.models import (
+    CareSuggestion,
     ContextAnalysisResult,
     PetProfile,
     PetRecord,
@@ -82,8 +83,15 @@ class FakeSuggestionAgent:
         pet: PetProfile,
         context: ContextAnalysisResult,
         safety_notices: tuple[object, ...],
-    ) -> tuple[object, ...]:
-        return ()
+    ) -> tuple[CareSuggestion, ...]:
+        return (
+            CareSuggestion(
+                title="식사 관리",
+                action="식사량을 꾸준히 확인하세요.",
+                reason="최근 식사 기록이 있어요.",
+                source_record_ids=("record-1",),
+            ),
+        )
 
 
 class FakeReminderAgent:
@@ -103,14 +111,17 @@ class FakeReminderAgent:
 class FakeShoppingAgent:
     def __init__(self) -> None:
         self.records: tuple[PetRecord, ...] = ()
+        self.suggestions: tuple[CareSuggestion, ...] = ()
 
     def recommend(
         self,
         pet: PetProfile,
         text: str,
         records: tuple[PetRecord, ...],
+        suggestions: tuple[CareSuggestion, ...] = (),
     ) -> tuple[ShoppingRecommendation, ...]:
         self.records = records
+        self.suggestions = suggestions
         return (
             ShoppingRecommendation(
                 title="반려견 사료",
@@ -306,6 +317,7 @@ class TestPetLogAgentPipeline(unittest.TestCase):
         )
 
         self.assertEqual(tuple(record.id for record in shopping_agent.records), ("record-1",))
+        self.assertEqual(tuple(suggestion.title for suggestion in shopping_agent.suggestions), ("식사 관리",))
         self.assertEqual(result.shopping_recommendations[0].query, "반려견 사료")
 
     def _pipeline(

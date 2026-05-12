@@ -99,20 +99,18 @@ class TestLLMLocalRuntime(unittest.TestCase):
             self.assertTrue(should_preload_local_gemma_model())
 
     def test_ensure_ollama_runtime_pulls_starts_and_warms_model_when_enabled(self):
-        commands: list[list[str]] = []
-        run_commands: list[list[str]] = []
-        warmed_urls: list[str] = []
+        events: list[object] = []
 
         class FakeProcess:
             def poll(self):
                 return None
 
         def fake_popen(command, **kwargs):
-            commands.append(command)
+            events.append(("start", command))
             return FakeProcess()
 
         def fake_run(command, **kwargs):
-            run_commands.append(command)
+            events.append(("pull", command))
 
         env = {
             "LOCAL_LLM_AUTOSTART": "1",
@@ -132,13 +130,18 @@ class TestLLMLocalRuntime(unittest.TestCase):
             fake_popen,
         ), patch(
             "infrastructure.llm.local_runtime._post_chat_completion",
-            lambda base_url: warmed_urls.append(base_url),
+            lambda base_url: events.append(("warm", base_url)),
         ):
             ensure_local_gemma_runtime()
 
-        self.assertEqual(run_commands, [["ollama", "pull", "gemma4:e4b"]])
-        self.assertEqual(commands, [["ollama", "serve"]])
-        self.assertEqual(warmed_urls, ["http://127.0.0.1:11434/v1"])
+        self.assertEqual(
+            events,
+            [
+                ("start", ["ollama", "serve"]),
+                ("pull", ["ollama", "pull", "gemma4:e4b"]),
+                ("warm", "http://127.0.0.1:11434/v1"),
+            ],
+        )
 
     def test_ensure_ollama_runtime_pulls_before_preload_when_server_is_already_ready(self):
         run_commands: list[list[str]] = []

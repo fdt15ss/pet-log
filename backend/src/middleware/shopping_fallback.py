@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from urllib.parse import quote
 
-from domain.models import PetProfile, PetRecord, ShoppingRecommendation
+from domain.models import CareSuggestion, PetProfile, PetRecord, ShoppingCategoryRequest, ShoppingRecommendation
 
 
 logger = logging.getLogger(__name__)
@@ -20,15 +20,26 @@ class ShoppingFallbackMiddleware:
         pet: PetProfile,
         text: str,
         records: tuple[PetRecord, ...],
+        *,
+        category_requests: tuple[ShoppingCategoryRequest, ...] = (),
+        suggestions: tuple[CareSuggestion, ...] = (),
     ) -> tuple[ShoppingRecommendation, ...]:
         try:
-            recommendations = self._recommendation_provider.recommend(pet, text, records)
+            recommendations = self._recommendation_provider.recommend(
+                pet,
+                text,
+                records,
+                category_requests=category_requests,
+                suggestions=suggestions,
+            )
         except Exception as exc:
             logger.warning("shopping_recommendation_provider_failed error=%s", exc.__class__.__name__)
             recommendations = ()
 
         if recommendations:
             return recommendations
+        if category_requests:
+            return ()
         return build_fallback_shopping_recommendations(pet, text, records)
 
 
@@ -61,6 +72,10 @@ def _fallback_recommendation(query: str, record: PetRecord) -> ShoppingRecommend
         query=query,
         reason=f"{record.title} 기록과 관련된 기본 쇼핑 검색 추천",
         source_record_ids=(record.id,),
+        id=f"fallback:{query}",
+        category=_category_for_query(query),
+        detail="네이버 쇼핑 · 가격 확인 필요",
+        tone="blue",
     )
 
 
@@ -94,3 +109,13 @@ def _record_text(record: PetRecord) -> str:
 
 def _contains_any(value: str, terms: tuple[str, ...]) -> bool:
     return any(term in value for term in terms)
+
+
+def _category_for_query(query: str) -> str:
+    if "사료" in query or "간식" in query:
+        return "사료"
+    if "영양제" in query or "건강" in query:
+        return "건강 용품"
+    if "장난감" in query or "케어" in query:
+        return "케어 용품"
+    return "생활 용품"
