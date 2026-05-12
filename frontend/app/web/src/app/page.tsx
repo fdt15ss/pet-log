@@ -7,7 +7,6 @@ import { AppShell } from "@/components/app-shell";
 import { usePetLog } from "@/components/pet-log-provider";
 import { AiMascot, Card, CategoryBadge, SectionHeader } from "@/components/ui";
 import { getRecentChange, getRecordStatusLabel, getTodaySummary, type HomeSummaryTone } from "@/lib/home-summary";
-import { getCareNotifications } from "@/lib/notifications";
 import { PetIcon } from "@/components/pet-icons";
 import { sendChatbotMessage } from "@/lib/api-client";
 import type { ChatbotThread } from "@/lib/types";
@@ -82,7 +81,7 @@ type PetChatMessage = {
 };
 
 export default function Home() {
-  const { profile, records, schedules, settings, insights, suggestions, isAnalysisLoading } = usePetLog();
+  const { profile, records, schedules, settings, insights, suggestions, isAnalysisLoading, notifications } = usePetLog();
   const [isChatbotOpen, setIsChatbotOpen] = useState(false);
   const [isPetChatOpen, setIsPetChatOpen] = useState(false);
   const [chatbotQuestion, setChatbotQuestion] = useState("");
@@ -101,7 +100,7 @@ export default function Home() {
   const petChatMessageIdRef = useRef(0);
   const panelCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestRecords = records.slice(0, 3);
-  const notifications = getCareNotifications(records, schedules, undefined, settings.notificationPreferences).slice(0, 2);
+  const homeNotifications = notifications.slice(0, 2);
   const todaySummary = getTodaySummary(records);
   
   // AI Insights mapping (Replacing legacy recentChange)
@@ -537,7 +536,7 @@ export default function Home() {
             title="오늘 알림"
           />
           <div className="space-y-3">
-            {notifications.map((notification) => (
+            {homeNotifications.map((notification) => (
               <Card className={`border-l-4 p-4 ${toneCard[notification.tone]}`} key={notification.id} motion="rise">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">

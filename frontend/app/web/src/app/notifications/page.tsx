@@ -6,7 +6,6 @@ import { AppShell } from "@/components/app-shell";
 import { PetIcon } from "@/components/pet-icons";
 import { usePetLog } from "@/components/pet-log-provider";
 import { Card, Pill, SectionHeader } from "@/components/ui";
-import { getCareNotifications, getNotificationReadSummary, getNotificationsWithReadState } from "@/lib/notifications";
 import type { CareNotificationCategory, CareNotificationTone } from "@/lib/types";
 
 type NotificationFilter = "전체" | CareNotificationCategory;
@@ -27,17 +26,13 @@ const notificationCategoryIcons: Record<CareNotificationCategory, "record" | "al
 };
 
 export default function NotificationsPage() {
-  const { markAllNotificationsRead, markNotificationRead, readNotificationIds, records, schedules, settings } = usePetLog();
+  const { markAllNotificationsRead, markNotificationRead, notifications } = usePetLog();
   const [activeFilter, setActiveFilter] = useState<NotificationFilter>("전체");
-  const baseNotifications = useMemo(
-    () => getCareNotifications(records, schedules, undefined, settings.notificationPreferences),
-    [records, schedules, settings.notificationPreferences],
-  );
-  const notifications = useMemo(
-    () => getNotificationsWithReadState(baseNotifications, readNotificationIds),
-    [baseNotifications, readNotificationIds],
-  );
-  const readSummary = useMemo(() => getNotificationReadSummary(notifications), [notifications]);
+  const readSummary = useMemo(() => {
+    const total = notifications.length;
+    const read = notifications.filter((n) => n.isRead).length;
+    return { totalCount: total, readCount: read, unreadCount: total - read, hasUnread: read < total };
+  }, [notifications]);
   const filteredNotifications = useMemo(() => {
     if (activeFilter === "전체") {
       return notifications;
