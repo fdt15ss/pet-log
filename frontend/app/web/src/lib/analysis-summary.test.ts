@@ -10,10 +10,16 @@ import {
 } from "./analysis-summary";
 import type { RecordEntry } from "./types";
 
+function daysAgo(n: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return `${d.getMonth() + 1}월 ${d.getDate()}일`;
+}
+
 const records: RecordEntry[] = [
   {
     id: "behavior-alert",
-    date: "4월 29일",
+    date: daysAgo(0),
     time: "20:10",
     category: "behavior",
     title: "현관 앞에서 낑낑거림",
@@ -22,7 +28,7 @@ const records: RecordEntry[] = [
   },
   {
     id: "meal-notice",
-    date: "4월 29일",
+    date: daysAgo(0),
     time: "08:30",
     category: "meal",
     title: "아침 사료 40g",
@@ -31,7 +37,7 @@ const records: RecordEntry[] = [
   },
   {
     id: "walk-normal",
-    date: "4월 28일",
+    date: daysAgo(1),
     time: "17:00",
     category: "walk",
     title: "산책 20분",

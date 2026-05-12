@@ -127,18 +127,18 @@ export function getRiskRecords(records: RecordEntry[], range: AnalysisRange): Ri
 }
 
 export function getAnalysisMetrics(records: RecordEntry[], range: AnalysisRange): AnalysisMetric[] {
-  const days = range === "weekly" ? 7 : 30;
-  const allDates = [...new Set(records.map((r) => r.date))];
-  const chartDates = allDates.slice(0, days).reverse();
+  const scopedRecords = getScopedRecords(records, range);
+  const uniqueDates = [...new Set(scopedRecords.map((r) => r.date))];
+  const chartDates = uniqueDates.sort((a, b) => parseKoreanDate(a).getTime() - parseKoreanDate(b).getTime());
 
   return metricCategories.map((category) => {
-    const categoryRecords = records.filter((record) => record.category === category);
+    const categoryRecords = scopedRecords.filter((record) => record.category === category);
     const latest = categoryRecords[0];
     const count = categoryRecords.length;
 
     const values =
       chartDates.length > 0
-        ? chartDates.map((date) => records.filter((r) => r.date === date && r.category === category).length)
+        ? chartDates.map((date) => scopedRecords.filter((r) => r.date === date && r.category === category).length)
         : [0];
 
     return {
@@ -195,8 +195,23 @@ export function getVetBrief(records: RecordEntry[]): VetBrief {
   };
 }
 
-function getScopedRecords(records: RecordEntry[], range: AnalysisRange) {
-  return range === "weekly" ? records.slice(0, 7) : records.slice(0, 30);
+function parseKoreanDate(dateStr: string): Date {
+  const match = dateStr.match(/(\d+)월\s*(\d+)일/);
+  if (!match) return new Date(0);
+  const month = parseInt(match[1], 10) - 1;
+  const day = parseInt(match[2], 10);
+  const now = new Date();
+  const date = new Date(now.getFullYear(), month, day);
+  if (date > now) date.setFullYear(now.getFullYear() - 1);
+  return date;
+}
+
+function getScopedRecords(records: RecordEntry[], range: AnalysisRange): RecordEntry[] {
+  const days = range === "weekly" ? 7 : 30;
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - days);
+  cutoff.setHours(0, 0, 0, 0);
+  return records.filter((record) => parseKoreanDate(record.date) >= cutoff);
 }
 
 function getTrendChartTone(metrics: AnalysisMetric[]): AnalysisTone {

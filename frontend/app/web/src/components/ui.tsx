@@ -153,6 +153,41 @@ export function MultiLineChart({ series }: { series: MultiLineChartSeries[] }) {
   );
 }
 
+export function MetricSparkline({ values, color }: { values: number[]; color: string }) {
+  const width = 200;
+  const height = 28;
+  const min = Math.min(0, ...values);
+  const max = Math.max(1, ...values);
+  const range = max - min || 1;
+
+  const getPoint = (value: number, index: number) => {
+    const x = values.length > 1 ? (index / (values.length - 1)) * width : width / 2;
+    const y = height - ((value - min) / range) * (height - 8) - 4;
+    return { x, y };
+  };
+
+  const points = values.map((v, i) => {
+    const p = getPoint(v, i);
+    return `${p.x},${p.y}`;
+  }).join(" ");
+
+  const areaPoints = [
+    `0,${height}`,
+    ...values.map((v, i) => {
+      const p = getPoint(v, i);
+      return `${p.x},${p.y}`;
+    }),
+    `${width},${height}`,
+  ].join(" ");
+
+  return (
+    <svg aria-hidden="true" className="h-7 w-full" preserveAspectRatio="none" viewBox={`0 0 ${width} ${height}`}>
+      <polygon fill={color} fillOpacity="0.08" points={areaPoints} />
+      <polyline className="pet-log-chart-draw" fill="none" points={points} stroke={color} strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
+    </svg>
+  );
+}
+
 export function AiMascot({ active = false, label = "AI" }: { active?: boolean; label?: string }) {
   return (
     <div className={`relative grid h-12 w-12 shrink-0 place-items-center rounded-full border border-[#caead5] bg-[#f4fff7] text-[#16804b] shadow-inner ${active ? "pet-log-float-soft" : ""}`}>

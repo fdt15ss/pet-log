@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import { PetIcon } from "@/components/pet-icons";
 import { usePetLog } from "@/components/pet-log-provider";
-import { Card, MultiLineChart, Pill, SectionHeader } from "@/components/ui";
+import { Card, MetricSparkline, Pill, SectionHeader } from "@/components/ui";
 import {
   getAnalysisHighlights,
   getAnalysisMetrics,
@@ -174,27 +174,23 @@ export default function AnalysisPage() {
             ))}
           </div>
           <Card motion="rise">
-            <div className="mb-3 flex items-start justify-between gap-3">
-              <div>
-                <h3 className="inline-flex items-center gap-1.5 font-bold text-[#1f2922]">
-                  <PetIcon className={`h-4 w-4 ${toneText[trendChart.tone]}`} name={toneIcon[trendChart.tone]} />
-                  {trendChart.title}
-                </h3>
-                <p className="mt-1 text-xs font-semibold text-[#7b8576]">{trendChart.detail}</p>
-              </div>
-              <span className={`rounded-full bg-[#f4f7f0] px-3 py-1 text-xs font-bold ${toneText[trendChart.tone]}`}>
-                {trendChart.unit}
-              </span>
+            <div className="divide-y divide-[#f0f4ec]">
+              {trendChart.series.map((series) => {
+                const metric = metrics.find((m) => m.id === series.id)!;
+                return (
+                  <div className="py-3 first:pt-0 last:pb-0" key={series.id}>
+                    <div className="mb-1.5 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5">
+                        <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: series.color }} />
+                        <p className="text-xs font-bold text-[#1f2922]">{series.label}</p>
+                      </div>
+                      <p className={`text-[11px] font-semibold ${toneText[metric.tone]}`}>{metric.trend}</p>
+                    </div>
+                    <MetricSparkline color={series.color} values={series.values} />
+                  </div>
+                );
+              })}
             </div>
-            <div className="mb-2 flex flex-wrap gap-3">
-              {trendChart.series.map((series) => (
-                <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[#667262]" key={series.id}>
-                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: series.color }} />
-                  {series.label}
-                </span>
-              ))}
-            </div>
-            <MultiLineChart series={trendChart.series} />
           </Card>
         </section>
 
