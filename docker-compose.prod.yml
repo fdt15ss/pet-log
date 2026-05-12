@@ -24,8 +24,5 @@ services:
       - NAVER_SHOPPING_CLIENT_SECRET=${NAVER_SHOPPING_CLIENT_SECRET}
       - WHISPER_MODEL=${WHISPER_MODEL}
       - EDGE_TTS_VOICE=${EDGE_TTS_VOICE}
-    volumes:
-      - backend-uploads:/app/uploads
-
-volumes:
-  backend-uploads:
+      - PET_LOG_DATABASE_PATH=/mnt/petlog/pet_log.sqlite3
+      - PET_LOG_UPLOAD_ROOT=/mnt/petlog/uploads
