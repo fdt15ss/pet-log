@@ -1,7 +1,14 @@
 import axios from "axios";
 import { structureRecord } from "@/lib/ai-insights";
-import type { PetLogSnapshot } from "@/lib/api-client";
-import type { ExtractedMeasurement, PetProfile, RecordCategory, RecordCategoryChoice, RecordEntry, StructuredRecord } from "@/lib/types";
+import type {
+  PetLogSnapshot,
+  ExtractedMeasurement,
+  PetProfile,
+  RecordCategory,
+  RecordCategoryChoice,
+  RecordEntry,
+  StructuredRecord,
+} from "@/lib/types";
 
 export type PetLogAiProviderId = "mock" | "openai";
 

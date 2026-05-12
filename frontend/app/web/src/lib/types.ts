@@ -87,6 +87,22 @@ export type NotificationPreferences = {
   schedule: boolean;
 };
 
+export type ExpansionState = {
+  sharedCare: Record<string, unknown>;
+  hospital: Record<string, unknown>;
+  shopping: Record<string, unknown>;
+};
+
+export type PetLogSnapshot = {
+  version: 1;
+  profile: PetProfile;
+  records: RecordEntry[];
+  schedules: CareSchedule[];
+  settings: AppSettings;
+  readNotificationIds: string[];
+  expansionState: ExpansionState;
+};
+
 export type AppSettings = {
   notificationPreferences: NotificationPreferences;
   aiInsightEnabled: boolean;

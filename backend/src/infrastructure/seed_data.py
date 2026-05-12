@@ -23,12 +23,13 @@ def seed_default_data(connection: sqlite3.Connection, today: date | None = None)
     base_date = today or date.today()
     connection.executemany(
         """
-        INSERT OR IGNORE INTO pets (id, name, breed, species, age_label, personality, notes)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT OR IGNORE INTO pets (id, owner_user_id, name, breed, species, age_label, personality, notes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             (
                 "pet_01JCM7V8H9Q2K4N6R8T0A1B2C3",
+                "local-user",
                 "초코",
                 "말티푸",
                 "dog",
@@ -38,6 +39,7 @@ def seed_default_data(connection: sqlite3.Connection, today: date | None = None)
             ),
             (
                 "pet_01JCM7V8H9Q2K4N6R8T0D4E5F6",
+                "local-user",
                 "나비",
                 "코리안숏헤어",
                 "cat",
@@ -47,6 +49,7 @@ def seed_default_data(connection: sqlite3.Connection, today: date | None = None)
             ),
             (
                 "pet_01JCM7V8H9Q2K4N6R8T0G7H8J9",
+                "local-user",
                 "땅콩",
                 "포메라니안",
                 "dog",

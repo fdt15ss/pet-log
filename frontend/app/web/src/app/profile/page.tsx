@@ -5,8 +5,10 @@ import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { AppShell } from "@/components/app-shell";
 import { PetIcon } from "@/components/pet-icons";
 import { usePetLog } from "@/components/pet-log-provider";
-import { Card, MiniLineChart, Pill, SectionHeader } from "@/components/ui";
-import { metrics } from "@/lib/mock-data";
+import { Card, Pill, SectionHeader } from "@/components/ui";
+import { uploadProfilePhoto } from "@/lib/api-client";
+import { ageInputValue, ageLabelFromInput, weightInputValue, weightLabelFromInput } from "@/lib/profile-field-formatters";
+import { profileSexOptions } from "@/lib/profile-sex-options";
 import { canUseProfileCameraStream, getProfileCameraConstraints, getProfilePhotoError } from "@/lib/profile-photo";
 import type { PetProfile } from "@/lib/types";
 
@@ -21,9 +23,15 @@ const emptyProfile: PetProfile = {
   notes: [],
 };
 
+const profileTextFields: Array<[string, keyof PetProfile]> = [
+  ["이름", "name"],
+  ["품종", "breed"],
+  ["생일", "birthday"],
+  ["성격", "personality"],
+];
+
 export default function ProfilePage() {
   const { profile, updateProfile } = usePetLog();
-  const weightMetric = metrics.find((metric) => metric.label === "체중") ?? metrics[0];
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -117,7 +125,23 @@ export default function ProfilePage() {
     setIsEditing(false);
   }
 
-  function handlePhotoChange(event: ChangeEvent<HTMLInputElement>) {
+  async function uploadProfilePhotoFile(file: File) {
+    const photoError = getProfilePhotoError(file);
+    if (photoError) {
+      setError(photoError);
+      return;
+    }
+
+    try {
+      const { file: uploadedFile } = await uploadProfilePhoto(file);
+      setDraft((current) => ({ ...current, photoDataUrl: uploadedFile.url }));
+      setError("");
+    } catch {
+      setError("프로필 사진을 서버에 저장하지 못했습니다.");
+    }
+  }
+
+  async function handlePhotoChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     event.target.value = "";
 
@@ -125,24 +149,7 @@ export default function ProfilePage() {
       return;
     }
 
-    const photoError = getProfilePhotoError(file);
-    if (photoError) {
-      setError(photoError);
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result !== "string") {
-        setError("프로필 사진을 읽지 못했습니다.");
-        return;
-      }
-
-      setDraft((current) => ({ ...current, photoDataUrl: reader.result as string }));
-      setError("");
-    };
-    reader.onerror = () => setError("프로필 사진을 읽지 못했습니다.");
-    reader.readAsDataURL(file);
+    await uploadProfilePhotoFile(file);
   }
 
   async function openCamera() {
@@ -188,9 +195,15 @@ export default function ProfilePage() {
     }
 
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
-    setDraft((current) => ({ ...current, photoDataUrl: canvas.toDataURL("image/jpeg", 0.9) }));
-    setError("");
-    stopCamera();
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        setError("촬영 이미지를 만들지 못했습니다.");
+        return;
+      }
+      void uploadProfilePhotoFile(new File([blob], "profile-photo.jpg", { type: "image/jpeg" })).then(() => {
+        stopCamera();
+      });
+    }, "image/jpeg", 0.9);
   }
 
   async function saveProfile() {
@@ -199,9 +212,9 @@ export default function ProfilePage() {
       ...draft,
       name: draft.name.trim(),
       breed: draft.breed.trim(),
-      age: draft.age.trim(),
+      age: ageLabelFromInput(draft.age),
       sex: draft.sex.trim(),
-      weight: draft.weight.trim(),
+      weight: weightLabelFromInput(draft.weight),
       birthday: draft.birthday.trim(),
       personality: draft.personality.trim(),
       notes: notesText
@@ -348,15 +361,88 @@ export default function ProfilePage() {
                   </div>
                 </div>
               ) : null}
-              {[
-                ["이름", "name"],
-                ["품종", "breed"],
-                ["나이", "age"],
-                ["성별", "sex"],
-                ["체중", "weight"],
-                ["생일", "birthday"],
-                ["성격", "personality"],
-              ].map(([label, field]) => (
+              {profileTextFields.slice(0, 2).map(([label, field]) => (
+                <label className="block" key={field}>
+                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[#778174]">
+                    <PetIcon className="h-3.5 w-3.5 text-[#16804b]" name={field === "weight" ? "activity" : field === "birthday" ? "schedule" : field === "personality" ? "heart" : "profile"} />
+                    {label}
+                  </span>
+                  <input
+                    className="mt-1 h-11 w-full rounded-xl border border-[#dde6d6] bg-white px-3 text-sm font-semibold text-[#263022] outline-none focus:border-[#16804b] focus:ring-2 focus:ring-[#16804b]/15"
+                    onChange={(event) => updateDraft(field as keyof PetProfile, event.target.value)}
+                    value={draft[field as keyof PetProfile] as string}
+                  />
+                </label>
+              ))}
+              <label className="block">
+                <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[#778174]">
+                  <PetIcon className="h-3.5 w-3.5 text-[#16804b]" name="profile" />
+                  나이
+                </span>
+                <div className="mt-1 flex h-11 items-center rounded-xl border border-[#dde6d6] bg-white focus-within:border-[#16804b] focus-within:ring-2 focus-within:ring-[#16804b]/15">
+                  <input
+                    className="min-w-0 flex-1 bg-transparent px-3 text-sm font-semibold text-[#263022] outline-none"
+                    inputMode="numeric"
+                    onChange={(event) => updateDraft("age", event.target.value.replace(/[^\d]/g, ""))}
+                    pattern="[0-9]*"
+                    value={ageInputValue(draft.age)}
+                  />
+                  <span className="shrink-0 border-l border-[#edf1e9] px-3 text-sm font-black text-[#778174]">살</span>
+                </div>
+              </label>
+              <label className="block">
+                <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[#778174]">
+                  <PetIcon className="h-3.5 w-3.5 text-[#16804b]" name="activity" />
+                  체중
+                </span>
+                <div className="mt-1 flex h-11 items-center rounded-xl border border-[#dde6d6] bg-white focus-within:border-[#16804b] focus-within:ring-2 focus-within:ring-[#16804b]/15">
+                  <input
+                    className="min-w-0 flex-1 bg-transparent px-3 text-sm font-semibold text-[#263022] outline-none"
+                    inputMode="decimal"
+                    onChange={(event) => updateDraft("weight", weightInputValue(event.target.value))}
+                    pattern="[0-9]*[.]?[0-9]*"
+                    value={weightInputValue(draft.weight)}
+                  />
+                  <span className="shrink-0 border-l border-[#edf1e9] px-3 text-sm font-black text-[#778174]">kg</span>
+                </div>
+              </label>
+              <div>
+                <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[#778174]">
+                  <PetIcon className="h-3.5 w-3.5 text-[#16804b]" name="profile" />
+                  성별
+                </span>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  {profileSexOptions.map((option) => {
+                    const selected = draft.sex === option.value;
+                    return (
+                      <button
+                        aria-pressed={selected}
+                        className={[
+                          "flex h-12 items-center gap-2 rounded-xl border px-3 text-left text-sm font-bold outline-none transition focus:ring-2 focus:ring-[#16804b]/20",
+                          selected
+                            ? "border-[#16804b] bg-[#eaf7ed] text-[#115f39] shadow-[0_6px_16px_rgba(22,128,75,0.14)]"
+                            : "border-[#dde6d6] bg-white text-[#40513f]",
+                        ].join(" ")}
+                        key={option.value}
+                        onClick={() => updateDraft("sex", option.value)}
+                        type="button"
+                      >
+                        <span
+                          aria-hidden="true"
+                          className={[
+                            "grid h-7 w-7 shrink-0 place-items-center rounded-full text-base font-black",
+                            selected ? "bg-[#16804b] text-white" : "bg-[#f2f6ee] text-[#16804b]",
+                          ].join(" ")}
+                        >
+                          {option.icon}
+                        </span>
+                        <span className="min-w-0">{option.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              {profileTextFields.slice(2).map(([label, field]) => (
                 <label className="block" key={field}>
                   <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[#778174]">
                     <PetIcon className="h-3.5 w-3.5 text-[#16804b]" name={field === "weight" ? "activity" : field === "birthday" ? "schedule" : field === "personality" ? "heart" : "profile"} />
@@ -445,12 +531,12 @@ export default function ProfilePage() {
                     ["특이사항", profile.notes[0] ?? "등록된 특이사항 없음"],
                     ["생활 정보", profile.notes[2] ?? profile.notes[1] ?? "등록된 생활 정보 없음"],
                   ].map(([label, value]) => (
-                    <div className="flex justify-between gap-4 border-b border-[#edf1e9] pb-3 last:border-0 last:pb-0" key={label}>
+                    <div className="grid gap-1.5 border-b border-[#edf1e9] pb-3 last:border-0 last:pb-0" key={label}>
                       <dt className="inline-flex items-center gap-1.5 font-bold text-[#778174]">
                         <PetIcon className="h-3.5 w-3.5 text-[#16804b]" name={label === "성격" ? "heart" : label === "특이사항" ? "medical" : "home"} />
                         {label}
                       </dt>
-                      <dd className="text-right font-semibold text-[#263022]">{value}</dd>
+                      <dd className="min-w-0 break-keep text-left font-semibold leading-6 text-[#263022]">{value}</dd>
                     </div>
                   ))}
                 </dl>
@@ -466,11 +552,10 @@ export default function ProfilePage() {
                       <PetIcon className="h-4 w-4" name="activity" />
                       {profile.weight}
                     </p>
-                    <h2 className="text-base font-black text-[#1f2922]">최근 7회 기록</h2>
+                    <h2 className="text-base font-black text-[#1f2922]">체중 추이</h2>
                   </div>
-                  <p className="text-xs font-bold text-[#7b8576]">{weightMetric.trend}</p>
                 </div>
-                <MiniLineChart values={weightMetric.values} />
+                <p className="text-center text-sm text-[#7b8576]">체중 기록 데이터가 없습니다.</p>
               </Card>
             </section>
 

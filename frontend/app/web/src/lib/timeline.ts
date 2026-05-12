@@ -1,4 +1,4 @@
-import { categoryLabels } from "./mock-data";
+import { categoryLabels } from "./record-constants";
 import { getRecordCategoryChoiceLabel } from "./record-input";
 import type { ExtractedMeasurement, RecordCategory, RecordCategoryChoice, RecordEntry, RecordStatus } from "./types";
 

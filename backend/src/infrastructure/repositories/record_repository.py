@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import sqlite3
 from datetime import UTC, datetime, timedelta
+from typing import cast
 from uuid import uuid4
 
-from domain.enums import RecordInputSource
+from domain.enums import RecordCategory, RecordInputSource, RecordStatus
 from domain.models import PetRecord, StructuredRecordCandidate
 from infrastructure.database import initialize_schema
 
@@ -104,6 +105,53 @@ class RecordRepository:
         )
         self._records.append(record)
         return record
+
+
+    def get_by_id(self, record_id: str) -> PetRecord | None:
+        if self._connection is not None:
+            row = self._connection.execute(
+                "SELECT id, pet_id, category, title, detail, status, recorded_at, source "
+                "FROM pet_records WHERE id = ? AND deleted_at IS NULL",
+                (record_id,),
+            ).fetchone()
+            return _record_from_row(row) if row else None
+        return next((r for r in self._records if r.id == record_id), None)
+
+    def update(self, record_id: str, category: str, title: str, detail: str, status: str) -> PetRecord | None:
+        if self._connection is not None:
+            self._connection.execute(
+                "UPDATE pet_records SET category=?, title=?, detail=?, status=?, updated_at=CURRENT_TIMESTAMP "
+                "WHERE id=? AND deleted_at IS NULL",
+                (category, title, detail, status, record_id),
+            )
+            self._connection.commit()
+            return self.get_by_id(record_id)
+        idx = next((i for i, r in enumerate(self._records) if r.id == record_id), None)
+        if idx is None:
+            return None
+        old = self._records[idx]
+        updated = PetRecord(
+            id=old.id, pet_id=old.pet_id,
+            category=cast("RecordCategory", category), title=title,
+            detail=detail, status=cast("RecordStatus", status),
+            recorded_at=old.recorded_at, source=old.source,
+        )
+        self._records[idx] = updated
+        return updated
+
+    def soft_delete(self, record_id: str) -> bool:
+        if self._connection is not None:
+            cursor = self._connection.execute(
+                "UPDATE pet_records SET deleted_at=CURRENT_TIMESTAMP WHERE id=? AND deleted_at IS NULL",
+                (record_id,),
+            )
+            self._connection.commit()
+            return cursor.rowcount > 0
+        idx = next((i for i, r in enumerate(self._records) if r.id == record_id), None)
+        if idx is None:
+            return False
+        self._records.pop(idx)
+        return True
 
 
 def _record_from_row(row: sqlite3.Row) -> PetRecord:

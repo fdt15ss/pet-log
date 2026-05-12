@@ -89,7 +89,31 @@ PetRecord
 
 ## DB 테이블
 
-현재 `pet_records` schema:
+### 1. 반려동물 (pets)
+사용자의 반려동물 프로필을 저장합니다.
+
+```sql
+CREATE TABLE IF NOT EXISTS pets (
+    id TEXT PRIMARY KEY,
+    owner_user_id TEXT, -- 'local-user' 등 소유자 ID
+    name TEXT NOT NULL,
+    breed TEXT,
+    species TEXT,
+    age_label TEXT,
+    sex_label TEXT,
+    weight_label TEXT,
+    birthday TEXT,
+    personality TEXT,
+    notes TEXT NOT NULL DEFAULT '[]',
+    photo_file_id TEXT, -- files 테이블 참조
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TEXT
+);
+```
+
+### 2. 반려동물 기록 (pet_records)
+구조화된 반려동물의 일상 기록을 저장합니다.
 
 ```sql
 CREATE TABLE IF NOT EXISTS pet_records (
@@ -108,6 +132,72 @@ CREATE TABLE IF NOT EXISTS pet_records (
 
 CREATE INDEX IF NOT EXISTS idx_pet_records_pet_recorded_at
     ON pet_records (pet_id, recorded_at);
+```
+
+### 3. 케어 일정 (care_schedules)
+반려동물의 미래 일정을 저장합니다.
+
+```sql
+CREATE TABLE IF NOT EXISTS care_schedules (
+    id TEXT PRIMARY KEY,
+    pet_id TEXT NOT NULL,
+    category TEXT NOT NULL,
+    title TEXT NOT NULL,
+    due_date TEXT NOT NULL,
+    repeat_label TEXT NOT NULL DEFAULT '',
+    note TEXT NOT NULL DEFAULT '',
+    is_done INTEGER NOT NULL DEFAULT 0,
+    completed_at TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_care_schedules_pet_due_date
+    ON care_schedules (pet_id, due_date);
+```
+
+### 4. 알림 (notifications)
+기록 누락, 위험 감지, 일정 리마인더 등을 저장합니다.
+
+```sql
+CREATE TABLE IF NOT EXISTS notifications (
+    id TEXT PRIMARY KEY,
+    pet_id TEXT NOT NULL,
+    category TEXT NOT NULL,
+    title TEXT NOT NULL,
+    detail TEXT NOT NULL,
+    action TEXT NOT NULL,
+    action_href TEXT NOT NULL,
+    due_label TEXT NOT NULL,
+    tone TEXT NOT NULL,
+    read_at TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_notifications_pet_created_at
+    ON notifications (pet_id, created_at);
+```
+
+### 5. 파일 (files)
+프로필 사진 등 업로드된 파일 정보를 관리합니다.
+
+```sql
+CREATE TABLE IF NOT EXISTS files (
+    id TEXT PRIMARY KEY,
+    owner_user_id TEXT NOT NULL,
+    pet_id TEXT,
+    purpose TEXT NOT NULL,
+    storage_key TEXT NOT NULL UNIQUE,
+    mime_type TEXT NOT NULL,
+    byte_size INTEGER NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_files_pet_purpose_created_at
+    ON files (pet_id, purpose, created_at);
 ```
 
 현재 저장되는 값:

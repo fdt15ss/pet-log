@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from domain.enums import InsightSeverity, RecordCategory, RecordInputSource, RecordStatus
+from domain.enums import FilePurpose, InsightSeverity, RecordCategory, RecordInputSource, RecordStatus
 
 
 @dataclass(frozen=True)
@@ -12,8 +12,12 @@ class PetProfile:
     breed: str | None = None
     species: str | None = None
     age_label: str | None = None
+    sex_label: str | None = None
+    weight_label: str | None = None
+    birthday: str | None = None
     personality: str | None = None
     notes: tuple[str, ...] = ()
+    photo_file_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -26,6 +30,18 @@ class PetRecord:
     status: RecordStatus
     recorded_at: str
     source: RecordInputSource
+
+
+@dataclass(frozen=True)
+class StoredFile:
+    id: str
+    owner_user_id: str
+    pet_id: str | None
+    purpose: FilePurpose
+    storage_key: str
+    mime_type: str
+    byte_size: int
+    created_at: str | None = None
 
 
 @dataclass(frozen=True)
@@ -83,10 +99,43 @@ class ShoppingRecommendation:
 
 
 @dataclass(frozen=True)
+class VeterinaryHospitalRecommendation:
+    place_id: str
+    name: str
+    address: str
+    phone_number: str
+    google_maps_url: str
+    latitude: float | None
+    longitude: float | None
+    rating: float | None
+    user_rating_count: int
+    is_open_now: bool | None
+    is_24_hours: bool
+    weekday_text: tuple[str, ...]
+    distance_meters: int | None
+    reason: str
+
+
+@dataclass(frozen=True)
 class PlannedReminder:
     title: str
     due_date: str
     reason: str
+
+
+@dataclass(frozen=True)
+class Notification:
+    id: str
+    pet_id: str
+    category: str  # "기록", "주의", "일정"
+    title: str
+    detail: str
+    action: str
+    action_href: str
+    due_label: str
+    tone: str  # "green", "orange", "red", "blue"
+    created_at: str
+    read_at: str | None = None
 
 
 @dataclass(frozen=True)

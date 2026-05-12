@@ -7,7 +7,7 @@ import { PetIcon } from "@/components/pet-icons";
 import { usePetLog } from "@/components/pet-log-provider";
 import { Card, CategoryBadge, SectionHeader } from "@/components/ui";
 import { structureRecordPreview, transcribeSpeechAudio } from "@/lib/api-client";
-import { categoryLabels } from "@/lib/mock-data";
+import { categoryLabels } from "@/lib/record-constants";
 import {
   defaultRecordCategoryChoice,
   getBrowserSpeechRecognitionConstructor,
@@ -75,6 +75,10 @@ export default function RecordPage() {
   const audioChunksRef = useRef<Blob[]>([]);
   const mediaStreamRef = useRef<MediaStream | null>(null);
 
+  useEffect(() => {
+    console.log("[record/page] records 업데이트:", records.length, "건", records.slice(0, 3).map((r) => r.id));
+  }, [records]);
+
   const preview = records.slice(0, 3);
   const trimmedDetail = detail.trim();
   const isInvalid = trimmedDetail.length < 5 || trimmedDetail.length > maxLength;
@@ -108,12 +112,14 @@ export default function RecordPage() {
       structureRecordPreview({ detail: trimmedDetail, fallbackCategory: category })
         .then((response) => {
           if (!cancelled) {
+            console.log("[record/page] AI 미리보기 성공:", response.structured.suggestedCategory, Math.round(response.structured.confidence * 100) + "%");
             setAiPreview({ category, detail: trimmedDetail, structured: response.structured });
             setPreviewError("");
           }
         })
-        .catch(() => {
+        .catch((err: unknown) => {
           if (!cancelled) {
+            console.log("[record/page] AI 미리보기 실패:", err instanceof Error ? err.message : err);
             setAiPreview(null);
             setPreviewError("AI 미리보기를 불러오지 못해 기본 분류로 표시합니다.");
           }
@@ -167,17 +173,25 @@ export default function RecordPage() {
       if (category === "all" && !activePreview) {
         try {
           const response = await structureRecordPreview({ detail: trimmedDetail, fallbackCategory: category });
+          console.log("[record/page] structureRecordPreview 성공:", response.structured.suggestedCategory);
           setAiPreview({ category, detail: trimmedDetail, structured: response.structured });
           setPreviewError("");
-        } catch {
-          setPreviewError("AI 미리보기를 불러오지 못해 기본 분류로 저장합니다.");
+        } catch (err) {
+          console.log("[record/page] structureRecordPreview 실패:", err instanceof Error ? err.message : err);
+          setPreviewError("AI 미리보기를 불러오지 못했습니다. 저장 시 서버에서 다시 처리합니다.");
         }
       }
 
+      console.log("[record/page] addRecord 호출:", category, trimmedDetail.slice(0, 30));
       const record = await addRecord({ category, detail: trimmedDetail });
+      console.log("[record/page] addRecord 성공:", record.id);
       setSavedId(record.id);
       setError("");
       setDetail("");
+    } catch (err) {
+      console.log("[record/page] addRecord 실패:", err instanceof Error ? err.message : err);
+      setSavedId(null);
+      setError("기록 저장에 실패했습니다. 서버 연결을 확인해주세요.");
     } finally {
       setIsSaving(false);
     }
@@ -195,9 +209,12 @@ export default function RecordPage() {
     try {
       const fileType = audio.type || "audio/webm";
       const file = new File([audio], "recording.webm", { type: fileType });
+      console.log("[record/page] transcribeSpeechAudio 호출:", fileType, audio.size, "bytes");
       const transcription = await transcribeSpeechAudio(file);
+      console.log("[record/page] transcribeSpeechAudio 성공:", transcription.text.slice(0, 50));
       setDetail(transcription.text);
-    } catch {
+    } catch (err) {
+      console.log("[record/page] transcribeSpeechAudio 실패:", err instanceof Error ? err.message : err);
       setError("음성 인식에 실패했습니다. 텍스트로 직접 입력해주세요.");
     } finally {
       setIsTranscribing(false);

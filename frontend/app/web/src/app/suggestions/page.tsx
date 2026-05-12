@@ -7,7 +7,6 @@ import { PetIcon } from "@/components/pet-icons";
 import { usePetLog } from "@/components/pet-log-provider";
 import { Card, Pill, SectionHeader } from "@/components/ui";
 import { getAiCareSuggestions } from "@/lib/ai-insights";
-import { suggestions } from "@/lib/mock-data";
 import type { SuggestionCategory } from "@/lib/types";
 
 type SuggestionFilter = "전체" | SuggestionCategory;
@@ -34,7 +33,7 @@ export default function SuggestionsPage() {
     [records, settings.aiInsightEnabled],
   );
   const allSuggestions = useMemo(
-    () => (settings.aiInsightEnabled ? [...aiSuggestions, ...suggestions] : []),
+    () => (settings.aiInsightEnabled ? aiSuggestions : []),
     [aiSuggestions, settings.aiInsightEnabled],
   );
 	  const filteredSuggestions = useMemo(() => {

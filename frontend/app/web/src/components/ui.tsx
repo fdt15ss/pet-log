@@ -1,6 +1,6 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { PetIcon } from "@/components/pet-icons";
-import { categoryLabels } from "@/lib/mock-data";
+import { categoryLabels } from "@/lib/record-constants";
 import type { RecordCategory } from "@/lib/types";
 
 export function SectionHeader({ title, action }: { title: string; action?: ReactNode }) {

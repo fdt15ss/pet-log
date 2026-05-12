@@ -28,15 +28,13 @@ export type ApiFailure = {
 
 export type ApiResponse<T> = ApiSuccess<T> | ApiFailure;
 
-export type PetLogSnapshot = {
-  version: 1;
-  profile: PetProfile;
-  records: RecordEntry[];
-  schedules: CareSchedule[];
-  settings: AppSettings;
-  readNotificationIds: string[];
-  expansionState: ExpansionState;
+export type User = {
+  id: string;
+  email: string;
+  name: string;
 };
+
+export type Pet = PetProfile & { id: string };
 
 export type NewRecordInput = {
   category: RecordCategoryChoice;
@@ -93,6 +91,15 @@ export type SpeechTranscriptionResponse = {
   text: string;
 };
 
+export type UploadedFile = {
+  id: string;
+  url: string;
+  pet_id: string | null;
+  purpose: string;
+  mime_type: string;
+  byte_size: number;
+};
+
 export class PetLogApiError extends Error {
   code: string;
 
@@ -134,12 +141,24 @@ async function requestData<T>(request: Promise<{ data: ApiResponse<T> }>) {
   }
 }
 
-export function getPetLogSnapshot() {
-  return requestData<PetLogSnapshot>(apiClient.get("/me/pet-log"));
+export function fetchMe() {
+  return requestData<User>(apiClient.get("/me"));
 }
 
-export function resetPetLogSnapshot() {
-  return requestData<PetLogSnapshot>(apiClient.post("/me/pet-log/reset"));
+export function fetchPets() {
+  return requestData<{ pets: Pet[] }>(apiClient.get("/pets"));
+}
+
+export function fetchRecords(petId: string) {
+  return requestData<{ records: RecordEntry[] }>(apiClient.get("/pet-log/records", { params: { pet_id: petId } }));
+}
+
+export function fetchSchedules(petId: string) {
+  return requestData<{ schedules: CareSchedule[] }>(apiClient.get("/pet-log/schedules", { params: { pet_id: petId } }));
+}
+
+export function fetchNotifications(petId: string) {
+  return requestData<{ notifications: any[] }>(apiClient.get("/notifications", { params: { pet_id: petId } }));
 }
 
 export function updateProfile(input: PetProfile) {
@@ -158,6 +177,12 @@ export function transcribeSpeechAudio(audio: File) {
   const formData = new FormData();
   formData.set("audio", audio);
   return requestData<SpeechTranscriptionResponse>(axios.post("/api/v1/speech/transcriptions", formData));
+}
+
+export function uploadProfilePhoto(photo: File) {
+  const formData = new FormData();
+  formData.set("file", photo);
+  return requestData<{ file: UploadedFile }>(axios.post("/api/v1/files", formData));
 }
 
 export function updateRecord(id: string, input: UpdateRecordInput) {

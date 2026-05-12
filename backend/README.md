@@ -64,9 +64,17 @@ src/composition.py
 
 ## 프론트 연동 API 상태
 
-- `POST /api/v1/pet-log/records`: 기록 입력 pipeline을 실행한다. 프론트의 기록 미리보기와 기록 저장 Route Handler가 이 endpoint를 proxy 호출한다.
-- `POST /api/v1/speech/transcriptions`: 음성 파일을 STT provider로 넘긴다. 프론트 음성 fallback 입력이 이 endpoint를 proxy 호출한다.
-- `GET /api/v1/pet-log/snapshot?pet_id=...`: 앱 초기 로딩용 DB snapshot endpoint로 추가한다. `pets`, `pet_records`, `care_schedules`를 읽어 프론트 `PetLogSnapshot` 형태로 내려주는 것이 목표다.
+- `GET /api/v1/me`: 현재 로그인한 유저 정보를 반환한다. (현재는 `local-user` 고정)
+- `GET /api/v1/pets`: 유저가 소유한 모든 반려동물 목록을 반환한다.
+- `GET /api/v1/pet-log/records?pet_id=...`: 특정 반려동물의 최근 기록 목록을 반환한다.
+- `GET /api/v1/pet-log/schedules?pet_id=...`: 특정 반려동물의 일정 목록을 반환한다.
+- `GET /api/v1/notifications?pet_id=...`: 특정 반려동물의 알림 목록을 반환한다.
+- `PATCH /api/v1/notifications/{id}/read`: 특정 알림을 읽음 처리한다.
+- `PUT /api/v1/notifications/read?pet_id=...`: 특정 반려동물의 모든 알림을 일괄 읽음 처리한다.
+- `POST /api/v1/pet-log/records`: 기록 입력 pipeline을 실행한다.
+- `POST /api/v1/files`: 이미지를 업로드하고 `file_id`를 반환한다. (프로필 사진 등)
+- `GET /api/v1/files/{file_id}`: 업로드된 이미지 파일을 다운로드한다.
+- `POST /api/v1/speech/transcriptions`: 음성 파일을 STT provider로 넘긴다.
 - `record summary`, `care answer`, `pet persona`, `photo understanding` provider는 아직 프론트 초기 로딩이나 기록 입력 route에 연결하지 않는다.
 
 ## 검증 명령
@@ -145,6 +153,60 @@ POST /api/v1/speech/transcriptions
 
 ```bash
 curl -F "audio=@recording.webm;type=audio/webm" http://127.0.0.1:27893/api/v1/speech/transcriptions
+```
+
+동물병원 추천 API:
+
+```text
+POST /api/v1/hospitals/recommendations
+```
+
+Google Places API(New) Text Search를 사용한다. 공식 endpoint는
+`POST https://places.googleapis.com/v1/places:searchText`이며, `veterinary_care`
+type과 `동물병원` query, `X-Goog-FieldMask`로 이름, 주소, 연락처,
+Google Maps URL, 현재 영업 여부, 주간 영업 시간만 요청한다. Google 후보는 `locationBias`로 받고 서버에서 요청 반경 밖 결과를 제외한다. 응답은 24시간 영업 병원을 우선 정렬하고, 기본값으로 현재
+영업 중인 병원만 내려준다.
+
+```json
+{
+  "latitude": 37.5665,
+  "longitude": 126.978,
+  "accuracy_meters": 25,
+  "location_source": "gps",
+  "radius_meters": 3000,
+  "max_results": 5,
+  "open_now_only": true,
+  "emergency": false,
+  "text": ""
+}
+```
+
+백엔드는 기기 GPS를 직접 읽지 않는다. 브라우저나 앱에서 GPS 권한을 받아 현재 좌표를 `latitude`, `longitude`로 보내야 한다. 응답의 `search_center`에는 실제 추천 기준으로 사용한 좌표, 반경, 위치 출처, GPS 정확도, 응급 모드 여부가 포함된다. 브라우저 예시는 다음과 같다.
+
+```js
+navigator.geolocation.getCurrentPosition(async ({ coords }) => {
+  await fetch("/api/v1/hospitals/recommendations", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      latitude: coords.latitude,
+      longitude: coords.longitude,
+      accuracy_meters: coords.accuracy,
+      location_source: "gps",
+      emergency: true,
+      text: "늦은 시간 응급 조치가 필요해요."
+    })
+  });
+});
+```
+
+`emergency=true`이거나 `text`에 응급, 야간, 24시, 24시간, 호흡, 출혈, 경련, 중독 같은 표현이 있거나 현재 시간이 22:00~05:59이면 `24시 동물병원` query로 검색한다. 응급/야간 모드는 24시간 영업으로 확인된 병원을 찾기 위해 검색 반경을 최소 10km로 넓힌다. Google Places 결과가 없거나 호출에 실패하면 fallback middleware가 Google Maps 검색 링크를 내려준다.
+
+환경변수:
+
+```env
+GOOGLE_MAPS_API_KEY=...
+GOOGLE_PLACES_TIMEOUT=3
 ```
 
 ## Ollama 로컬 Gemma와 GPT 하이브리드 모드
@@ -243,6 +305,8 @@ OPENAI_CARE_ANSWER_MODEL=gpt-4-turbo
 | `OPENAI_API_KEY` | (empty) | GPT fallback 사용 시 필수 |
 | `OPENAI_*_MODEL` | (empty) | Task별 GPT primary 모델 |
 | `OPENAI_*_FALLBACK_MODEL` | (empty) | Task별 추가 fallback 모델 |
+| `GOOGLE_MAPS_API_KEY` | (empty) | 동물병원 추천용 Google Places API key |
+| `GOOGLE_PLACES_TIMEOUT` | `3` | Google Places API timeout |
 
 `.env`는 local secret 파일이므로 git에 커밋하지 않는다. 운영 환경에서는 `.env` 파일 대신 배포 환경변수 또는 secret manager에 같은 키를 등록한다.
 
@@ -267,6 +331,20 @@ Repository 변경사항 수동 확인:
 ```bash
 uv run python -B scripts/smoke_repository_changes.py
 ```
+
+동물병원 추천 수동 확인:
+
+```bash
+uv run python -B scripts/smoke_google_hospital_recommendations.py
+```
+
+현재 GPS 좌표로 확인하려면 좌표를 인자로 넘긴다.
+
+```bash
+uv run python -B scripts/smoke_google_hospital_recommendations.py --latitude 37.1234 --longitude 127.1234
+```
+
+`GOOGLE_MAPS_API_KEY`가 없으면 실제 Google 호출은 건너뛰고 fake provider 흐름만 확인한다.
 
 기록 요약 provider 확인:
 

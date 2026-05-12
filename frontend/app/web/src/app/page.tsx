@@ -9,7 +9,6 @@ import { AiMascot, Card, CategoryBadge, SectionHeader } from "@/components/ui";
 import { getAiCareSuggestions } from "@/lib/ai-insights";
 import { getRecentChange, getRecordStatusLabel, getTodaySummary, type HomeSummaryTone } from "@/lib/home-summary";
 import { getCareNotifications } from "@/lib/notifications";
-import { suggestions, todos } from "@/lib/mock-data";
 import { PetIcon } from "@/components/pet-icons";
 import { sendChatbotMessage } from "@/lib/api-client";
 import type { ChatbotThread } from "@/lib/types";
@@ -107,7 +106,7 @@ export default function Home() {
   const todaySummary = getTodaySummary(records);
   const recentChange = getRecentChange(records);
   const aiSuggestions = settings.aiInsightEnabled ? getAiCareSuggestions(records) : [];
-  const homeSuggestions = settings.aiInsightEnabled ? [...aiSuggestions, ...suggestions].slice(0, 2) : [];
+  const homeSuggestions = settings.aiInsightEnabled ? aiSuggestions.slice(0, 2) : [];
   const pendingSchedules = schedules.filter((schedule) => !schedule.isDone).length;
   const chatbotMessageCount = chatbotThread?.messages.length ?? 0;
   const petChatMessageCount = petChatMessages.length;
@@ -582,16 +581,7 @@ export default function Home() {
         <section>
           <SectionHeader title="오늘 할 일" />
           <Card motion="rise">
-            <ul className="space-y-3">
-              {todos.map((todo, index) => (
-                <li className="flex items-center gap-3 text-sm font-semibold text-[#3d4639]" key={todo}>
-                  <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#eef5e9] text-xs text-[#16804b]">
-                    {index + 1}
-                  </span>
-                  {todo}
-                </li>
-              ))}
-            </ul>
+            <p className="text-center text-sm text-[#7b8576]">오늘 할 일이 없습니다.</p>
           </Card>
         </section>
 
