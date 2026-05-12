@@ -42,6 +42,7 @@ export function getCareNotifications(
       actionHref: "/timeline",
       dueLabel: "오늘",
       tone: "red",
+      isRead: false,
     });
   }
 
@@ -55,6 +56,7 @@ export function getCareNotifications(
       actionHref: "/record",
       dueLabel: "오늘",
       tone: "orange",
+      isRead: false,
     });
   }
 
@@ -68,6 +70,7 @@ export function getCareNotifications(
       actionHref: "/record",
       dueLabel: "오늘",
       tone: "green",
+      isRead: false,
     });
   }
 
@@ -84,6 +87,7 @@ export function getCareNotifications(
           actionHref: "/schedule",
           dueLabel: status.label,
           tone: status.tone,
+          isRead: false,
         });
       });
     } else {
@@ -96,6 +100,7 @@ export function getCareNotifications(
         actionHref: "/schedule",
         dueLabel: "3일 후",
         tone: "blue",
+        isRead: false,
       });
     }
   }
