@@ -17,6 +17,8 @@ const toneClasses = {
   blue: "bg-[#eaf2ff] text-[#2e67a7]",
 };
 
+const shoppingSyncLabel = "상품 추천 동기화 중";
+
 export default function ShoppingPage() {
   const { profile, records, expansionState, updateShoppingState } = usePetLog();
   const shoppingState = expansionState.shopping;
@@ -34,14 +36,22 @@ export default function ShoppingPage() {
   }, [shoppingState.activeFilter, recommendations]);
 
   useEffect(() => {
-    if (!profile.id) {
+    function clearRecommendations() {
       setApiRecommendations([]);
+    }
+
+    function startLoading() {
+      setIsShoppingLoading(true);
+      setShoppingError("");
+    }
+
+    if (!profile.id) {
+      clearRecommendations();
       return;
     }
 
     let cancelled = false;
-    setIsShoppingLoading(true);
-    setShoppingError("");
+    startLoading();
 
     fetchShoppingRecommendations(profile.id)
       .then(({ recommendations }) => {
@@ -77,7 +87,7 @@ export default function ShoppingPage() {
   return (
     <AppShell subtitle="기록 기반 추천 흐름" title="쇼핑">
       <div className="space-y-5">
-        <Card className="bg-gradient-to-br from-white to-[#fff2df]">
+        <Card className={`bg-gradient-to-br from-white to-[#fff2df] ${isShoppingLoading ? "pet-log-loading-border pet-log-shopping-loading-border" : ""}`}>
           <p className="inline-flex items-center gap-1.5 text-sm font-bold text-[#bb721e]">
             <PetIcon className="h-4 w-4" name="shopping" />
             맞춤 추천
@@ -87,7 +97,7 @@ export default function ShoppingPage() {
             프로필, 식사 기록, 산책 기록, 행동 기록을 근거로 사료와 케어 용품 추천 화면을 구성합니다.
           </p>
           <p className="mt-3 text-xs font-bold text-[#bb721e]">
-            {isShoppingLoading ? "상품 추천 동기화 중" : `저장한 추천 ${shoppingState.savedRecommendationIds.length}개`}
+            {isShoppingLoading ? <ShoppingSyncText text={shoppingSyncLabel} /> : `저장한 추천 ${shoppingState.savedRecommendationIds.length}개`}
           </p>
           {shoppingError ? <p className="mt-2 text-xs font-bold text-[#be4c3c]">{shoppingError}</p> : null}
         </Card>
@@ -212,5 +222,17 @@ export default function ShoppingPage() {
         </Card>
       </div>
     </AppShell>
+  );
+}
+
+function ShoppingSyncText({ text }: { text: string }) {
+  return (
+    <span aria-label={text} className="pet-log-sync-wave inline-flex min-h-4 items-baseline whitespace-pre">
+      {Array.from(text).map((letter, index) => (
+        <span aria-hidden="true" key={`${letter}-${index}`} style={{ animationDelay: `${index * 120}ms` }}>
+          {letter}
+        </span>
+      ))}
+    </span>
   );
 }
