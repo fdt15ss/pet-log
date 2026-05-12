@@ -48,7 +48,7 @@ assert.ok(report.insight.includes("주의"));
 const emptyReport = getAnalysisReport([], "monthly");
 assert.ok(emptyReport.insight.includes("기록"));
 
-const metrics = getAnalysisMetrics(records);
+const metrics = getAnalysisMetrics(records, "weekly");
 assert.equal(metrics.find((metric) => metric.id === "behavior")?.values.at(-1), 1);
 assert.equal(metrics.find((metric) => metric.id === "stool")?.trend, "최근 기록 없음");
 

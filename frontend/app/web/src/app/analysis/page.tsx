@@ -68,7 +68,7 @@ export default function AnalysisPage() {
     }));
   }, [insights, settings.aiInsightEnabled]);
 
-  const metrics = useMemo(() => getAnalysisMetrics(records), [records]);
+  const metrics = useMemo(() => getAnalysisMetrics(records, activeRange), [records, activeRange]);
   const vetBrief = useMemo(() => getVetBrief(records), [records]);
   const trendChart = useMemo(() => getAnalysisTrendChart(metrics, activeMetric), [activeMetric, metrics]);
   const scopedRecords = activeRange === "weekly" ? records.slice(0, 7) : records.slice(0, 30);

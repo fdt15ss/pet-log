@@ -126,20 +126,26 @@ export function getRiskRecords(records: RecordEntry[], range: AnalysisRange): Ri
   }));
 }
 
-export function getAnalysisMetrics(records: RecordEntry[]): AnalysisMetric[] {
-  const recentRecords = records.slice(0, 7).reverse();
+export function getAnalysisMetrics(records: RecordEntry[], range: AnalysisRange): AnalysisMetric[] {
+  const days = range === "weekly" ? 7 : 30;
+  const allDates = [...new Set(records.map((r) => r.date))];
+  const chartDates = allDates.slice(0, days).reverse();
 
   return metricCategories.map((category) => {
-    const values = recentRecords.map((record) => (record.category === category ? 1 : 0));
-    const paddedValues = [...Array(Math.max(0, 7 - values.length)).fill(0), ...values];
-    const count = records.filter((record) => record.category === category).length;
-    const latest = records.find((record) => record.category === category);
+    const categoryRecords = records.filter((record) => record.category === category);
+    const latest = categoryRecords[0];
+    const count = categoryRecords.length;
+
+    const values =
+      chartDates.length > 0
+        ? chartDates.map((date) => records.filter((r) => r.date === date && r.category === category).length)
+        : [0];
 
     return {
       id: category,
       label: categoryLabels[category],
       unit: "건",
-      values: paddedValues,
+      values,
       trend: latest ? `${count}건 · 최근 ${latest.time}` : "최근 기록 없음",
       tone: latest ? statusView[latest.status].tone : "blue",
     };
