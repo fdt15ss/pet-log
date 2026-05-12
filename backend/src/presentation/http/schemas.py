@@ -202,6 +202,7 @@ def suggestion_to_dict(suggestion: CareSuggestion) -> dict[str, Any]:
         "title": suggestion.title,
         "action": suggestion.action,
         "reason": suggestion.reason,
+        "severity": suggestion.severity,
         "source_record_ids": list(suggestion.source_record_ids),
     }
 

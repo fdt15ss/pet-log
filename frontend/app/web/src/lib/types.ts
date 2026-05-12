@@ -43,6 +43,7 @@ export type AiSuggestion = {
   title: string;
   action: string;
   reason: string;
+  severity?: InsightSeverity;
   sourceRecordIds?: string[];
 };
 
