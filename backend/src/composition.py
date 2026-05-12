@@ -22,6 +22,7 @@ from infrastructure.policies.reminder_planner import ReminderPlanner
 from infrastructure.policies.risk_signal_policy import RiskSignalPolicy
 from infrastructure.policies.suggestion_composer import SuggestionComposer
 from infrastructure.notifications.policy import NotificationPolicy
+from infrastructure.repositories.community_repository import CommunityRepository
 from infrastructure.repositories.file_repository import FileRepository, LocalFileStorage
 from infrastructure.repositories.notification_repository import NotificationRepository
 from infrastructure.repositories.pet_profile_repository import PetProfileRepository
@@ -48,6 +49,7 @@ class AppContext:
     file_storage: LocalFileStorage | None = None
     notification_repository: NotificationRepository | None = None
     notification_policy: NotificationPolicy | None = None
+    community_repository: CommunityRepository | None = None
     close: Callable[[], None] = field(default=lambda: None)
 
 
@@ -59,6 +61,7 @@ def build_app_context(database_path: str | None = None) -> AppContext:
     pet_profile_reader = PetProfileRepository(connection=database)
     file_repository = FileRepository(connection=database)
     notification_repository = NotificationRepository(connection=database)
+    community_repository = CommunityRepository(connection=database)
 
     risk_detection_agent = RiskDetectionAgent(RiskSignalPolicy())
     context_analysis_agent = ContextAnalysisAgent(PatternAnalyzer(), MissingRecordPolicy())
@@ -94,6 +97,7 @@ def build_app_context(database_path: str | None = None) -> AppContext:
         file_storage=LocalFileStorage(),
         notification_repository=notification_repository,
         notification_policy=NotificationPolicy(),
+        community_repository=community_repository,
         close=database.close,
     )
 

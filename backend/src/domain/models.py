@@ -158,6 +158,30 @@ class Notification:
 
 
 @dataclass(frozen=True)
+class CommunityPost:
+    id: str
+    board: str
+    title: str
+    body: str
+    author_name: str
+    created_at: str
+    comments: int
+    likes: int
+    feeds: tuple[str, ...]
+    distance: str | None = None
+    tags: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class CommunityComment:
+    id: str
+    post_id: str
+    author_name: str
+    body: str
+    created_at: str
+
+
+@dataclass(frozen=True)
 class CareSchedule:
     id: str
     pet_id: str

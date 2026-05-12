@@ -75,6 +75,12 @@ src/composition.py
 - `GET /api/v1/files/{file_id}`: 업로드된 이미지 파일을 다운로드한다.
 - `POST /api/v1/speech/transcriptions`: 음성 파일을 STT provider(Whisper)로 변환한다.
 - `POST /api/v1/hospitals/recommendations`: 위치 기반 동물병원 추천 (Google Places API)
+- `GET /api/v1/community/boards`: 커뮤니티 게시판과 피드 필터 목록을 반환한다.
+- `GET /api/v1/community/posts?feed=...&board=...`: 커뮤니티 글 목록을 반환한다.
+- `GET /api/v1/community/posts/{post_id}`: 글 상세와 댓글 목록을 반환한다.
+- `POST /api/v1/community/posts`: 커뮤니티 글을 작성한다.
+- `POST /api/v1/community/posts/{post_id}/comments`: 댓글을 작성한다.
+- `POST /api/v1/community/posts/{post_id}/reactions`: 글 공감 수를 반영한다.
 
 ### 알림 파이프라인 (완전 구현)
 
@@ -95,6 +101,14 @@ src/composition.py
   - `ShoppingAgent`가 `ShoppingRecommendationProvider(NaverShoppingClient)`로부터 상품 검색
   - `ShoppingReasonProvider`(LLM 기반)로 추천 이유 생성
   - 프론트에 추천 리스트 반환
+
+### 커뮤니티 게시판 (기본 구현)
+
+- `CommunityRepository`가 SQLite의 `community_posts`, `community_comments`를 사용한다.
+- 게시판은 `유기동물`, `용품 나눔`, `자유게시판`, `행동 고민`, `후기`를 기본 목록으로 둔다.
+- 피드는 `인기글`, `최신글`, `내 주변` 문자열을 프론트 타입과 동일하게 유지한다.
+- 초기 seed 데이터는 프론트 mock 커뮤니티와 같은 필드 구조(`authorName`, `createdAt`, `feeds`, `tags`)로 변환 가능하게 저장한다.
+- 현재 반응 기능은 글 공감 수 증가만 제공한다. 사용자별 중복 반응 방지는 인증 경계가 생긴 뒤 별도 테이블로 확장한다.
 
 ### 미연동 기능
 
@@ -365,6 +379,12 @@ Repository 변경사항 수동 확인:
 
 ```bash
 uv run python -B scripts/smoke_repository_changes.py
+```
+
+커뮤니티 게시판 API 확인:
+
+```bash
+uv run python -B scripts/smoke_community.py
 ```
 
 동물병원 추천 수동 확인:
