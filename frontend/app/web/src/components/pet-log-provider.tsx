@@ -177,7 +177,20 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
 
         const activePet = pets[0];
         if (!activePet) {
-          throw new Error("등록된 반려동물이 없습니다.");
+          console.log("[provider] 등록된 반려동물이 없어 빈 상태로 시작합니다.");
+          setProfile(emptyProfile);
+          setRecords([]);
+          setSchedules([]);
+          setSettings(defaultAppSettings);
+          setReadNotificationIds([]);
+          setExpansionState(defaultExpansionState);
+          setInsights([]);
+          setSuggestions([]);
+          setError("반려동물을 등록하면 기록을 시작할 수 있습니다.");
+          setSyncStatus("synced");
+          setIsStorageReady(true);
+          setIsLoading(false);
+          return;
         }
 
         // 2. 해당 반려동물의 상세 데이터들을 병렬로 가져옴

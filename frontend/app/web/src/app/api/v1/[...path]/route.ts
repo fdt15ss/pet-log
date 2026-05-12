@@ -397,7 +397,11 @@ export async function GET(_request: NextRequest, context: RouteContext) {
   if (path[0] === "pets" && path.length === 1) {
     try {
       const response = await axios.get(backendApiUrl("/api/v1/pets"), { timeout: backendTimeoutMs(), validateStatus: () => true });
-      return ok(response.data.data);
+      const data = response.data?.data;
+      if (data && Array.isArray(data.pets)) {
+        return ok(data);
+      }
+      return fail("BACKEND_PETS_FAILED", "반려동물 목록 응답 형식이 올바르지 않습니다.", 502);
     } catch {
       return fail("BACKEND_PETS_FAILED", "반려동물 목록을 불러오지 못했습니다.", 502);
     }
