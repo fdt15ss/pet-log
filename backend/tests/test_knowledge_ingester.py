@@ -36,6 +36,10 @@ class FakeVectorStore:
 
 
 class TestCareKnowledgeIngester(unittest.TestCase):
+    def test_requires_explicit_vector_store(self) -> None:
+        with self.assertRaisesRegex(TypeError, "vector_store"):
+            CareKnowledgeIngester()
+
     def test_ingests_accepted_evaluation_into_vector_store(self) -> None:
         vector_store = FakeVectorStore()
         ingester = CareKnowledgeIngester(vector_store=vector_store)

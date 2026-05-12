@@ -2,17 +2,11 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any, Protocol
 
-from langchain_chroma import Chroma
-from langchain_openai import OpenAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from infrastructure.knowledge.web_evaluator import EvaluatedWebKnowledge
-
-
-CARE_KNOWLEDGE_COLLECTION = "care_knowledge"
 
 
 class KnowledgeVectorStore(Protocol):
@@ -42,20 +36,11 @@ class CareKnowledgeIngester:
     def __init__(
         self,
         *,
-        persist_directory: str | None = None,
-        vector_store: KnowledgeVectorStore | None = None,
+        vector_store: KnowledgeVectorStore,
         chunk_size: int = 1000,
         chunk_overlap: int = 200,
     ) -> None:
-        if persist_directory is None:
-            backend_root = Path(__file__).resolve().parents[3]
-            persist_directory = str(backend_root / ".chroma_db")
-
-        self._vector_store = vector_store or Chroma(
-            collection_name=CARE_KNOWLEDGE_COLLECTION,
-            embedding_function=OpenAIEmbeddings(model="text-embedding-3-small"),
-            persist_directory=persist_directory,
-        )
+        self._vector_store = vector_store
         self._text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=chunk_size,
             chunk_overlap=chunk_overlap,
