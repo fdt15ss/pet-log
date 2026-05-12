@@ -52,3 +52,4 @@ dev-server.*.log
 .idea/
 .vscode/
 .worktrees/
+.worktrees/
