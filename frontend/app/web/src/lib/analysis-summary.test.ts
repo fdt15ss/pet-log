@@ -1,11 +1,25 @@
 import { strict as assert } from "node:assert";
-import { getAnalysisMetrics, getAnalysisReport, getAnalysisTrendChart, getVetBrief, getVisibleAnalysisMetrics } from "./analysis-summary";
+import {
+  getAnalysisHighlights,
+  getAnalysisMetrics,
+  getAnalysisReport,
+  getAnalysisTrendChart,
+  getRiskRecords,
+  getVetBrief,
+  getVisibleAnalysisMetrics,
+} from "./analysis-summary";
 import type { RecordEntry } from "./types";
+
+function daysAgo(n: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return `${d.getMonth() + 1}월 ${d.getDate()}일`;
+}
 
 const records: RecordEntry[] = [
   {
     id: "behavior-alert",
-    date: "4월 29일",
+    date: daysAgo(0),
     time: "20:10",
     category: "behavior",
     title: "현관 앞에서 낑낑거림",
@@ -14,7 +28,7 @@ const records: RecordEntry[] = [
   },
   {
     id: "meal-notice",
-    date: "4월 29일",
+    date: daysAgo(0),
     time: "08:30",
     category: "meal",
     title: "아침 사료 40g",
@@ -23,7 +37,7 @@ const records: RecordEntry[] = [
   },
   {
     id: "walk-normal",
-    date: "4월 28일",
+    date: daysAgo(1),
     time: "17:00",
     category: "walk",
     title: "산책 20분",
@@ -40,7 +54,7 @@ assert.ok(report.insight.includes("주의"));
 const emptyReport = getAnalysisReport([], "monthly");
 assert.ok(emptyReport.insight.includes("기록"));
 
-const metrics = getAnalysisMetrics(records);
+const metrics = getAnalysisMetrics(records, "weekly");
 assert.equal(metrics.find((metric) => metric.id === "behavior")?.values.at(-1), 1);
 assert.equal(metrics.find((metric) => metric.id === "stool")?.trend, "최근 기록 없음");
 
@@ -73,3 +87,18 @@ assert.deepEqual(
 const vetBrief = getVetBrief(records);
 assert.equal(vetBrief.items.length, 3);
 assert.ok(vetBrief.detail.includes("병원 상담"));
+
+const weeklyHighlights = getAnalysisHighlights(records, "weekly");
+assert.deepEqual(
+  weeklyHighlights.map((highlight) => highlight.id),
+  ["meal", "walk", "behavior"],
+);
+assert.equal(weeklyHighlights.find((highlight) => highlight.id === "behavior")?.tone, "red");
+assert.ok(weeklyHighlights.find((highlight) => highlight.id === "walk")?.detail.includes("산책"));
+
+const riskRecords = getRiskRecords(records, "weekly");
+assert.deepEqual(
+  riskRecords.map((record) => record.id),
+  ["behavior-alert", "meal-notice"],
+);
+assert.equal(getRiskRecords([], "monthly")[0]?.title, "이상 징후 기록 없음");

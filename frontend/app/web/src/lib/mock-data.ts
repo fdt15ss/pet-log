@@ -18,10 +18,16 @@ export const petProfile: PetProfile = {
   notes: ["분리불안 있음", "닭고기 알러지 의심", "실내 배변 선호"],
 };
 
+function daysAgo(n: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return `${d.getMonth() + 1}월 ${d.getDate()}일`;
+}
+
 export const records: RecordEntry[] = [
   {
     id: "r1",
-    date: "4월 17일",
+    date: daysAgo(0),
     time: "09:00",
     category: "meal",
     title: "아침 50g, 간식 조금",
@@ -30,7 +36,7 @@ export const records: RecordEntry[] = [
   },
   {
     id: "r2",
-    date: "4월 17일",
+    date: daysAgo(0),
     time: "10:30",
     category: "walk",
     title: "산책 20분",
@@ -39,7 +45,7 @@ export const records: RecordEntry[] = [
   },
   {
     id: "r3",
-    date: "4월 17일",
+    date: daysAgo(0),
     time: "21:30",
     category: "stool",
     title: "정상, 1회",
@@ -48,7 +54,7 @@ export const records: RecordEntry[] = [
   },
   {
     id: "r4",
-    date: "4월 18일",
+    date: daysAgo(1),
     time: "14:20",
     category: "medical",
     title: "심장사상충 약 복용",
@@ -57,7 +63,7 @@ export const records: RecordEntry[] = [
   },
   {
     id: "r5",
-    date: "4월 18일",
+    date: daysAgo(1),
     time: "20:10",
     category: "behavior",
     title: "현관 앞에서 기다림",

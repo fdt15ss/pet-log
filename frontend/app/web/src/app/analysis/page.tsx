@@ -4,11 +4,13 @@ import { useMemo, useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import { PetIcon } from "@/components/pet-icons";
 import { usePetLog } from "@/components/pet-log-provider";
-import { Card, MultiLineChart, Pill, SectionHeader } from "@/components/ui";
+import { Card, MetricSparkline, Pill, SectionHeader } from "@/components/ui";
 import {
+  getAnalysisHighlights,
   getAnalysisMetrics,
   getAnalysisReport,
   getAnalysisTrendChart,
+  getRiskRecords,
   getVetBrief,
   type AnalysisMetricFilter,
   type AnalysisRange,
@@ -41,12 +43,20 @@ const toneIcon: Record<AnalysisTone, "check" | "alert" | "activity" | "sparkle">
   blue: "activity",
 };
 
+const highlightIcon = {
+  meal: "meal",
+  walk: "walk",
+  behavior: "behavior",
+} as const;
+
 export default function AnalysisPage() {
   const { records, settings, insights, isAnalysisLoading } = usePetLog();
   const [activeRange, setActiveRange] = useState<AnalysisRange>("weekly");
   const [activeMetric, setActiveMetric] = useState<AnalysisMetricFilter>("all");
 
   const summary = useMemo(() => getAnalysisReport(records, activeRange), [activeRange, records]);
+  const highlights = useMemo(() => getAnalysisHighlights(records, activeRange), [activeRange, records]);
+  const riskRecords = useMemo(() => getRiskRecords(records, activeRange), [activeRange, records]);
   
   const aiInsights = useMemo(() => {
     if (!settings.aiInsightEnabled) return [];
@@ -58,7 +68,7 @@ export default function AnalysisPage() {
     }));
   }, [insights, settings.aiInsightEnabled]);
 
-  const metrics = useMemo(() => getAnalysisMetrics(records), [records]);
+  const metrics = useMemo(() => getAnalysisMetrics(records, activeRange), [records, activeRange]);
   const vetBrief = useMemo(() => getVetBrief(records), [records]);
   const trendChart = useMemo(() => getAnalysisTrendChart(metrics, activeMetric), [activeMetric, metrics]);
   const scopedRecords = activeRange === "weekly" ? records.slice(0, 7) : records.slice(0, 30);
@@ -114,6 +124,44 @@ export default function AnalysisPage() {
         </Card>
 
         <section>
+          <SectionHeader title="핵심 패턴" />
+          <div className="grid grid-cols-1 gap-3">
+            {highlights.map((highlight) => (
+              <Card className={`p-3 ${toneCard[highlight.tone]}`} key={highlight.id} motion="rise">
+                <div className="flex items-start gap-3">
+                  <div className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white ${toneText[highlight.tone]}`}>
+                    <PetIcon className="h-5 w-5" name={highlightIcon[highlight.id]} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-[#7b8576]">{highlight.label}</p>
+                    <h3 className="mt-1 text-sm font-black text-[#1f2922]">{highlight.title}</h3>
+                    <p className="mt-1 text-xs font-semibold leading-5 text-[#667262]">{highlight.detail}</p>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </section>
+
+        <section>
+          <SectionHeader title="이상 징후 기록" />
+          <div className="space-y-3">
+            {riskRecords.map((record) => (
+              <Card className={`p-3 ${toneCard[record.tone]}`} key={record.id} motion="rise">
+                <div className="flex items-start gap-3">
+                  <PetIcon className={`mt-0.5 h-5 w-5 shrink-0 ${toneText[record.tone]}`} name={toneIcon[record.tone]} />
+                  <div className="min-w-0">
+                    <p className={`text-xs font-bold ${toneText[record.tone]}`}>{record.meta}</p>
+                    <h3 className="mt-1 text-sm font-black text-[#1f2922]">{record.title}</h3>
+                    <p className="mt-1 text-xs font-semibold leading-5 text-[#667262]">{record.detail}</p>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </section>
+
+        <section>
           <SectionHeader title="변화 추이" />
           <div className="mb-3 grid grid-cols-2 gap-2">
             <Pill active={activeMetric === "all"} className="col-span-2 w-full px-2 text-xs" onClick={() => setActiveMetric("all")}>
@@ -126,27 +174,23 @@ export default function AnalysisPage() {
             ))}
           </div>
           <Card motion="rise">
-            <div className="mb-3 flex items-start justify-between gap-3">
-              <div>
-                <h3 className="inline-flex items-center gap-1.5 font-bold text-[#1f2922]">
-                  <PetIcon className={`h-4 w-4 ${toneText[trendChart.tone]}`} name={toneIcon[trendChart.tone]} />
-                  {trendChart.title}
-                </h3>
-                <p className="mt-1 text-xs font-semibold text-[#7b8576]">{trendChart.detail}</p>
-              </div>
-              <span className={`rounded-full bg-[#f4f7f0] px-3 py-1 text-xs font-bold ${toneText[trendChart.tone]}`}>
-                {trendChart.unit}
-              </span>
+            <div className="divide-y divide-[#f0f4ec]">
+              {trendChart.series.map((series) => {
+                const metric = metrics.find((m) => m.id === series.id)!;
+                return (
+                  <div className="py-3 first:pt-0 last:pb-0" key={series.id}>
+                    <div className="mb-1.5 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5">
+                        <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: series.color }} />
+                        <p className="text-xs font-bold text-[#1f2922]">{series.label}</p>
+                      </div>
+                      <p className={`text-[11px] font-semibold ${toneText[metric.tone]}`}>{metric.trend}</p>
+                    </div>
+                    <MetricSparkline color={series.color} values={series.values} />
+                  </div>
+                );
+              })}
             </div>
-            <div className="mb-2 flex flex-wrap gap-3">
-              {trendChart.series.map((series) => (
-                <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[#667262]" key={series.id}>
-                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: series.color }} />
-                  {series.label}
-                </span>
-              ))}
-            </div>
-            <MultiLineChart series={trendChart.series} />
           </Card>
         </section>
 

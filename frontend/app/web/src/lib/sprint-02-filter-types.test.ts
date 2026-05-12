@@ -5,7 +5,7 @@ import { getCommunityPosts } from "./community";
 import { communityPosts, records } from "./mock-data";
 
 test("스프린트 2: 필터와 선택 UI용 데이터 조회가 실제 목록을 줄인다", () => {
-  const metrics = getAnalysisMetrics(records);
+  const metrics = getAnalysisMetrics(records, "weekly");
   const walkMetrics = getVisibleAnalysisMetrics(metrics, "walk");
   const walkChart = getAnalysisTrendChart(metrics, "walk");
   const behaviorPosts = getCommunityPosts(communityPosts, { feed: "인기글", board: "행동 고민" });
