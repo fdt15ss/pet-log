@@ -110,12 +110,9 @@ export function GoogleHospitalMap({ currentLocation, hospitals, locationStatus, 
       zoomControl: true,
     });
 
-    const currentSelectedId = selectedHospitalId ?? hospitals[0]?.id;
     markersRef.current = hospitals.map((hospital, index) => {
-      const isSelected = hospital.id === currentSelectedId;
       const marker = new maps.Marker({
-        animation: isSelected ? maps.Animation.DROP : undefined,
-        icon: getMarkerIcon(maps, isSelected),
+        icon: getMarkerIcon(maps, false),
         label: {
           color: "#ffffff",
           fontSize: "13px",
