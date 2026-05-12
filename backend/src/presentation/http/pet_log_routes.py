@@ -7,7 +7,6 @@ from fastapi import APIRouter, HTTPException, Request
 from application.dto import PetLogAgentInput, PetLogAgentResult
 from composition import AppContext
 from domain.models import CareSchedule, PetProfile, PetRecord
-from presentation.http.notification_routes import notification_to_frontend
 from presentation.http.schemas import (
     PetCreateRequest,
     PetLogRecordRequest,
