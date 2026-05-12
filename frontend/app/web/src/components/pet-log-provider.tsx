@@ -27,6 +27,7 @@ import type {
   AiInsight,
   AiSuggestion,
   AppSettings,
+  CareNotification,
   CareSchedule,
   PetProfile,
   RecordCategoryChoice,
@@ -72,6 +73,7 @@ type PetLogContextValue = {
   records: RecordEntry[];
   schedules: CareSchedule[];
   settings: AppSettings;
+  notifications: CareNotification[];
   readNotificationIds: string[];
   expansionState: ExpansionState;
   insights: AiInsight[];
@@ -129,6 +131,7 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
   const [records, setRecords] = useState<RecordEntry[]>([]);
   const [schedules, setSchedules] = useState<CareSchedule[]>([]);
   const [settings, setSettings] = useState<AppSettings>(defaultAppSettings);
+  const [notifications, setNotifications] = useState<CareNotification[]>([]);
   const [readNotificationIds, setReadNotificationIds] = useState<string[]>([]);
   const [expansionState, setExpansionState] = useState<ExpansionState>(
     normalizeExpansionState(undefined),
@@ -211,8 +214,9 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
         
         // 알림 및 설정은 현재 스냅샷 호환성을 위해 기본값 또는 서버 데이터를 적절히 매핑
         // (필요시 fetchMe에서 설정을 가져오거나 별도 API 추가 가능)
-        setSettings(defaultAppSettings); 
-        setReadNotificationIds((notificationsData.notifications as PetNotification[]).filter((n: PetNotification) => n.isRead).map((n: PetNotification) => n.id));
+        setSettings(defaultAppSettings);
+        setNotifications(notificationsData.notifications ?? []);
+        setReadNotificationIds(notificationsData.readNotificationIds ?? []);
         setExpansionState(defaultExpansionState);
 
         // 4. AI 분석 초기 데이터 로드
@@ -435,7 +439,8 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
         setProfile(activePet);
         setRecords(recordsData.records);
         setSchedules(schedulesData.schedules);
-        setReadNotificationIds((notificationsData.notifications as PetNotification[]).filter((n: PetNotification) => n.isRead).map((n: PetNotification) => n.id));
+        setNotifications(notificationsData.notifications ?? []);
+        setReadNotificationIds(notificationsData.readNotificationIds ?? []);
       }
       setError("");
       setSyncStatus("synced");
@@ -446,8 +451,9 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const persistReadNotificationIds = useCallback(async (ids: string[]) => {
+    if (!profile.id) return;
     try {
-      const response = await updateReadNotifications(ids);
+      const response = await updateReadNotifications(profile.id, ids);
       setReadNotificationIds(response.readNotificationIds);
       setError("");
       setSyncStatus("synced");
@@ -460,12 +466,14 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
   const markNotificationRead = useCallback(async (id: string) => {
     const nextIds = readNotificationIds.includes(id) ? readNotificationIds : [...readNotificationIds, id];
     setReadNotificationIds(nextIds);
+    setNotifications((current) => current.map((n) => n.id === id ? { ...n, isRead: true } : n));
     await persistReadNotificationIds(nextIds);
   }, [persistReadNotificationIds, readNotificationIds]);
 
   const markAllNotificationsRead = useCallback(async (ids: string[]) => {
     const nextIds = Array.from(new Set([...readNotificationIds, ...ids]));
     setReadNotificationIds(nextIds);
+    setNotifications((current) => current.map((n) => ids.includes(n.id) ? { ...n, isRead: true } : n));
     await persistReadNotificationIds(nextIds);
   }, [persistReadNotificationIds, readNotificationIds]);
 
@@ -529,6 +537,7 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
       records,
       schedules,
       settings,
+      notifications,
       readNotificationIds,
       expansionState,
       insights,
@@ -558,6 +567,7 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
       records,
       schedules,
       settings,
+      notifications,
       readNotificationIds,
       expansionState,
       insights,

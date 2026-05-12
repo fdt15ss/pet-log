@@ -165,6 +165,7 @@ export type CareNotification = {
   actionHref: string;
   dueLabel: string;
   tone: CareNotificationTone;
+  isRead: boolean;
 };
 
 export type MetricSeries = {

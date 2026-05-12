@@ -4,6 +4,7 @@ import type {
   AiInsight,
   AiSuggestion,
   AppSettings,
+  CareNotification,
   CareSchedule,
   ChatbotMessage,
   ChatbotThread,
@@ -160,7 +161,7 @@ export function fetchSchedules(petId: string) {
 }
 
 export function fetchNotifications(petId: string) {
-  return requestData<{ notifications: unknown[] }>(apiClient.get("/notifications", { params: { pet_id: petId } }));
+  return requestData<{ notifications: CareNotification[]; readNotificationIds: string[] }>(apiClient.get("/notifications", { params: { pet_id: petId } }));
 }
 
 export function updateProfile(input: PetProfile) {
@@ -225,8 +226,10 @@ export function updateSettings(input: AppSettings) {
   return requestData<{ settings: AppSettings }>(apiClient.put("/settings", input));
 }
 
-export function updateReadNotifications(readNotificationIds: string[]) {
-  return requestData<{ readNotificationIds: string[] }>(apiClient.put("/notifications/read", { readNotificationIds }));
+export function updateReadNotifications(petId: string, readNotificationIds: string[]) {
+  return requestData<{ readNotificationIds: string[] }>(
+    apiClient.put("/notifications/read", { readNotificationIds }, { params: { pet_id: petId } })
+  );
 }
 
 export function updateExpansionState(input: Partial<ExpansionState>) {

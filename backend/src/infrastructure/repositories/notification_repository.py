@@ -4,6 +4,7 @@ import sqlite3
 from datetime import UTC, datetime
 from uuid import uuid4
 
+from application.dto import NotificationCandidate
 from domain.models import Notification
 from infrastructure.database import initialize_schema
 
@@ -42,6 +43,25 @@ class NotificationRepository:
         self._connection.commit()
         return cursor.rowcount
 
+    def get_read_ids(self, pet_id: str) -> tuple[str, ...]:
+        rows = self._connection.execute(
+            "SELECT notification_id FROM notification_read_ids WHERE pet_id = ?",
+            (pet_id,),
+        ).fetchall()
+        return tuple(row[0] for row in rows)
+
+    def set_read_ids(self, pet_id: str, ids: tuple[str, ...]) -> None:
+        self._connection.execute(
+            "DELETE FROM notification_read_ids WHERE pet_id = ?",
+            (pet_id,),
+        )
+        for nid in ids:
+            self._connection.execute(
+                "INSERT INTO notification_read_ids (pet_id, notification_id) VALUES (?, ?)",
+                (pet_id, nid),
+            )
+        self._connection.commit()
+
     def create(
         self,
         pet_id: str,
@@ -75,6 +95,63 @@ class NotificationRepository:
             tone=tone,
             created_at=created_at,
         )
+
+
+    def upsert_from_candidate(
+        self,
+        pet_id: str,
+        candidate: NotificationCandidate,
+        category: str,
+        action: str,
+        action_href: str,
+        tone: str,
+    ) -> Notification:
+        existing = self.find_by_dedupe_key(candidate.dedupe_key)
+        if existing:
+            return existing
+
+        notification_id = str(uuid4())
+        created_at = datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+        self._connection.execute(
+            """
+            INSERT INTO notifications
+                (id, pet_id, category, title, detail, action, action_href, due_label, tone, dedupe_key, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                notification_id, pet_id, category,
+                candidate.title, candidate.message,
+                action, action_href,
+                candidate.due_date or "", tone,
+                candidate.dedupe_key, created_at,
+            ),
+        )
+        self._connection.commit()
+        return Notification(
+            id=notification_id,
+            pet_id=pet_id,
+            category=category,
+            title=candidate.title,
+            detail=candidate.message,
+            action=action,
+            action_href=action_href,
+            due_label=candidate.due_date or "",
+            tone=tone,
+            created_at=created_at,
+        )
+
+    def find_by_dedupe_key(self, dedupe_key: str) -> Notification | None:
+        row = self._connection.execute(
+            """
+            SELECT id, pet_id, category, title, detail, action, action_href, due_label, tone, read_at, created_at
+            FROM notifications
+            WHERE dedupe_key = ? AND deleted_at IS NULL
+            """,
+            (dedupe_key,),
+        ).fetchone()
+        if row is None:
+            return None
+        return _notification_from_row(row)
 
 
 def _notification_from_row(row: sqlite3.Row) -> Notification:

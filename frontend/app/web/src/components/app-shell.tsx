@@ -6,8 +6,6 @@ import type { ReactNode } from "react";
 import { AskAiPanel } from "./ask-ai-panel";
 import { usePetLog } from "./pet-log-provider";
 import { PetIcon } from "./pet-icons";
-import { getCareNotifications, getUnreadNotificationCount } from "@/lib/notifications";
-
 const navItems = [
   { href: "/", label: "홈", icon: "home" },
   { href: "/record", label: "기록", icon: "record" },
@@ -26,9 +24,8 @@ type AppShellProps = {
 
 export function AppShell({ title, subtitle, action, bottomAction, children }: AppShellProps) {
   const pathname = usePathname();
-  const { readNotificationIds, records, schedules, settings } = usePetLog();
-  const notifications = getCareNotifications(records, schedules, undefined, settings.notificationPreferences);
-  const notificationCount = getUnreadNotificationCount(notifications, readNotificationIds);
+  const { notifications } = usePetLog();
+  const notificationCount = notifications.filter((n) => !n.isRead).length;
   const showBackButton = pathname !== "/";
 
   return (
