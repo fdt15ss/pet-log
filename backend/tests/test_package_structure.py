@@ -54,6 +54,8 @@ class TestPackageStructure(unittest.TestCase):
             "infrastructure.llm.care_answer.mapper",
             "infrastructure.llm.care_answer.prompt",
             "infrastructure.llm.care_answer.provider",
+            "infrastructure.knowledge.ingester",
+            "infrastructure.knowledge.pipeline",
             "infrastructure.knowledge.retriever",
             "infrastructure.knowledge.web_evaluator",
             "infrastructure.knowledge.web_search",
