@@ -61,6 +61,10 @@ def _fallback_recommendation(query: str, record: PetRecord) -> ShoppingRecommend
         query=query,
         reason=f"{record.title} 기록과 관련된 기본 쇼핑 검색 추천",
         source_record_ids=(record.id,),
+        id=f"fallback:{query}",
+        category=_category_for_query(query),
+        detail="네이버 쇼핑 · 가격 확인 필요",
+        tone="blue",
     )
 
 
@@ -94,3 +98,13 @@ def _record_text(record: PetRecord) -> str:
 
 def _contains_any(value: str, terms: tuple[str, ...]) -> bool:
     return any(term in value for term in terms)
+
+
+def _category_for_query(query: str) -> str:
+    if "사료" in query or "간식" in query:
+        return "사료"
+    if "영양제" in query or "건강" in query:
+        return "건강 용품"
+    if "장난감" in query or "케어" in query:
+        return "케어 용품"
+    return "생활 용품"

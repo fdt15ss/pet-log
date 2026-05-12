@@ -59,6 +59,12 @@ export type ShoppingRecommendation = {
   detail: string;
   reason: string;
   tone: ExpansionTone;
+  product_url?: string;
+  image_url?: string;
+  mall_name?: string;
+  lowest_price?: number;
+  query?: string;
+  source_record_ids?: string[];
 };
 
 const roleOptions = ["공동 보호자", "기록 담당", "읽기 전용"];

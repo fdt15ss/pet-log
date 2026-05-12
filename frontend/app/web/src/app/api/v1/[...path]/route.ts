@@ -472,6 +472,23 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     }
   }
 
+  if (path[0] === "shopping" && path[1] === "recommendations" && path.length === 2) {
+    const petId = _request.nextUrl.searchParams.get("pet_id") || backendPetId();
+    try {
+      const response = await axios.get(backendApiUrl(`/api/v1/shopping/recommendations?pet_id=${encodeURIComponent(petId)}`), {
+        timeout: backendTimeoutMs(),
+        validateStatus: () => true,
+      });
+      const recommendations = response.data?.data?.recommendations;
+      if (response.status < 200 || response.status >= 300 || response.data?.success !== true || !Array.isArray(recommendations)) {
+        return fail("BACKEND_SHOPPING_FAILED", "쇼핑 추천 응답 형식이 올바르지 않습니다.", 502);
+      }
+      return ok({ recommendations });
+    } catch {
+      return fail("BACKEND_SHOPPING_FAILED", "쇼핑 추천을 불러오지 못했습니다.", 502);
+    }
+  }
+
   if (path[0] === "chatbot" && path[1] === "threads" && path.length === 2) {
     return ok({ threads: getMockChatbotThreads() });
   }

@@ -13,6 +13,7 @@ from domain.models import (
     CareSchedule,
     PetProfile,
     PetRecord,
+    ShoppingRecommendation,
     StructuredRecordCandidate,
     VeterinaryHospitalRecommendation,
 )
@@ -105,6 +106,7 @@ class FakeAppContext:
         self.record_reader = FakeRecordReader()
         self.schedule_reader = FakeScheduleReader()
         self.speech_to_text = FakeSpeechToText()
+        self.shopping_agent = FakeShoppingAgent()
         self.hospital_recommendation_agent = FakeHospitalRecommendationAgent()
         self.closed = False
 
@@ -154,6 +156,30 @@ class FakeHospitalRecommendationAgent:
                     distance_meters=130,
                     reason="24시간 영업으로 확인되어 현재 시각 기준 우선 추천합니다.",
                 ),
+            ),
+        )
+
+
+class FakeShoppingAgent:
+    def __init__(self) -> None:
+        self.handled_pet = None
+        self.handled_text = None
+        self.handled_records = None
+
+    def recommend(self, pet, text, records):
+        self.handled_pet = pet
+        self.handled_text = text
+        self.handled_records = records
+        return (
+            ShoppingRecommendation(
+                title="반려견 사료",
+                product_url="https://shopping.example/products/food",
+                image_url="https://shopping.example/products/food.jpg",
+                mall_name="샘플몰",
+                lowest_price=12900,
+                query="반려견 사료",
+                reason="아침 식사 기록과 관련된 상품 추천",
+                source_record_ids=("record-1",),
             ),
         )
 
@@ -223,6 +249,26 @@ class TestHttpRoutes(unittest.TestCase):
                 },
             },
         )
+
+    def test_shopping_recommendation_route_uses_pet_and_recent_records(self):
+        context = FakeAppContext()
+
+        with TestClient(create_app(app_context_factory=lambda: context)) as client:
+            response = client.get(
+                "/api/v1/shopping/recommendations",
+                params={
+                    "pet_id": "pet_01JCM7V8H9Q2K4N6R8T0A1B2C3",
+                    "text": "사료를 조금 남겼어요",
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()["data"]
+        self.assertEqual(data["recommendations"][0]["title"], "반려견 사료")
+        self.assertEqual(data["recommendations"][0]["lowest_price"], 12900)
+        self.assertEqual(context.shopping_agent.handled_pet.name, "초코")
+        self.assertEqual(context.shopping_agent.handled_text, "사료를 조금 남겼어요")
+        self.assertEqual(context.shopping_agent.handled_records[0].id, "record-1")
 
     def test_snapshot_route_returns_db_backed_frontend_snapshot(self):
         context = FakeAppContext()

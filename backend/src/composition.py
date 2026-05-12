@@ -38,6 +38,7 @@ class AppContext:
     risk_detection_agent: RiskDetectionAgent
     context_analysis_agent: ContextAnalysisAgent
     suggestion_agent: SuggestionAgent
+    shopping_agent: ShoppingAgent | None = None
     hospital_recommendation_agent: HospitalRecommendationAgent | None = None
     record_reader: RecordRepository | None = None
     schedule_reader: ScheduleRepository | None = None
@@ -60,6 +61,9 @@ def build_app_context(database_path: str | None = None) -> AppContext:
     context_analysis_agent = ContextAnalysisAgent(PatternAnalyzer(), MissingRecordPolicy())
     suggestion_agent = SuggestionAgent(SuggestionComposer())
 
+    shopping_agent = ShoppingAgent(
+        ShoppingFallbackMiddleware(ShoppingRecommendationProvider(NaverShoppingClient()))
+    )
     pipeline = LangGraphPetLogAgentPipeline(
         record_structuring_agent=RecordStructuringAgent(_record_structurer()),
         record_history_reader=record_repository,
@@ -69,9 +73,7 @@ def build_app_context(database_path: str | None = None) -> AppContext:
         record_repository=record_repository,
         suggestion_agent=suggestion_agent,
         reminder_agent=ReminderAgent(ReminderPlanner()),
-        shopping_agent=ShoppingAgent(
-            ShoppingFallbackMiddleware(ShoppingRecommendationProvider(NaverShoppingClient()))
-        ),
+        shopping_agent=shopping_agent,
     )
     return AppContext(
         pet_log_agent_pipeline=pipeline,
@@ -80,6 +82,7 @@ def build_app_context(database_path: str | None = None) -> AppContext:
         risk_detection_agent=risk_detection_agent,
         context_analysis_agent=context_analysis_agent,
         suggestion_agent=suggestion_agent,
+        shopping_agent=shopping_agent,
         hospital_recommendation_agent=HospitalRecommendationAgent(HospitalFallbackMiddleware(GooglePlacesClient())),
         record_reader=record_repository,
         schedule_reader=schedule_repository,

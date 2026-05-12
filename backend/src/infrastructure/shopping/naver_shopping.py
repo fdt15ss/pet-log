@@ -108,6 +108,10 @@ def _item_to_recommendation(
         query=query,
         reason=reason,
         source_record_ids=source_record_ids,
+        id=str(item.get("link", "")) or f"{query}:{item.get('title', '')}",
+        category=_category_for_query(query),
+        detail=_detail_for_item(str(item.get("mallName", "")), _int_or_zero(item.get("lprice"))),
+        tone="green",
     )
 
 
@@ -120,6 +124,23 @@ def _int_or_zero(value: object) -> int:
         return int(value)
     except (TypeError, ValueError):
         return 0
+
+
+def _category_for_query(query: str) -> str:
+    if "사료" in query or "간식" in query:
+        return "사료"
+    if "영양제" in query or "건강" in query:
+        return "건강 용품"
+    if "장난감" in query or "케어" in query:
+        return "케어 용품"
+    return "생활 용품"
+
+
+def _detail_for_item(mall_name: str, lowest_price: int) -> str:
+    mall = mall_name or "쇼핑몰"
+    if lowest_price > 0:
+        return f"{mall} · 최저가 {lowest_price:,}원"
+    return f"{mall} · 가격 확인 필요"
 
 
 def _bounded_int(value: str | None, *, default: int, minimum: int, maximum: int) -> int:

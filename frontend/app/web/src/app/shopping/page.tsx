@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import { PetIcon } from "@/components/pet-icons";
 import { usePetLog } from "@/components/pet-log-provider";
 import { Card, Pill, SectionHeader } from "@/components/ui";
+import { fetchShoppingRecommendations } from "@/lib/api-client";
 import { shoppingFilters, toggleSavedRecommendation } from "@/lib/expansion-state";
-import { getShoppingRecommendations } from "@/lib/expansion-features";
+import { getShoppingRecommendations, type ShoppingRecommendation } from "@/lib/expansion-features";
 import type { ShoppingFilter } from "@/lib/expansion-state";
 
 const toneClasses = {
@@ -19,7 +20,11 @@ const toneClasses = {
 export default function ShoppingPage() {
   const { profile, records, expansionState, updateShoppingState } = usePetLog();
   const shoppingState = expansionState.shopping;
-  const recommendations = useMemo(() => getShoppingRecommendations(profile, records), [profile, records]);
+  const [apiRecommendations, setApiRecommendations] = useState<ShoppingRecommendation[]>([]);
+  const [isShoppingLoading, setIsShoppingLoading] = useState(false);
+  const [shoppingError, setShoppingError] = useState("");
+  const fallbackRecommendations = useMemo(() => getShoppingRecommendations(profile, records), [profile, records]);
+  const recommendations = apiRecommendations.length > 0 ? apiRecommendations : fallbackRecommendations;
   const filteredRecommendations = useMemo(() => {
     if (shoppingState.activeFilter === "전체") {
       return recommendations;
@@ -27,6 +32,41 @@ export default function ShoppingPage() {
 
     return recommendations.filter((item) => item.category === shoppingState.activeFilter);
   }, [shoppingState.activeFilter, recommendations]);
+
+  useEffect(() => {
+    if (!profile.id) {
+      setApiRecommendations([]);
+      return;
+    }
+
+    let cancelled = false;
+    setIsShoppingLoading(true);
+    setShoppingError("");
+
+    fetchShoppingRecommendations(profile.id)
+      .then(({ recommendations }) => {
+        if (cancelled) {
+          return;
+        }
+        setApiRecommendations(recommendations);
+      })
+      .catch(() => {
+        if (cancelled) {
+          return;
+        }
+        setApiRecommendations([]);
+        setShoppingError("쇼핑 API 추천을 불러오지 못해 기록 기반 기본 추천을 표시합니다.");
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setIsShoppingLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [profile.id]);
 
   function toggleSavedItem(recommendationId: string) {
     updateShoppingState({
@@ -46,7 +86,10 @@ export default function ShoppingPage() {
           <p className="mt-2 text-sm leading-6 text-[#667262]">
             프로필, 식사 기록, 산책 기록, 행동 기록을 근거로 사료와 케어 용품 추천 화면을 구성합니다.
           </p>
-          <p className="mt-3 text-xs font-bold text-[#bb721e]">저장한 추천 {shoppingState.savedRecommendationIds.length}개</p>
+          <p className="mt-3 text-xs font-bold text-[#bb721e]">
+            {isShoppingLoading ? "상품 추천 동기화 중" : `저장한 추천 ${shoppingState.savedRecommendationIds.length}개`}
+          </p>
+          {shoppingError ? <p className="mt-2 text-xs font-bold text-[#be4c3c]">{shoppingError}</p> : null}
         </Card>
 
         <div className="grid grid-cols-3 gap-2">
@@ -90,10 +133,25 @@ export default function ShoppingPage() {
                     <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${toneClasses[item.tone]}`}>{item.category}</span>
                     <h2 className="mt-3 text-base font-black text-[#1f2922]">{item.title}</h2>
                     <p className="mt-2 text-sm leading-6 text-[#667262]">{item.detail}</p>
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      {typeof item.lowest_price === "number" && item.lowest_price > 0 ? (
+                        <span className="text-base font-black text-[#16804b]">{item.lowest_price.toLocaleString("ko-KR")}원</span>
+                      ) : null}
+                      {item.mall_name ? <span className="rounded-full bg-[#f4f7f0] px-2.5 py-1 text-xs font-bold text-[#667262]">{item.mall_name}</span> : null}
+                    </div>
                   </div>
-                  <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-[#f4f7f0] text-lg font-black text-[#16804b]">
-                    <PetIcon className="h-6 w-6" name="shopping" />
-                  </div>
+                  {item.image_url ? (
+                    <img
+                      alt=""
+                      className="h-20 w-20 shrink-0 rounded-2xl border border-[#dfe6d9] bg-[#f4f7f0] object-cover"
+                      loading="lazy"
+                      src={item.image_url}
+                    />
+                  ) : (
+                    <div className="grid h-20 w-20 shrink-0 place-items-center rounded-2xl bg-[#f4f7f0] text-lg font-black text-[#16804b]">
+                      <PetIcon className="h-7 w-7" name="shopping" />
+                    </div>
+                  )}
                 </div>
                 <button
                   className="mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-[#dbe4d4] bg-white text-sm font-bold text-[#16804b]"
@@ -109,7 +167,24 @@ export default function ShoppingPage() {
                   {shoppingState.expandedReasonId === item.id ? "추천 이유 닫기" : "추천 이유 보기"}
                 </button>
                 {shoppingState.expandedReasonId === item.id ? (
-                  <p className="mt-3 rounded-xl bg-[#f8faf5] px-3 py-2 text-xs font-semibold leading-5 text-[#3d4639]">{item.reason}</p>
+                  <div className="mt-3 rounded-xl bg-[#f8faf5] px-3 py-2 text-xs font-semibold leading-5 text-[#3d4639]">
+                    <p>{item.reason}</p>
+                    {item.mall_name ? <p className="mt-1 text-[#667262]">{item.mall_name}</p> : null}
+                    {typeof item.lowest_price === "number" && item.lowest_price > 0 ? (
+                      <p className="mt-1 text-[#667262]">최저가 {item.lowest_price.toLocaleString("ko-KR")}원</p>
+                    ) : null}
+                  </div>
+                ) : null}
+                {item.product_url ? (
+                  <a
+                    className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-[#dbe4d4] bg-white text-sm font-bold text-[#356aa8]"
+                    href={item.product_url}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    <PetIcon className="h-4 w-4" name="shopping" />
+                    상품 보기
+                  </a>
                 ) : null}
                 <button
                   className={`mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl text-sm font-bold ${
