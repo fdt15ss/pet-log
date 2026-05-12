@@ -35,7 +35,10 @@ export default function HospitalPage() {
       .then((data) => {
         if (cancelled || !data) return;
         const { latitude: cLat, longitude: cLng } = data.search_center;
-        setNearbyHospitals(data.recommendations.map((item) => toNearbyHospital(item, cLat, cLng)));
+        const sorted = data.recommendations
+          .slice()
+          .sort((a, b) => (a.distance_meters ?? Infinity) - (b.distance_meters ?? Infinity));
+        setNearbyHospitals(sorted.map((item) => toNearbyHospital(item, cLat, cLng)));
       })
       .catch(() => {
         if (!cancelled) setNearbyHospitals([]);
