@@ -6,9 +6,11 @@ import { PetIcon } from "@/components/pet-icons";
 import { usePetLog } from "@/components/pet-log-provider";
 import { Card, MultiLineChart, Pill, SectionHeader } from "@/components/ui";
 import {
+  getAnalysisHighlights,
   getAnalysisMetrics,
   getAnalysisReport,
   getAnalysisTrendChart,
+  getRiskRecords,
   getVetBrief,
   type AnalysisMetricFilter,
   type AnalysisRange,
@@ -41,12 +43,20 @@ const toneIcon: Record<AnalysisTone, "check" | "alert" | "activity" | "sparkle">
   blue: "activity",
 };
 
+const highlightIcon = {
+  meal: "meal",
+  walk: "walk",
+  behavior: "behavior",
+} as const;
+
 export default function AnalysisPage() {
   const { records, settings, insights, isAnalysisLoading } = usePetLog();
   const [activeRange, setActiveRange] = useState<AnalysisRange>("weekly");
   const [activeMetric, setActiveMetric] = useState<AnalysisMetricFilter>("all");
 
   const summary = useMemo(() => getAnalysisReport(records, activeRange), [activeRange, records]);
+  const highlights = useMemo(() => getAnalysisHighlights(records, activeRange), [activeRange, records]);
+  const riskRecords = useMemo(() => getRiskRecords(records, activeRange), [activeRange, records]);
   
   const aiInsights = useMemo(() => {
     if (!settings.aiInsightEnabled) return [];
@@ -112,6 +122,44 @@ export default function AnalysisPage() {
           </div>
           <p className="mt-4 text-sm leading-6 text-[#596554]">{summary.insight}</p>
         </Card>
+
+        <section>
+          <SectionHeader title="핵심 패턴" />
+          <div className="grid grid-cols-1 gap-3">
+            {highlights.map((highlight) => (
+              <Card className={`p-3 ${toneCard[highlight.tone]}`} key={highlight.id} motion="rise">
+                <div className="flex items-start gap-3">
+                  <div className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white ${toneText[highlight.tone]}`}>
+                    <PetIcon className="h-5 w-5" name={highlightIcon[highlight.id]} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-[#7b8576]">{highlight.label}</p>
+                    <h3 className="mt-1 text-sm font-black text-[#1f2922]">{highlight.title}</h3>
+                    <p className="mt-1 text-xs font-semibold leading-5 text-[#667262]">{highlight.detail}</p>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </section>
+
+        <section>
+          <SectionHeader title="이상 징후 기록" />
+          <div className="space-y-3">
+            {riskRecords.map((record) => (
+              <Card className={`p-3 ${toneCard[record.tone]}`} key={record.id} motion="rise">
+                <div className="flex items-start gap-3">
+                  <PetIcon className={`mt-0.5 h-5 w-5 shrink-0 ${toneText[record.tone]}`} name={toneIcon[record.tone]} />
+                  <div className="min-w-0">
+                    <p className={`text-xs font-bold ${toneText[record.tone]}`}>{record.meta}</p>
+                    <h3 className="mt-1 text-sm font-black text-[#1f2922]">{record.title}</h3>
+                    <p className="mt-1 text-xs font-semibold leading-5 text-[#667262]">{record.detail}</p>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </section>
 
         <section>
           <SectionHeader title="변화 추이" />

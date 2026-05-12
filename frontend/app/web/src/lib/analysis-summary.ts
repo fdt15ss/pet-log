@@ -43,6 +43,22 @@ export type AnalysisReport = {
   insight: string;
 };
 
+export type AnalysisHighlight = {
+  id: Extract<RecordCategory, "meal" | "walk" | "behavior">;
+  label: string;
+  title: string;
+  detail: string;
+  tone: AnalysisTone;
+};
+
+export type RiskRecordSummary = {
+  id: string;
+  title: string;
+  detail: string;
+  meta: string;
+  tone: AnalysisTone;
+};
+
 export type VetBrief = {
   title: string;
   detail: string;
@@ -51,6 +67,7 @@ export type VetBrief = {
 
 const reportCategories: RecordCategory[] = ["meal", "walk", "stool", "behavior"];
 const metricCategories: AnalysisMetric["id"][] = ["meal", "walk", "stool", "behavior"];
+const highlightCategories: AnalysisHighlight["id"][] = ["meal", "walk", "behavior"];
 const metricChartColors: Record<AnalysisMetric["id"], string> = {
   meal: "#16804b",
   walk: "#df8f24",
@@ -65,7 +82,7 @@ const statusView: Record<RecordStatus, { value: string; tone: AnalysisTone }> = 
 };
 
 export function getAnalysisReport(records: RecordEntry[], range: AnalysisRange): AnalysisReport {
-  const scopedRecords = range === "weekly" ? records.slice(0, 7) : records.slice(0, 30);
+  const scopedRecords = getScopedRecords(records, range);
   const cards = reportCategories.map((category) => createReportCard(category, scopedRecords));
   const alertCount = scopedRecords.filter((record) => record.status === "alert").length;
   const noticeCount = scopedRecords.filter((record) => record.status === "notice").length;
@@ -76,6 +93,37 @@ export function getAnalysisReport(records: RecordEntry[], range: AnalysisRange):
     cards,
     insight: createInsight(scopedRecords.length, alertCount, noticeCount),
   };
+}
+
+export function getAnalysisHighlights(records: RecordEntry[], range: AnalysisRange): AnalysisHighlight[] {
+  const scopedRecords = getScopedRecords(records, range);
+
+  return highlightCategories.map((category) => createHighlight(category, scopedRecords));
+}
+
+export function getRiskRecords(records: RecordEntry[], range: AnalysisRange): RiskRecordSummary[] {
+  const scopedRecords = getScopedRecords(records, range);
+  const riskRecords = scopedRecords.filter((record) => record.status !== "normal").slice(0, 4);
+
+  if (riskRecords.length === 0) {
+    return [
+      {
+        id: "risk-empty",
+        title: "이상 징후 기록 없음",
+        detail: "선택한 기간에는 주의하거나 확인할 기록이 없습니다.",
+        meta: range === "weekly" ? "최근 7개 기록 기준" : "최근 30개 기록 기준",
+        tone: "blue",
+      },
+    ];
+  }
+
+  return riskRecords.map((record) => ({
+    id: record.id,
+    title: record.title,
+    detail: record.detail,
+    meta: `${record.date} ${record.time} · ${categoryLabels[record.category]} · ${statusView[record.status].value}`,
+    tone: statusView[record.status].tone,
+  }));
 }
 
 export function getAnalysisMetrics(records: RecordEntry[]): AnalysisMetric[] {
@@ -141,6 +189,10 @@ export function getVetBrief(records: RecordEntry[]): VetBrief {
   };
 }
 
+function getScopedRecords(records: RecordEntry[], range: AnalysisRange) {
+  return range === "weekly" ? records.slice(0, 7) : records.slice(0, 30);
+}
+
 function getTrendChartTone(metrics: AnalysisMetric[]): AnalysisTone {
   if (metrics.some((metric) => metric.tone === "red")) {
     return "red";
@@ -174,6 +226,52 @@ function createReportCard(category: RecordCategory, records: RecordEntry[]): Ana
     value: status.value,
     trend: `${categoryRecords.length}건 · 최근 ${latest.time}`,
     tone: status.tone,
+  };
+}
+
+function createHighlight(category: AnalysisHighlight["id"], records: RecordEntry[]): AnalysisHighlight {
+  const categoryRecords = records.filter((record) => record.category === category);
+  const latest = categoryRecords[0];
+
+  if (!latest) {
+    return {
+      id: category,
+      label: categoryLabels[category],
+      title: "기록 없음",
+      detail: `${categoryLabels[category]} 기록이 쌓이면 패턴을 더 정확히 볼 수 있습니다.`,
+      tone: "blue",
+    };
+  }
+
+  const alertCount = categoryRecords.filter((record) => record.status === "alert").length;
+  const noticeCount = categoryRecords.filter((record) => record.status === "notice").length;
+
+  if (alertCount > 0) {
+    return {
+      id: category,
+      label: categoryLabels[category],
+      title: "주의 패턴",
+      detail: `${categoryLabels[category]}에서 주의 기록 ${alertCount}건이 있습니다. 최근 기록은 ${latest.time}의 "${latest.title}"입니다.`,
+      tone: "red",
+    };
+  }
+
+  if (noticeCount > 0) {
+    return {
+      id: category,
+      label: categoryLabels[category],
+      title: "확인 필요",
+      detail: `${categoryLabels[category]}에서 확인 필요한 변화 ${noticeCount}건이 있습니다. ${latest.time} 기록을 이어서 관찰하세요.`,
+      tone: "orange",
+    };
+  }
+
+  return {
+    id: category,
+    label: categoryLabels[category],
+    title: "안정 흐름",
+    detail: `${categoryLabels[category]} 기록 ${categoryRecords.length}건이 안정 범위로 남아 있습니다.`,
+    tone: "green",
   };
 }
 
