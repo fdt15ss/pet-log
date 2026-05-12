@@ -633,6 +633,26 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
   }
 
+  if (path[0] === "hospitals" && path[1] === "recommendations" && path.length === 2) {
+    if (!body || typeof body.latitude !== "number" || typeof body.longitude !== "number") {
+      return fail("VALIDATION_ERROR", "위도와 경도 정보가 필요합니다.");
+    }
+    try {
+      const response = await axios.post<{ success?: boolean; data?: unknown; detail?: unknown }>(
+        backendApiUrl("/api/v1/hospitals/recommendations"),
+        body,
+        { headers: { "Content-Type": "application/json" }, timeout: backendTimeoutMs(), validateStatus: () => true },
+      );
+      if (response.status < 200 || response.status >= 300 || response.data?.success !== true || !response.data.data) {
+        const message = typeof response.data?.detail === "string" ? response.data.detail : "병원 추천을 불러오지 못했습니다.";
+        return fail("BACKEND_HOSPITAL_FAILED", message, response.status || 502);
+      }
+      return ok(response.data.data);
+    } catch {
+      return fail("BACKEND_HOSPITAL_FAILED", "병원 추천을 불러오지 못했습니다.", 502);
+    }
+  }
+
   return fail("NOT_FOUND", "요청한 API를 찾을 수 없습니다.", 404);
 }
 

@@ -30,6 +30,8 @@ type GoogleLatLngBoundsInstance = {
 
 type GoogleMarkerInstance = {
   addListener: (eventName: string, listener: () => void) => unknown;
+  setAnimation: (animation: number | null) => void;
+  setIcon: (icon: unknown) => void;
   setMap: (map: GoogleMapInstance | null) => void;
 };
 
@@ -57,8 +59,11 @@ declare global {
 const GOOGLE_MAP_SCRIPT_ID = "pet-log-google-maps-sdk";
 const DEFAULT_CENTER = { lat: 37.5665, lng: 126.978 };
 
+type MarkerEntry = { marker: GoogleMarkerInstance; hospital: NearbyAnimalHospital };
+
 export function GoogleHospitalMap({ currentLocation, hospitals, locationStatus, onSelectHospital, selectedHospitalId }: GoogleHospitalMapProps) {
   const mapElementRef = useRef<HTMLDivElement | null>(null);
+  const markersRef = useRef<MarkerEntry[]>([]);
   const [loadStatus, setLoadStatus] = useState<MapLoadStatus>(() => (process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ? "loading" : "missing-key"));
   const selectedHospital = useMemo(
     () => hospitals.find((hospital) => hospital.id === selectedHospitalId) ?? hospitals[0] ?? null,
@@ -85,6 +90,7 @@ export function GoogleHospitalMap({ currentLocation, hospitals, locationStatus, 
     };
   }, []);
 
+  // Map + marker creation — selectedHospital 제외하여 선택 시 맵 재생성 방지
   useEffect(() => {
     if (loadStatus !== "ready" || !mapElementRef.current || !window.google?.maps) {
       return;
@@ -92,7 +98,7 @@ export function GoogleHospitalMap({ currentLocation, hospitals, locationStatus, 
 
     const maps = window.google.maps;
     const mapElement = mapElementRef.current;
-    const center = currentLocation ?? selectedHospital?.mapCoordinate ?? DEFAULT_CENTER;
+    const center = currentLocation ?? DEFAULT_CENTER;
     const map = new maps.Map(mapElement, {
       center,
       disableDefaultUI: true,
@@ -104,11 +110,9 @@ export function GoogleHospitalMap({ currentLocation, hospitals, locationStatus, 
       zoomControl: true,
     });
 
-    const markers = hospitals.map((hospital, index) => {
-      const isSelected = hospital.id === selectedHospital?.id;
+    markersRef.current = hospitals.map((hospital, index) => {
       const marker = new maps.Marker({
-        animation: isSelected ? maps.Animation.DROP : undefined,
-        icon: getMarkerIcon(maps, isSelected),
+        icon: getMarkerIcon(maps, false),
         label: {
           color: "#ffffff",
           fontSize: "13px",
@@ -120,7 +124,7 @@ export function GoogleHospitalMap({ currentLocation, hospitals, locationStatus, 
         title: hospital.name,
       });
       marker.addListener("click", () => onSelectHospital(hospital.id));
-      return marker;
+      return { marker, hospital };
     });
 
     const currentLocationMarker = currentLocation
@@ -146,11 +150,24 @@ export function GoogleHospitalMap({ currentLocation, hospitals, locationStatus, 
     }
 
     return () => {
-      markers.forEach((marker) => marker.setMap(null));
+      markersRef.current.forEach(({ marker }) => marker.setMap(null));
+      markersRef.current = [];
       currentLocationMarker?.setMap(null);
       mapElement.replaceChildren();
     };
-  }, [currentLocation, hospitals, loadStatus, onSelectHospital, selectedHospital]);
+  }, [currentLocation, hospitals, loadStatus, onSelectHospital]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 선택 변경 시 마커 아이콘만 업데이트 (맵 재생성 없음)
+  useEffect(() => {
+    const maps = window.google?.maps;
+    if (!maps || markersRef.current.length === 0) return;
+
+    markersRef.current.forEach(({ marker, hospital }) => {
+      const isSelected = hospital.id === selectedHospital?.id;
+      marker.setIcon(getMarkerIcon(maps, isSelected));
+      marker.setAnimation(isSelected ? maps.Animation.DROP : null);
+    });
+  }, [selectedHospital]);
 
   if (loadStatus !== "ready") {
     return (

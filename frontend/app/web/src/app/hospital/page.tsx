@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import { GoogleHospitalMap } from "@/components/google-hospital-map";
 import { PetIcon } from "@/components/pet-icons";
 import { usePetLog } from "@/components/pet-log-provider";
 import { Card, CategoryBadge, SectionHeader } from "@/components/ui";
-import { getHospitalConnectSummary, getNearbyAnimalHospitals } from "@/lib/expansion-features";
+import { fetchHospitalRecommendations, type HospitalRecommendationItem } from "@/lib/api-client";
+import { getHospitalConnectSummary, type NearbyAnimalHospital } from "@/lib/expansion-features";
 
 export default function HospitalPage() {
   const { profile, records, expansionState, updateHospitalState } = usePetLog();
@@ -15,12 +16,41 @@ export default function HospitalPage() {
     () => getHospitalConnectSummary(profile, records, hospitalState.symptomMemo),
     [profile, records, hospitalState.symptomMemo],
   );
-  const nearbyHospitals = useMemo(() => getNearbyAnimalHospitals(hospitalState.locationStatus === "ready"), [hospitalState.locationStatus]);
+  const [nearbyHospitals, setNearbyHospitals] = useState<NearbyAnimalHospital[]>([]);
+  const [hospitalsLoading, setHospitalsLoading] = useState(false);
   const checkedChecklistCount = hospitalState.checkedChecklistItems.length;
   const selectHospital = useCallback(
     (selectedHospitalId: string) => updateHospitalState({ selectedHospitalId }),
     [updateHospitalState],
   );
+
+  useEffect(() => {
+    if (!hospitalState.currentLocation) return;
+
+    let cancelled = false;
+    const { lat, lng } = hospitalState.currentLocation;
+
+    setHospitalsLoading(true);
+    fetchHospitalRecommendations(lat, lng, { text: hospitalState.symptomMemo || undefined })
+      .then((data) => {
+        if (cancelled || !data) return;
+        const { latitude: cLat, longitude: cLng } = data.search_center;
+        const sorted = data.recommendations
+          .slice()
+          .sort((a, b) => (a.distance_meters ?? Infinity) - (b.distance_meters ?? Infinity));
+        setNearbyHospitals(sorted.map((item) => toNearbyHospital(item, cLat, cLng)));
+      })
+      .catch(() => {
+        if (!cancelled) setNearbyHospitals([]);
+      })
+      .finally(() => {
+        if (!cancelled) setHospitalsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [hospitalState.currentLocation]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function requestNearbyLocation() {
     if (!("geolocation" in navigator)) {
@@ -126,6 +156,12 @@ export default function HospitalPage() {
             />
 
             <div className="mt-4 space-y-3">
+              {hospitalsLoading && (
+                <p className="py-4 text-center text-sm font-semibold text-[#778174]">병원 정보를 불러오는 중...</p>
+              )}
+              {!hospitalsLoading && hospitalState.locationStatus === "ready" && nearbyHospitals.length === 0 && (
+                <p className="py-4 text-center text-sm font-semibold text-[#778174]">근처 동물병원을 찾지 못했습니다.</p>
+              )}
               {nearbyHospitals.map((hospital, index) => (
                 <button
                   className={`w-full rounded-2xl border p-3 text-left ${
@@ -163,7 +199,7 @@ export default function HospitalPage() {
               ))}
             </div>
             <p className="mt-3 text-xs font-semibold leading-5 text-[#778174]">
-              병원 후보는 MVP 목업 데이터입니다. 구글맵 키가 설정되면 앱 안의 지도 위 마커로 병원을 선택할 수 있습니다.
+              구글맵 키가 설정되면 지도 위 마커로 병원을 선택할 수 있습니다.
             </p>
           </Card>
         </section>
@@ -239,4 +275,30 @@ export default function HospitalPage() {
       </div>
     </AppShell>
   );
+}
+
+function toNearbyHospital(item: HospitalRecommendationItem, centerLat: number, centerLng: number): NearbyAnimalHospital {
+  const dist = item.distance_meters ?? 0;
+  const distanceLabel = dist < 1000 ? `${Math.round(dist)}m` : `${(dist / 1000).toFixed(1)}km`;
+  const etaLabel = dist < 600 ? `도보 ${Math.max(1, Math.round(dist / 70))}분` : `차량 ${Math.max(1, Math.round(dist / 200))}분`;
+  const openLabel = item.is_24_hours ? "24시 운영" : item.is_open_now === true ? "진료 중" : item.is_open_now === false ? "진료 종료" : "운영 미확인";
+  const tags = item.is_24_hours ? ["24시"] : [];
+
+  const lat = item.latitude ?? centerLat;
+  const lng = item.longitude ?? centerLng;
+  const range = 0.05;
+  const x = Math.min(95, Math.max(5, 50 + ((lng - centerLng) / range) * 50));
+  const y = Math.min(95, Math.max(5, 50 - ((lat - centerLat) / range) * 50));
+
+  return {
+    id: item.place_id,
+    name: item.name,
+    distanceLabel,
+    etaLabel,
+    addressHint: item.address.length > 30 ? `${item.address.slice(0, 30)}…` : item.address,
+    openLabel,
+    tags,
+    mapPosition: { x, y },
+    mapCoordinate: { lat, lng },
+  };
 }
