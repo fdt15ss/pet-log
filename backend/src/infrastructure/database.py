@@ -117,9 +117,16 @@ def initialize_schema(connection: sqlite3.Connection) -> None:
 
         CREATE INDEX IF NOT EXISTS idx_notifications_pet_created_at
             ON notifications (pet_id, created_at);
+
+        CREATE TABLE IF NOT EXISTS notification_read_ids (
+            pet_id TEXT NOT NULL,
+            notification_id TEXT NOT NULL,
+            PRIMARY KEY (pet_id, notification_id)
+        );
         """
     )
     _add_column_if_missing(connection, "pets", "photo_file_id", "TEXT")
+    _add_column_if_missing(connection, "notifications", "dedupe_key", "TEXT")
     connection.commit()
 
 
