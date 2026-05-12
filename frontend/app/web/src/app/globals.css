@@ -37,7 +37,7 @@ a {
 }
 
 .pet-log-card-rise {
-  animation: pet-log-card-rise 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation: pet-log-card-rise 420ms linear both;
 }
 
 .pet-log-float-soft {
@@ -66,14 +66,72 @@ a {
   stroke-dashoffset: 420;
 }
 
-@keyframes pet-log-card-rise {
+.pet-log-loading-border {
+  position: relative;
+  /* Create space OUTSIDE the card for the orbit track */
+  padding: 20px !important; /* 4px track + 16px (p-4) internal padding */
+  margin: -4px !important; /* Compensate for the track to minimize layout shift */
+  overflow: hidden !important;
+  /* Hide the container's own visual markers */
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 20px !important; /* 16px (card) + 4px (track) */
+}
+
+.pet-log-loading-border::before {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  /* Shooting star: Slightly shorter (5%) for a thinner look */
+  background: conic-gradient(
+    from 0deg,
+    #4ade80 0%,
+    #16804b 1.5%,
+    #16804b 3%,
+    rgba(22, 128, 75, 0.4) 4%,
+    rgba(22, 128, 75, 0.1) 4.5%,
+    transparent 5%,
+    transparent 100%
+  );
+  animation: pet-log-rotate 2.5s linear infinite;
+  z-index: 0;
+  filter: blur(2px) brightness(1.2);
+}
+
+.pet-log-loading-border::after {
+  content: "";
+  position: absolute;
+  /* This is the actual Card Body, positioned inside the outer track */
+  inset: 4px;
+  background: white;
+  border: 1px solid #cdd8c6;
+  border-radius: 16px; /* Restoring the original rounded-2xl */
+  box-shadow: 0 10px 28px rgba(49,65,44,0.1);
+  z-index: 1;
+}
+
+.pet-log-loading-border > * {
+  /* Ensure content stays above the card body and animation */
+  position: relative;
+  z-index: 2;
+}
+
+
+.pet-log-loading-border > * {
+  position: relative;
+  z-index: 2;
+}
+
+@keyframes pet-log-rotate {
   from {
-    opacity: 0;
-    transform: translateY(14px);
+    transform: rotate(0deg);
   }
   to {
-    opacity: 1;
-    transform: translateY(0);
+    transform: rotate(360deg);
   }
 }
 
