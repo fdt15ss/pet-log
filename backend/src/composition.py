@@ -20,6 +20,7 @@ from infrastructure.policies.pattern_analyzer import PatternAnalyzer
 from infrastructure.policies.reminder_planner import ReminderPlanner
 from infrastructure.policies.risk_signal_policy import RiskSignalPolicy
 from infrastructure.policies.suggestion_composer import SuggestionComposer
+from infrastructure.notifications.policy import NotificationPolicy
 from infrastructure.repositories.file_repository import FileRepository, LocalFileStorage
 from infrastructure.repositories.notification_repository import NotificationRepository
 from infrastructure.repositories.pet_profile_repository import PetProfileRepository
@@ -44,6 +45,7 @@ class AppContext:
     file_repository: FileRepository | None = None
     file_storage: LocalFileStorage | None = None
     notification_repository: NotificationRepository | None = None
+    notification_policy: NotificationPolicy | None = None
     close: Callable[[], None] = field(default=lambda: None)
 
 
@@ -86,6 +88,7 @@ def build_app_context(database_path: str | None = None) -> AppContext:
         file_repository=file_repository,
         file_storage=LocalFileStorage(),
         notification_repository=notification_repository,
+        notification_policy=NotificationPolicy(),
         close=database.close,
     )
 
