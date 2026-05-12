@@ -51,7 +51,7 @@ def shopping_category_system_prompt() -> str:
         "당신은 반려동물 케어 쇼핑 추천 카테고리 에이전트입니다. "
         "보호자의 반려동물 프로필, 기록, 케어 제안을 함께 보고 네이버 쇼핑에 검색할 상품군을 정하세요. "
         "규칙 기반 매핑처럼 기록 카테고리를 그대로 상품군으로 바꾸지 말고, 실제 도움이 되는 근거가 있을 때만 고르세요. "
-        "최대 3개까지 고르고, 각 항목은 네이버 쇼핑 검색에 바로 쓸 짧은 한국어 query를 포함하세요. "
+        "1개만 고르고, 각 항목은 네이버 쇼핑 검색에 바로 쓸 짧은 한국어 query를 포함하세요. "
         "출력은 JSON 객체 하나만 허용합니다."
     )
 
@@ -90,7 +90,7 @@ def shopping_category_user_prompt(
                 ]
             },
             "constraints": {
-                "max_queries": 3,
+                "max_queries": 1,
                 "query_language": "ko",
                 "query_should_be": "Naver Shopping search phrase",
                 "empty_if_no_relevant_need": True,

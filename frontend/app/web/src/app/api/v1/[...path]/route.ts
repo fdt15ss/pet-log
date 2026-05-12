@@ -128,6 +128,11 @@ function backendTimeoutMs() {
   return Number.isFinite(configured) && configured > 0 ? configured : defaultBackendTimeoutMs;
 }
 
+function backendShoppingTimeoutMs() {
+  const configured = Number(process.env.PET_LOG_SHOPPING_TIMEOUT_MS);
+  return Number.isFinite(configured) && configured > 0 ? configured : 180000;
+}
+
 function formatBackendDateLabel(recordedAt: string) {
   const date = new Date(recordedAt);
   if (Number.isNaN(date.getTime())) {
@@ -476,7 +481,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     const petId = _request.nextUrl.searchParams.get("pet_id") || backendPetId();
     try {
       const response = await axios.get(backendApiUrl(`/api/v1/shopping/recommendations?pet_id=${encodeURIComponent(petId)}`), {
-        timeout: backendTimeoutMs(),
+        timeout: backendShoppingTimeoutMs(),
         validateStatus: () => true,
       });
       const recommendations = response.data?.data?.recommendations;
