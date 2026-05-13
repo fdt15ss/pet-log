@@ -26,7 +26,7 @@ class LLMProviderConfig:
         api_key: str | None = None,
         model: str | None = None,
         fallback_model: str | None = None,
-        timeout: float = 60.0,
+        timeout: float = 35.0,
     ) -> LLMProviderConfig:
         configured_fallback = fallback_model
         if configured_fallback is None and fallback_model_env is not None:

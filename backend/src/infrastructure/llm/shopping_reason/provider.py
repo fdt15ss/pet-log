@@ -15,7 +15,7 @@ from domain.models import (
 from infrastructure.llm.base_provider import BaseLLMProvider
 from infrastructure.llm.care_answer.mapper import message_content_to_text
 from infrastructure.llm.constants import DEFAULT_SHOPPING_REASON_MODEL
-from infrastructure.llm.model_factory import LLMModel, ModelFactory, build_chat_openai_model
+from infrastructure.llm.model_factory import LLMModel, ModelFactory, build_chat_model
 from infrastructure.llm.provider_config import LLMProviderConfig
 from infrastructure.llm.shopping_reason.prompt import (
     build_shopping_category_messages,
@@ -31,7 +31,7 @@ class ShoppingReasonProvider(BaseLLMProvider[LLMModel]):
         api_key: str | None = None,
         model: str | None = None,
         timeout: float | None = None,
-        model_factory: ModelFactory[LLMModel] = build_chat_openai_model,
+        model_factory: ModelFactory[LLMModel] = build_chat_model,
         chat_model: LLMModel | None = None,
     ) -> None:
         super().__init__(

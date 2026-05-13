@@ -24,7 +24,7 @@ class FakeFallbackCapableModel:
         self.fallbacks: tuple[FakeFallbackModel, ...] = ()
         self.exceptions_to_handle: tuple[type[BaseException], ...] = ()
 
-    def invoke(self, messages: list[tuple[str, str]]) -> dict[str, object]:
+    def invoke(self, messages: list[tuple[str, str]], **kwargs: object) -> dict[str, object]:
         self.calls.append(messages)
         if self.error is not None:
             raise self.error
@@ -55,7 +55,7 @@ class FakeFallbackModel:
         self.response = response or {}
         self.calls: list[list[tuple[str, str]]] = []
 
-    def invoke(self, messages: list[tuple[str, str]]) -> dict[str, object]:
+    def invoke(self, messages: list[tuple[str, str]], **kwargs: object) -> dict[str, object]:
         self.calls.append(messages)
         if self.primary is None:
             return self.response
@@ -63,7 +63,13 @@ class FakeFallbackModel:
         try:
             return self.primary.invoke(messages)
         except self.exceptions_to_handle:
-            return self.fallbacks[0].invoke(messages)
+            last_exc: BaseException = RuntimeError("no fallbacks")
+            for fallback in self.fallbacks:
+                try:
+                    return fallback.invoke(messages)
+                except self.exceptions_to_handle as exc:
+                    last_exc = exc
+            raise last_exc
 
 
 class TestLocalGemmaFallback(unittest.TestCase):
@@ -73,14 +79,14 @@ class TestLocalGemmaFallback(unittest.TestCase):
     def test_chat_model_builder_uses_local_gemma_endpoint(self):
         env = {
             "GEMMA_BASE_URL": "http://127.0.0.1:1234/v1",
-            "GEMMA_MODEL": "google/gemma-4-E4B-it",
+            "GEMMA_MODEL": "gemma4:e4b",
         }
 
         with patch.dict("os.environ", env, clear=True), patch(
             "infrastructure.llm.model_factory.ChatOpenAI",
             FakeChatOpenAI,
         ):
-            model = build_chat_openai_model("google/gemma-4-E4B-it", "local-key", 9.0)
+            model = build_chat_openai_model("gemma4:e4b", "local-key", 9.0)
 
         self.assertIsInstance(model, FakeChatOpenAI)
         self.assertEqual(
@@ -116,25 +122,18 @@ class TestLocalGemmaFallback(unittest.TestCase):
             ],
         )
 
-    def test_record_summary_uses_local_gemma_primary_and_gpt_fallback(self):
+    def test_record_summary_uses_gpt_primary_and_gemma_fallback(self):
         created: list[dict[str, object]] = []
-        primary_model = FakeFallbackCapableModel(
-            {
-                "summary": "",
-                "record_ids": [],
-                "highlights": [],
-                "behavior_patterns": [],
-                "missing_record_notes": [],
-                "safety_notice": None,
-            },
-            error=TimeoutError("local model timed out"),
+        gpt_primary = FakeFallbackCapableModel(
+            {},
+            error=TimeoutError("gpt timed out"),
         )
-        fallback_model = FakeFallbackModel(
+        gemma_fallback = FakeFallbackModel(
             None,
             (),
             (),
             response={
-                "summary": "GPT fallback 요약입니다.",
+                "summary": "Gemma fallback 요약입니다.",
                 "record_ids": [],
                 "highlights": [],
                 "behavior_patterns": [],
@@ -145,15 +144,15 @@ class TestLocalGemmaFallback(unittest.TestCase):
 
         def fake_model_factory(model: str, api_key: str, timeout: float):
             created.append({"model": model, "api_key": api_key, "timeout": timeout})
-            if model == "gemma4:e4b":
-                return primary_model
             if model == "gpt-5-mini":
-                return fallback_model
+                return gpt_primary
+            if model == "gemma4:e4b":
+                return gemma_fallback
             raise AssertionError(f"Unexpected model: {model}")
 
         env = {
             "GEMMA_BASE_URL": "http://127.0.0.1:1234/v1",
-            "GEMMA_MODEL": "google/gemma-4-E4B-it",
+            "GEMMA_MODEL": "gemma4:e4b",
             "GEMMA_API_KEY": "local-key",
             "OPENAI_API_KEY": "gpt-key",
             "OPENAI_RECORD_SUMMARY_MODEL": "gpt-5-mini",
@@ -162,21 +161,83 @@ class TestLocalGemmaFallback(unittest.TestCase):
             provider = RecordSummaryProvider(timeout=11.0, model_factory=fake_model_factory)
             result = provider.summarize(PetProfile(id="pet-1", name="초코"), (), ContextAnalysisResult(), ())
 
-        self.assertEqual(result.summary, "GPT fallback 요약입니다.")
+        self.assertEqual(result.summary, "Gemma fallback 요약입니다.")
         self.assertEqual(
             created,
             [
-                {"model": "gemma4:e4b", "api_key": "local-key", "timeout": 11.0},
                 {"model": "gpt-5-mini", "api_key": "gpt-key", "timeout": 11.0},
+                {"model": "gemma4:e4b", "api_key": "local-key", "timeout": 11.0},
             ],
         )
-        self.assertEqual(len(primary_model.calls), 1)
-        self.assertEqual(len(fallback_model.calls), 1)
-        self.assertIn(TimeoutError, primary_model.exceptions_to_handle)
+        self.assertEqual(len(gpt_primary.calls), 1)
+        self.assertEqual(len(gemma_fallback.calls), 1)
+        self.assertIn(TimeoutError, gpt_primary.exceptions_to_handle)
 
-    def test_hybrid_mode_deduplicates_explicit_gemma_fallback_model(self):
+    def test_record_summary_uses_gpt_gemini_gemma_chain(self):
         created: list[dict[str, object]] = []
-        primary_model = FakeFallbackCapableModel(
+        gpt_primary = FakeFallbackCapableModel({}, error=TimeoutError("gpt timed out"))
+        gemini_fallback = FakeFallbackModel(
+            None,
+            (),
+            (),
+            response={
+                "summary": "Gemini fallback 요약입니다.",
+                "record_ids": [],
+                "highlights": [],
+                "behavior_patterns": [],
+                "missing_record_notes": [],
+                "safety_notice": None,
+            },
+        )
+        gemma_fallback = FakeFallbackModel(
+            None,
+            (),
+            (),
+            response={
+                "summary": "Gemma fallback 요약입니다.",
+                "record_ids": [],
+                "highlights": [],
+                "behavior_patterns": [],
+                "missing_record_notes": [],
+                "safety_notice": None,
+            },
+        )
+
+        def fake_model_factory(model: str, api_key: str, timeout: float):
+            created.append({"model": model, "api_key": api_key, "timeout": timeout})
+            if model == "gpt-5-mini":
+                return gpt_primary
+            if model == "gemini-2.0-flash":
+                return gemini_fallback
+            if model == "gemma4:e4b":
+                return gemma_fallback
+            raise AssertionError(f"Unexpected model: {model}")
+
+        env = {
+            "GEMMA_BASE_URL": "http://127.0.0.1:1234/v1",
+            "GEMMA_MODEL": "gemma4:e4b",
+            "GEMMA_API_KEY": "local-key",
+            "OPENAI_API_KEY": "gpt-key",
+            "GEMINI_API_KEY": "gemini-key",
+            "OPENAI_RECORD_SUMMARY_MODEL": "gpt-5-mini",
+        }
+        with patch.dict("os.environ", env, clear=True):
+            provider = RecordSummaryProvider(timeout=11.0, model_factory=fake_model_factory)
+            result = provider.summarize(PetProfile(id="pet-1", name="초코"), (), ContextAnalysisResult(), ())
+
+        self.assertEqual(result.summary, "Gemini fallback 요약입니다.")
+        self.assertEqual(
+            created,
+            [
+                {"model": "gpt-5-mini", "api_key": "gpt-key", "timeout": 11.0},
+                {"model": "gemini-2.0-flash", "api_key": "gemini-key", "timeout": 11.0},
+                {"model": "gemma4:e4b", "api_key": "local-key", "timeout": 11.0},
+            ],
+        )
+
+    def test_explicit_fallback_model_matching_gemma_is_deduplicated(self):
+        created: list[dict[str, object]] = []
+        gpt_primary = FakeFallbackCapableModel(
             {
                 "summary": "GPT primary 요약입니다.",
                 "record_ids": [],
@@ -203,14 +264,13 @@ class TestLocalGemmaFallback(unittest.TestCase):
         def fake_model_factory(model: str, api_key: str, timeout: float):
             created.append({"model": model, "api_key": api_key, "timeout": timeout})
             if model == "gpt-5-mini":
-                return primary_model
+                return gpt_primary
             if model == "gemma4:e4b":
                 return gemma_fallback
             raise AssertionError(f"Unexpected model: {model}")
 
         env = {
             "LOCAL_LLM_AUTOSTART": "1",
-            "LOCAL_LLM_ROLE": "fallback",
             "GEMMA_MODEL": "gemma4:e4b",
             "GEMMA_API_KEY": "local-key",
             "OPENAI_API_KEY": "gpt-key",
@@ -222,10 +282,63 @@ class TestLocalGemmaFallback(unittest.TestCase):
             result = provider.summarize(PetProfile(id="pet-1", name="초코"), (), ContextAnalysisResult(), ())
 
         self.assertEqual(result.summary, "GPT primary 요약입니다.")
+        # gemma4:e4b appears only once (explicit fallback_model deduplicated, added via local Gemma path)
         self.assertEqual(
             created,
             [
                 {"model": "gpt-5-mini", "api_key": "gpt-key", "timeout": 11.0},
+                {"model": "gemma4:e4b", "api_key": "local-key", "timeout": 11.0},
+            ],
+        )
+
+    def test_three_tier_fallback_gpt_and_gemini_fail_gemma_responds(self):
+        created: list[dict[str, object]] = []
+        gpt_primary = FakeFallbackCapableModel({}, error=TimeoutError("gpt timed out"))
+        gemini_fallback_with_error = FakeFallbackCapableModel(
+            {}, error=TimeoutError("gemini timed out")
+        )
+        gemma_fallback = FakeFallbackModel(
+            None,
+            (),
+            (),
+            response={
+                "summary": "Gemma 최종 응답입니다.",
+                "record_ids": [],
+                "highlights": [],
+                "behavior_patterns": [],
+                "missing_record_notes": [],
+                "safety_notice": None,
+            },
+        )
+
+        def fake_model_factory(model: str, api_key: str, timeout: float):
+            created.append({"model": model, "api_key": api_key, "timeout": timeout})
+            if model == "gpt-5-mini":
+                return gpt_primary
+            if model == "gemini-2.0-flash":
+                return gemini_fallback_with_error
+            if model == "gemma4:e4b":
+                return gemma_fallback
+            raise AssertionError(f"Unexpected model: {model}")
+
+        env = {
+            "GEMMA_BASE_URL": "http://127.0.0.1:1234/v1",
+            "GEMMA_MODEL": "gemma4:e4b",
+            "GEMMA_API_KEY": "local-key",
+            "OPENAI_API_KEY": "gpt-key",
+            "GEMINI_API_KEY": "gemini-key",
+            "OPENAI_RECORD_SUMMARY_MODEL": "gpt-5-mini",
+        }
+        with patch.dict("os.environ", env, clear=True):
+            provider = RecordSummaryProvider(timeout=11.0, model_factory=fake_model_factory)
+            result = provider.summarize(PetProfile(id="pet-1", name="초코"), (), ContextAnalysisResult(), ())
+
+        self.assertEqual(result.summary, "Gemma 최종 응답입니다.")
+        self.assertEqual(
+            created,
+            [
+                {"model": "gpt-5-mini", "api_key": "gpt-key", "timeout": 11.0},
+                {"model": "gemini-2.0-flash", "api_key": "gemini-key", "timeout": 11.0},
                 {"model": "gemma4:e4b", "api_key": "local-key", "timeout": 11.0},
             ],
         )
