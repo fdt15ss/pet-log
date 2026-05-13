@@ -133,6 +133,11 @@ function backendShoppingTimeoutMs() {
   return Number.isFinite(configured) && configured > 0 ? configured : 180000;
 }
 
+function backendAiTimeoutMs() {
+  const configured = Number(process.env.PET_LOG_AI_TIMEOUT_MS);
+  return Number.isFinite(configured) && configured > 0 ? configured : 120000;
+}
+
 function formatBackendDateLabel(recordedAt: string) {
   const date = new Date(recordedAt);
   if (Number.isNaN(date.getTime())) {
@@ -274,7 +279,7 @@ function mapBackendRecordToEntry(
   };
 }
 
-async function requestBackendPetLogRecord(detail: string, fallbackCategory: RecordCategoryChoice, confirm: boolean) {
+async function requestBackendPetLogRecord(detail: string, fallbackCategory: RecordCategoryChoice, confirm: boolean, timeoutMs?: number) {
   const response = await axios.post<{ success?: boolean; data?: BackendPetLogResult; detail?: unknown }>(
     backendApiUrl("/api/v1/pet-log/records"),
     {
@@ -287,7 +292,7 @@ async function requestBackendPetLogRecord(detail: string, fallbackCategory: Reco
       headers: {
         "Content-Type": "application/json",
       },
-      timeout: backendTimeoutMs(),
+      timeout: timeoutMs ?? backendTimeoutMs(),
       validateStatus: () => true,
     },
   );
@@ -491,7 +496,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     const petId = _request.nextUrl.searchParams.get("pet_id") || backendPetId();
     try {
       const response = await axios.get(backendApiUrl(`/api/v1/ai/insights?pet_id=${encodeURIComponent(petId)}`), {
-        timeout: backendTimeoutMs(),
+        timeout: backendAiTimeoutMs(),
         validateStatus: () => true,
       });
       return ok(response.data.data);
@@ -504,7 +509,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     const petId = _request.nextUrl.searchParams.get("pet_id") || backendPetId();
     try {
       const response = await axios.get(backendApiUrl(`/api/v1/ai/suggestions?pet_id=${encodeURIComponent(petId)}`), {
-        timeout: backendTimeoutMs(),
+        timeout: backendAiTimeoutMs(),
         validateStatus: () => true,
       });
       return ok(response.data.data);
@@ -576,7 +581,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return fail("VALIDATION_ERROR", "구조화할 기록 내용과 기본 카테고리를 입력해주세요.");
     }
     try {
-      const { structured } = await requestBackendPetLogRecord(body.detail, body.fallbackCategory, false);
+      const { structured } = await requestBackendPetLogRecord(body.detail, body.fallbackCategory, false, backendAiTimeoutMs());
       return ok({ structured });
     } catch (error) {
       console.error("[api/ai/records/structure] Error:", error);
