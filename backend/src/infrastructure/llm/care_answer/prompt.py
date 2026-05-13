@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from domain.models import CareContext, CareKnowledgeHit
+from domain.record_labels import record_category_label, record_status_label
 
 
 def build_care_answer_messages(
@@ -30,7 +31,8 @@ def care_answer_user_prompt(
     knowledge_hits: tuple[CareKnowledgeHit, ...] = (),
 ) -> str:
     record_lines = "\n".join(
-        f"- {record.recorded_at} {record.category}/{record.status}: {record.title} - {record.detail}"
+        f"- {record.recorded_at} {record_category_label(record.category)}/{record_status_label(record.status)}: "
+        f"{record.title} - {record.detail}"
         for record in context.recent_records
     )
     reminder_lines = "\n".join(

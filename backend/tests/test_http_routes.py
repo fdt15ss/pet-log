@@ -1,3 +1,4 @@
+import asyncio
 import tempfile
 import unittest
 from datetime import date, datetime
@@ -130,6 +131,7 @@ class FakeAppContext:
         self.context_analysis_agent = FakeContextAnalysisAgent()
         self.suggestion_agent = FakeSuggestionAgent()
         self.speech_to_text = FakeSpeechToText()
+        self.text_to_speech = FakeTextToSpeech()
         self.shopping_agent = FakeShoppingAgent()
         self.hospital_recommendation_agent = FakeHospitalRecommendationAgent()
         self.closed = False
@@ -147,6 +149,26 @@ class FakeSpeechToText:
         self.transcribed_audio = audio
         self.transcribed_content_type = content_type
         return "오늘 아침 사료를 조금 남겼어"
+
+
+class FakeTextToSpeech:
+    def __init__(self) -> None:
+        self.synthesized_text = None
+        self.synthesized_voice = None
+
+    def synthesize(self, text: str, voice: str | None = None) -> bytes:
+        self.synthesized_text = text
+        self.synthesized_voice = voice
+        return f"{voice or 'default'}:{text}".encode("utf-8")
+
+
+class AsyncioRunTextToSpeech(FakeTextToSpeech):
+    def synthesize(self, text: str, voice: str | None = None) -> bytes:
+        asyncio.run(self._save_audio())
+        return super().synthesize(text, voice)
+
+    async def _save_audio(self) -> None:
+        await asyncio.sleep(0)
 
 
 class FakeHospitalRecommendationAgent:
@@ -585,6 +607,40 @@ class TestHttpRoutes(unittest.TestCase):
             )
 
         self.assertEqual(response.status_code, 415)
+
+    def test_speech_synthesis_route_returns_mpeg_audio(self):
+        context = FakeAppContext()
+
+        with TestClient(create_app(app_context_factory=lambda: context)) as client:
+            response = client.post(
+                "/api/v1/speech/synthesis",
+                json={"text": "주의 기록 후속 확인이 필요합니다.", "voice": "ko-KR-InJoonNeural"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers["content-type"], "audio/mpeg")
+        self.assertEqual(response.content, "ko-KR-InJoonNeural:주의 기록 후속 확인이 필요합니다.".encode("utf-8"))
+        self.assertEqual(context.text_to_speech.synthesized_text, "주의 기록 후속 확인이 필요합니다.")
+        self.assertEqual(context.text_to_speech.synthesized_voice, "ko-KR-InJoonNeural")
+
+    def test_speech_synthesis_route_runs_provider_outside_event_loop(self):
+        context = FakeAppContext()
+        context.text_to_speech = AsyncioRunTextToSpeech()
+
+        with TestClient(create_app(app_context_factory=lambda: context)) as client:
+            response = client.post(
+                "/api/v1/speech/synthesis",
+                json={"text": "알림을 읽어주세요."},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.content, "default:알림을 읽어주세요.".encode("utf-8"))
+
+    def test_speech_synthesis_route_rejects_empty_text(self):
+        with TestClient(create_app(app_context_factory=FakeAppContext)) as client:
+            response = client.post("/api/v1/speech/synthesis", json={"text": "   "})
+
+        self.assertEqual(response.status_code, 422)
 
     def test_file_upload_route_saves_profile_photo_and_serves_it(self):
         with tempfile.TemporaryDirectory() as directory:

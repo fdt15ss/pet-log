@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 
 from domain.models import CareSuggestion, PetProfile, PetRecord, ShoppingRecommendation
+from domain.record_labels import record_category_label, record_status_label
 
 
 def build_shopping_category_messages(
@@ -162,9 +163,11 @@ def _record_payload(record: PetRecord) -> dict[str, object]:
     return {
         "id": record.id,
         "category": record.category,
+        "category_label": record_category_label(record.category),
         "title": record.title,
         "detail": record.detail,
         "status": record.status,
+        "status_label": record_status_label(record.status),
         "recorded_at": record.recorded_at,
         "source": record.source,
     }

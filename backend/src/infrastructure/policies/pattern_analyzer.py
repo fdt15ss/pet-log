@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from domain.models import CareInsight, PetProfile, PetRecord
+from domain.record_labels import record_category_list_label
 
 
 class PatternAnalyzer:
@@ -10,7 +11,7 @@ class PatternAnalyzer:
             return ()
 
         severity = "alert" if any(record.status == "alert" for record in flagged_records) else "notice"
-        categories = ", ".join(dict.fromkeys(record.category for record in flagged_records))
+        categories = record_category_list_label(record.category for record in flagged_records)
         return (
             CareInsight(
                 severity=severity,

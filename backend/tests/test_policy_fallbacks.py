@@ -50,6 +50,36 @@ class TestPolicyFallbacks(unittest.TestCase):
         self.assertEqual(suggestions[0].title, "산책 감소")
         self.assertEqual(suggestions[0].source_record_ids, ("record-1",))
 
+    def test_pattern_analyzer_uses_korean_category_labels_in_reason(self):
+        pet = PetProfile(id="pet-1", name="초코")
+        records = (
+            PetRecord(
+                id="record-1",
+                pet_id="pet-1",
+                category="medical",
+                title="약 복용",
+                detail="약을 먹은 뒤 기운이 없습니다.",
+                status="notice",
+                recorded_at="2026-05-09T10:00:00Z",
+                source="manual",
+            ),
+            PetRecord(
+                id="record-2",
+                pet_id="pet-1",
+                category="stool",
+                title="묽은 변",
+                detail="묽은 변을 봤습니다.",
+                status="alert",
+                recorded_at="2026-05-09T11:00:00Z",
+                source="manual",
+            ),
+        )
+
+        insights = PatternAnalyzer().analyze(pet, records)
+
+        self.assertEqual(len(insights), 1)
+        self.assertEqual(insights[0].reason, "초코의 최근 기록에서 병원/접종, 배변 관련 확인 필요 상태가 반복되었습니다.")
+
 
 if __name__ == "__main__":
     unittest.main()

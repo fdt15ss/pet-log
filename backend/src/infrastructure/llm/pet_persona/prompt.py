@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from domain.models import CareContext
+from domain.record_labels import record_category_label, record_status_label
 
 
 def build_pet_persona_messages(context: CareContext, message: str) -> list[tuple[str, str]]:
@@ -20,7 +21,8 @@ def pet_persona_system_prompt() -> str:
 
 def pet_persona_user_prompt(context: CareContext, message: str) -> str:
     record_lines = "\n".join(
-        f"- {record.recorded_at} {record.category}/{record.status}: {record.title} - {record.detail}"
+        f"- {record.recorded_at} {record_category_label(record.category)}/{record_status_label(record.status)}: "
+        f"{record.title} - {record.detail}"
         for record in context.recent_records
     )
     return (

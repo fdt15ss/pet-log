@@ -33,7 +33,7 @@ from infrastructure.repositories.pet_profile_repository import PetProfileReposit
 from infrastructure.repositories.record_repository import RecordRepository
 from infrastructure.repositories.schedule_repository import ScheduleRepository
 from infrastructure.shopping import NaverShoppingClient, ShoppingRecommendationProvider
-from infrastructure.speech import SpeechToTextProvider
+from infrastructure.speech import SpeechToTextProvider, TextToSpeechProvider
 from middleware import HospitalFallbackMiddleware, ShoppingFallbackMiddleware
 
 
@@ -42,6 +42,7 @@ class AppContext:
     pet_log_agent_pipeline: LangGraphPetLogAgentPipeline
     pet_profile_reader: PetProfileRepository
     speech_to_text: SpeechToTextProvider
+    text_to_speech: TextToSpeechProvider | None = None
     care_question_pipeline: CareQuestionPipeline | None = None
     risk_detection_agent: RiskDetectionAgent | None = None
     context_analysis_agent: ContextAnalysisAgent | None = None
@@ -103,6 +104,7 @@ def build_app_context(database_path: str | None = None) -> AppContext:
         pet_log_agent_pipeline=pipeline,
         pet_profile_reader=pet_profile_reader,
         speech_to_text=SpeechToTextProvider(),
+        text_to_speech=TextToSpeechProvider(),
         care_question_pipeline=care_question_pipeline,
         risk_detection_agent=risk_detection_agent,
         context_analysis_agent=context_analysis_agent,

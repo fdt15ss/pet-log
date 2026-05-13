@@ -115,6 +115,10 @@ function isSpeechTranscriptionPath(path: string[]) {
   return path[0] === "speech" && path[1] === "transcriptions" && path.length === 2;
 }
 
+function isSpeechSynthesisPath(path: string[]) {
+  return path[0] === "speech" && path[1] === "synthesis" && path.length === 2;
+}
+
 function backendApiUrl(path: string) {
   const baseUrl = process.env.PET_LOG_BACKEND_API_BASE_URL ?? defaultBackendApiBaseUrl;
   return `${baseUrl.replace(/\/$/, "")}${path}`;
@@ -208,15 +212,6 @@ function backendCandidateCategories(result: BackendPetLogResult): RecordCategory
   }, []);
 }
 
-function firstBackendSavedRecord(result: BackendPetLogResult): BackendPetLogRecord | null {
-  if (!Array.isArray(result.saved_records)) {
-    return null;
-  }
-
-  const record = result.saved_records[0];
-  return record && typeof record === "object" ? (record as BackendPetLogRecord) : null;
-}
-
 function backendSavedRecords(result: BackendPetLogResult): BackendPetLogRecord[] {
   if (!Array.isArray(result.saved_records)) {
     return [];
@@ -256,63 +251,6 @@ function strongestRecordStatus(records: Array<{ status?: unknown }>): RecordStat
     return "notice";
   }
   return "normal";
-}
-
-function mergeBackendMeasurements(result: BackendPetLogResult) {
-  return backendCandidates(result).reduce<ExtractedMeasurement[]>((measurements, candidate) => {
-    const nextMeasurements = mapBackendMeasurements(candidate.measurements);
-    return [...measurements, ...nextMeasurements].filter(
-      (measurement, index, all) =>
-        all.findIndex((item) => item.label === measurement.label && item.value === measurement.value) === index,
-    );
-  }, []);
-}
-
-function mapBackendSavedRecordsToEntry(
-  result: BackendPetLogResult,
-  structured: StructuredRecord,
-  detail: string,
-  fallbackCategory: RecordCategory,
-  categoryChoice: RecordCategoryChoice,
-): RecordEntry | null {
-  const savedRecords = backendSavedRecords(result);
-  const firstRecord = savedRecords[0] ?? firstBackendSavedRecord(result);
-  if (!firstRecord) {
-    return null;
-  }
-
-  if (savedRecords.length <= 1) {
-    return mapBackendRecordToEntry(firstRecord, structured, fallbackCategory, categoryChoice);
-  }
-
-  const detectedCategories = uniqueValues(
-    savedRecords.map((record) => (isRecordCategory(record.category) ? record.category : "")),
-  ).filter(isRecordCategory);
-  const title = uniqueValues(savedRecords.map((record) => (typeof record.title === "string" ? record.title : ""))).join(" · ");
-  const measurements = mergeBackendMeasurements(result);
-  const mergedStructured: StructuredRecord = {
-    ...structured,
-    sourceText: detail,
-    normalizedSummary: title || detail,
-    detectedCategories: detectedCategories.length > 1 ? detectedCategories : structured.detectedCategories,
-    measurements: measurements.length ? measurements.slice(0, 4) : structured.measurements,
-  };
-  const entry = mapBackendRecordToEntry(
-    firstRecord,
-    mergedStructured,
-    fallbackCategory,
-    detectedCategories.length > 1 ? "all" : categoryChoice,
-  );
-  if (!entry) {
-    return null;
-  }
-
-  return {
-    ...entry,
-    title: title || entry.title,
-    detail,
-    status: strongestRecordStatus(savedRecords),
-  };
 }
 
 function mapBackendSavedRecordsToEntries(
@@ -553,6 +491,34 @@ async function proxySpeechTranscription(request: NextRequest) {
   return ok({ text: payload.data.text });
 }
 
+async function proxySpeechSynthesis(body: unknown) {
+  const text = body && typeof body === "object" && "text" in body ? (body as { text?: unknown }).text : null;
+  const voice = body && typeof body === "object" && "voice" in body ? (body as { voice?: unknown }).voice : undefined;
+  if (typeof text !== "string") {
+    return fail("VALIDATION_ERROR", "합성할 텍스트가 필요합니다.", 400);
+  }
+  if (voice !== undefined && typeof voice !== "string") {
+    return fail("VALIDATION_ERROR", "음성 이름 형식이 올바르지 않습니다.", 400);
+  }
+
+  const response = await fetch(backendApiUrl("/api/v1/speech/synthesis"), {
+    body: JSON.stringify({ text, voice }),
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as { detail?: unknown } | null;
+    const message = typeof payload?.detail === "string" ? payload.detail : "음성 합성을 처리하지 못했습니다.";
+    return fail("SPEECH_SYNTHESIS_FAILED", message, response.status || 502);
+  }
+
+  const headers = new Headers();
+  headers.set("content-type", response.headers.get("content-type") ?? "audio/mpeg");
+  headers.set("cache-control", "no-store");
+  return new NextResponse(await response.arrayBuffer(), { headers, status: response.status });
+}
+
 async function proxyFileUpload(request: NextRequest) {
   const incomingFormData = await request.formData();
   const file = incomingFormData.get("file");
@@ -760,6 +726,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 
   const body = await readJson(request);
+
+  if (isSpeechSynthesisPath(path)) {
+    return proxySpeechSynthesis(body);
+  }
 
   if (path[0] === "community" && path.length >= 2) {
     return proxyCommunityPost(path, body);

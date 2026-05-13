@@ -6,6 +6,7 @@ from pydantic import BaseModel
 
 from application.dto import RecordSummaryResult
 from domain.models import ContextAnalysisResult, PetProfile, PetRecord, PlannedReminder, SafetyNotice
+from domain.record_labels import record_category_label, record_status_label
 
 
 def pet_payload(pet: PetProfile) -> dict[str, object]:
@@ -25,9 +26,11 @@ def record_payload(record: PetRecord) -> dict[str, object]:
         "id": record.id,
         "pet_id": record.pet_id,
         "category": record.category,
+        "category_label": record_category_label(record.category),
         "title": record.title,
         "detail": record.detail,
         "status": record.status,
+        "status_label": record_status_label(record.status),
         "recorded_at": record.recorded_at,
         "source": record.source,
     }
