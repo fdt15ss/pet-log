@@ -59,8 +59,18 @@ class CommunityRepository:
         rows = self._connection.execute(
             """
             SELECT
-                p.id, p.board, p.title, p.body, p.author_name, p.created_at, p.likes,
-                p.distance, p.location_label, p.feeds, p.tags, COUNT(c.id) AS comment_count
+                p.id AS id,
+                p.board AS board,
+                p.title AS title,
+                p.body AS body,
+                p.author_name AS author_name,
+                p.created_at AS created_at,
+                p.likes AS likes,
+                p.distance AS distance,
+                p.location_label AS location_label,
+                p.feeds AS feeds,
+                p.tags AS tags,
+                COUNT(c.id) AS comment_count
             FROM community_posts p
             LEFT JOIN community_comments c
                 ON c.post_id = p.id AND c.deleted_at IS NULL
@@ -87,8 +97,18 @@ class CommunityRepository:
         row = self._connection.execute(
             """
             SELECT
-                p.id, p.board, p.title, p.body, p.author_name, p.created_at, p.likes,
-                p.distance, p.location_label, p.feeds, p.tags, COUNT(c.id) AS comment_count
+                p.id AS id,
+                p.board AS board,
+                p.title AS title,
+                p.body AS body,
+                p.author_name AS author_name,
+                p.created_at AS created_at,
+                p.likes AS likes,
+                p.distance AS distance,
+                p.location_label AS location_label,
+                p.feeds AS feeds,
+                p.tags AS tags,
+                COUNT(c.id) AS comment_count
             FROM community_posts p
             LEFT JOIN community_comments c
                 ON c.post_id = p.id AND c.deleted_at IS NULL
@@ -104,7 +124,12 @@ class CommunityRepository:
     def list_comments(self, post_id: str) -> tuple[CommunityComment, ...]:
         rows = self._connection.execute(
             """
-            SELECT id, post_id, author_name, body, created_at
+            SELECT
+                id AS id,
+                post_id AS post_id,
+                author_name AS author_name,
+                body AS body,
+                created_at AS created_at
             FROM community_comments
             WHERE post_id = ? AND deleted_at IS NULL
             ORDER BY created_at ASC, id ASC

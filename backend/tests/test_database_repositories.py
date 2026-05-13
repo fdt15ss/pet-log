@@ -349,6 +349,7 @@ class TestDatabaseRepositories(unittest.TestCase):
                 "created_at",
                 "likes",
                 "distance",
+                "location_label",
                 "feeds",
                 "tags",
                 "deleted_at",
@@ -390,6 +391,25 @@ class TestDatabaseRepositories(unittest.TestCase):
         self.assertEqual(saved_file.byte_size, 12)
         self.assertEqual(repository.get_file("file-1"), saved_file)
 
+    def test_file_repository_reads_rows_when_sqlite_uses_full_column_names(self):
+        connection = connect(":memory:")
+        connection.execute("PRAGMA short_column_names = OFF")
+        connection.execute("PRAGMA full_column_names = ON")
+        repository = FileRepository(connection=connection)
+
+        saved_file = repository.save_metadata(
+            owner_user_id="user-1",
+            pet_id="pet-1",
+            purpose="profile_photo",
+            storage_key="profile_photos/pet-1/file-1.jpg",
+            mime_type="image/jpeg",
+            byte_size=12,
+            file_id="file-full-names",
+        )
+
+        self.assertEqual(saved_file.id, "file-full-names")
+        self.assertEqual(repository.get_file("file-full-names").storage_key, "profile_photos/pet-1/file-1.jpg")
+
     def test_local_file_storage_writes_under_upload_root(self):
         with tempfile.TemporaryDirectory() as directory:
             storage = LocalFileStorage(Path(directory))
@@ -424,6 +444,26 @@ class TestDatabaseRepositories(unittest.TestCase):
         self.assertEqual(pet.weight_label, "3.4kg")
         self.assertEqual(pet.birthday, "2018.5.11")
         self.assertEqual(pet.notes, ("likes walks",))
+
+    def test_pet_profile_repository_reads_rows_when_sqlite_uses_full_column_names(self):
+        connection = connect(":memory:")
+        connection.execute("PRAGMA short_column_names = OFF")
+        connection.execute("PRAGMA full_column_names = ON")
+        connection.execute(
+            """
+            INSERT INTO pets (id, owner_user_id, name, breed, species, age_label, personality, notes)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            ("pet-full-names", "local-user", "Choco", "Poodle", "dog", "3 years", "gentle", json.dumps([])),
+        )
+        connection.commit()
+        repository = PetProfileRepository(connection=connection)
+
+        pets = repository.list_pets()
+        pet = repository.get_pet("pet-full-names")
+
+        self.assertIn("pet-full-names", tuple(item.id for item in pets))
+        self.assertEqual(pet.name, "Choco")
 
     def test_sqlite_connection_can_be_used_from_fastapi_worker_thread(self):
         connection = connect(":memory:")
@@ -512,6 +552,39 @@ class TestDatabaseRepositories(unittest.TestCase):
         records = repository.list_by_ids("pet-1", ("record-2", "record-1"))
 
         self.assertEqual(tuple(record.id for record in records), ("record-2", "record-1"))
+
+    def test_record_repository_reads_rows_when_sqlite_uses_full_column_names(self):
+        connection = connect(":memory:")
+        connection.execute("PRAGMA short_column_names = OFF")
+        connection.execute("PRAGMA full_column_names = ON")
+        connection.execute(
+            """
+            INSERT INTO pet_records (id, pet_id, category, title, detail, status, recorded_at, source, batch_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "record-full-names",
+                "pet-1",
+                "meal",
+                "Meal",
+                "Ate well",
+                "normal",
+                "2026-05-13T08:00:00Z",
+                "manual",
+                "batch-1",
+            ),
+        )
+        connection.commit()
+        repository = RecordRepository(connection=connection)
+
+        records = repository.list_recent("pet-1", lookback_days=3650)
+        ordered_records = repository.list_by_ids("pet-1", ("record-full-names",))
+        record = repository.get_by_id("record-full-names")
+
+        self.assertEqual(tuple(item.id for item in records), ("record-full-names",))
+        self.assertEqual(tuple(item.id for item in ordered_records), ("record-full-names",))
+        self.assertIsNotNone(record)
+        self.assertEqual(record.batch_id, "batch-1")
 
     def test_community_repository_lists_seed_posts_by_feed_and_board(self):
         connection = connect(":memory:")
@@ -636,6 +709,44 @@ class TestDatabaseRepositories(unittest.TestCase):
         self.assertEqual(tuple(post.id for post in first_page[:2]), ("page-post-11", "page-post-10"))
         self.assertEqual(tuple(post.id for post in second_page), ("page-post-01", "page-post-00"))
 
+    def test_community_repository_reads_rows_when_sqlite_uses_full_column_names(self):
+        connection = connect(":memory:")
+        connection.execute("PRAGMA short_column_names = OFF")
+        connection.execute("PRAGMA full_column_names = ON")
+        repository = CommunityRepository(connection=connection)
+        connection.execute(
+            """
+            INSERT INTO community_posts (id, board, title, body, author_name, created_at, likes, feeds, tags)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "community-full-names",
+                "유기동물",
+                "임시 보호 정보",
+                "보호소 공지를 공유합니다.",
+                "나",
+                "2026-05-13T00:00:00Z",
+                0,
+                '["최신글"]',
+                '["임시보호"]',
+            ),
+        )
+        connection.execute(
+            """
+            INSERT INTO community_comments (id, post_id, author_name, body, created_at)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            ("comment-full-names", "community-full-names", "나", "확인했습니다.", "2026-05-13T00:01:00Z"),
+        )
+        connection.commit()
+
+        posts = repository.list_posts(feed="최신글", board="유기동물")
+        comments = repository.list_comments("community-full-names")
+
+        self.assertEqual(tuple(post.id for post in posts), ("community-full-names",))
+        self.assertEqual(posts[0].tags, ("임시보호",))
+        self.assertEqual(tuple(comment.id for comment in comments), ("comment-full-names",))
+
     def test_community_repository_stores_created_post_time_as_iso_timestamp(self):
         connection = connect(":memory:")
         repository = CommunityRepository(connection=connection)
@@ -682,6 +793,30 @@ class TestDatabaseRepositories(unittest.TestCase):
         self.assertEqual(due_items[0].title, "Checkup")
         self.assertEqual(due_items[0].due_date, due_date)
         self.assertEqual(due_items[0].reason, "Regular visit")
+
+    def test_schedule_repository_reads_rows_when_sqlite_uses_full_column_names(self):
+        connection = connect(":memory:")
+        connection.execute("PRAGMA short_column_names = OFF")
+        connection.execute("PRAGMA full_column_names = ON")
+        due_date = (datetime.now(UTC).date() + timedelta(days=2)).isoformat()
+        connection.execute(
+            """
+            INSERT INTO care_schedules (id, pet_id, category, title, due_date, repeat_label, note, is_done)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            ("schedule-full-names", "pet-1", "checkup", "Checkup", due_date, "한 번", "Regular visit", 0),
+        )
+        connection.commit()
+        repository = ScheduleRepository(connection=connection)
+
+        schedules = repository.list_for_pet("pet-1")
+        due_items = repository.list_due_items("pet-1", days_ahead=14)
+        schedule = repository.get_by_id("schedule-full-names")
+
+        self.assertEqual(tuple(item.id for item in schedules), ("schedule-full-names",))
+        self.assertEqual(tuple(item.title for item in due_items), ("Checkup",))
+        self.assertIsNotNone(schedule)
+        self.assertEqual(schedule.note, "Regular visit")
 
 
 def _days_ago(days: int) -> str:

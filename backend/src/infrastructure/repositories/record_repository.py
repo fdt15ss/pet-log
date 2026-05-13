@@ -22,7 +22,16 @@ class RecordRepository:
         if self._connection is not None:
             rows = self._connection.execute(
                 """
-                SELECT id, pet_id, category, title, detail, status, recorded_at, source, batch_id
+                SELECT
+                    id AS id,
+                    pet_id AS pet_id,
+                    category AS category,
+                    title AS title,
+                    detail AS detail,
+                    status AS status,
+                    recorded_at AS recorded_at,
+                    source AS source,
+                    batch_id AS batch_id
                 FROM pet_records
                 WHERE pet_id = ? AND deleted_at IS NULL AND recorded_at >= ?
                 ORDER BY recorded_at, created_at
@@ -45,7 +54,16 @@ class RecordRepository:
             placeholders = ", ".join("?" for _ in record_ids)
             rows = self._connection.execute(
                 f"""
-                SELECT id, pet_id, category, title, detail, status, recorded_at, source, batch_id
+                SELECT
+                    id AS id,
+                    pet_id AS pet_id,
+                    category AS category,
+                    title AS title,
+                    detail AS detail,
+                    status AS status,
+                    recorded_at AS recorded_at,
+                    source AS source,
+                    batch_id AS batch_id
                 FROM pet_records
                 WHERE pet_id = ? AND deleted_at IS NULL AND id IN ({placeholders})
                 """,
@@ -114,7 +132,8 @@ class RecordRepository:
     def get_by_id(self, record_id: str) -> PetRecord | None:
         if self._connection is not None:
             row = self._connection.execute(
-                "SELECT id, pet_id, category, title, detail, status, recorded_at, source, batch_id "
+                "SELECT id AS id, pet_id AS pet_id, category AS category, title AS title, detail AS detail, "
+                "status AS status, recorded_at AS recorded_at, source AS source, batch_id AS batch_id "
                 "FROM pet_records WHERE id = ? AND deleted_at IS NULL",
                 (record_id,),
             ).fetchone()
