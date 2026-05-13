@@ -140,6 +140,49 @@ def build_pet_log_router() -> APIRouter:
             "schedules": [_schedule_to_frontend_entry(schedule) for schedule in schedules]
         })
 
+    @router.get("/api/v1/pet-log/snapshot")
+    def get_snapshot(http_request: Request, pet_id: str) -> dict[str, object]:
+        app_context = _app_context(http_request)
+        if app_context.record_reader is None or app_context.schedule_reader is None:
+            raise HTTPException(status_code=500, detail="Repository not configured")
+        try:
+            pet = app_context.pet_profile_reader.get_pet(pet_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="Pet not found") from exc
+
+        records = app_context.record_reader.list_recent(pet_id, lookback_days=3650)
+        schedules = app_context.schedule_reader.list_for_pet(pet_id)
+        notification_repository = getattr(app_context, "notification_repository", None)
+        read_ids = (
+            list(notification_repository.get_read_ids(pet_id))
+            if notification_repository is not None
+            else []
+        )
+
+        return success_response({
+            "version": 1,
+            "profile": _profile_to_frontend_entry(pet),
+            "records": [
+                _record_to_frontend_entry(record)
+                for record in sorted(records, key=lambda item: item.recorded_at, reverse=True)
+            ],
+            "schedules": [_schedule_to_frontend_entry(schedule) for schedule in schedules],
+            "settings": {
+                "notificationPreferences": {
+                    "missingRecord": True,
+                    "alert": True,
+                    "schedule": True,
+                },
+                "aiInsightEnabled": True,
+            },
+            "readNotificationIds": read_ids,
+            "expansionState": {
+                "sharedCare": {},
+                "hospital": {},
+                "shopping": {},
+            },
+        })
+
     @router.post("/api/v1/pet-log/records")
     def handle_pet_log_record(http_request: Request, request: PetLogRecordRequest) -> dict[str, object]:
         app_context = _app_context(http_request)

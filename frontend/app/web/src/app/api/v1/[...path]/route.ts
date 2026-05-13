@@ -542,7 +542,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       console.error("[api/ai/records/structure] Error:", error);
       const status = error instanceof BackendRouteError ? error.status : 502;
       const code = error instanceof BackendRouteError ? error.code : "BACKEND_RECORD_FAILED";
-      const message = error instanceof Error ? error.message : "기록 서버 요청을 처리하지 못했습니다.";
+      const message = error instanceof BackendRouteError ? error.message : "기록 서버 요청을 처리하지 못했습니다.";
       return fail(code, message, status);
     }
   }

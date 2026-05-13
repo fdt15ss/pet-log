@@ -36,11 +36,21 @@ class TextToSpeechProvider:
             raise ValueError("text must not be empty.")
 
         selected_voice = voice or self._default_voice
-        with tempfile.NamedTemporaryFile(suffix=".mp3") as audio_file:
+        audio_path = ""
+        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as audio_file:
+            audio_path = audio_file.name
+
+        try:
             communicator = self._communicate_factory(normalized_text, selected_voice)
-            run_async(communicator.save(audio_file.name))
-            audio_file.seek(0)
-            audio = audio_file.read()
+            run_async(communicator.save(audio_path))
+            with open(audio_path, "rb") as audio_file:
+                audio = audio_file.read()
+        finally:
+            if audio_path:
+                try:
+                    os.unlink(audio_path)
+                except FileNotFoundError:
+                    pass
 
         if not audio:
             raise RuntimeError("Edge TTS did not produce audio.")

@@ -48,6 +48,9 @@ dev-server.*.log
 *.sqlite3
 *.db
 
+# Local run notes
+실행방법.py
+
 # Editors
 .idea/
 .vscode/

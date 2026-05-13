@@ -63,8 +63,17 @@ def build_notification_router() -> APIRouter:
                     tone=_KIND_TONE[c.kind],
                 )
 
+        stored_notifications = (
+            app_context.notification_repository.list_for_pet(pet_id)
+            if not candidates
+            else ()
+        )
+
         return success_response({
-            "notifications": [_candidate_to_frontend(c, read_ids) for c in candidates],
+            "notifications": [
+                *[_candidate_to_frontend(c, read_ids) for c in candidates],
+                *[_notification_to_frontend(n, read_ids) for n in stored_notifications],
+            ],
             "readNotificationIds": list(read_ids),
         })
 
@@ -82,11 +91,15 @@ def build_notification_router() -> APIRouter:
     def update_read_notifications(
         http_request: Request,
         pet_id: str,
-        body: _MarkReadBody,
+        body: _MarkReadBody | None = None,
     ) -> dict[str, object]:
         app_context = _app_context(http_request)
         if app_context.notification_repository is None:
             raise HTTPException(status_code=500, detail="Notification repository not configured")
+        if body is None:
+            app_context.notification_repository.mark_all_as_read(pet_id)
+            return success_response({"readNotificationIds": list(app_context.notification_repository.get_read_ids(pet_id))})
+
         ids = tuple(body.readNotificationIds)
         app_context.notification_repository.set_read_ids(pet_id, ids)
         return success_response({"readNotificationIds": list(ids)})
@@ -127,4 +140,18 @@ def _candidate_to_frontend(c: NotificationCandidate, read_ids: set[str]) -> dict
         "dueLabel": c.due_date or "",
         "tone": _KIND_TONE[c.kind],
         "isRead": c.dedupe_key in read_ids,
+    }
+
+
+def _notification_to_frontend(notification, read_ids: set[str]) -> dict[str, object]:
+    return {
+        "id": notification.id,
+        "category": notification.category,
+        "title": notification.title,
+        "detail": notification.detail,
+        "action": notification.action,
+        "actionHref": notification.action_href,
+        "dueLabel": notification.due_label,
+        "tone": notification.tone,
+        "isRead": bool(notification.read_at) or notification.id in read_ids,
     }

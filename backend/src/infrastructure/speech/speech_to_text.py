@@ -44,10 +44,20 @@ class SpeechToTextProvider:
             raise ValueError("audio must not be empty.")
 
         suffix = suffix_for_content_type(content_type)
-        with tempfile.NamedTemporaryFile(suffix=suffix) as audio_file:
+        audio_path = ""
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as audio_file:
+            audio_path = audio_file.name
             audio_file.write(audio)
             audio_file.flush()
-            result = self._whisper_model().transcribe(audio_file.name, **self._transcribe_options)
+
+        try:
+            result = self._whisper_model().transcribe(audio_path, **self._transcribe_options)
+        finally:
+            if audio_path:
+                try:
+                    os.unlink(audio_path)
+                except FileNotFoundError:
+                    pass
 
         text = result.get("text")
         if not isinstance(text, str):
