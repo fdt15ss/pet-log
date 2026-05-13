@@ -30,28 +30,28 @@
 | --- | --- | --- | --- |
 | Sprint 1 | [01-backend-foundation.md](pet-log-agent-sprints/01-backend-foundation.md) | 실행 가능한 backend 기반 | 완료 |
 | Sprint 2 | [02-core-record-flow.md](pet-log-agent-sprints/02-core-record-flow.md) | 자연어 기록 입력 end-to-end | 완료 |
-| Sprint 3 | [03-rule-based-analysis.md](pet-log-agent-sprints/03-rule-based-analysis.md) | rule-based 분석/제안 | 진행 중 |
-| Sprint 4 | [04-surface-pipelines.md](pet-log-agent-sprints/04-surface-pipelines.md) | 홈/케어 질문/펫 대화/병원 요약 | 진행 중 |
+| Sprint 3 | [03-rule-based-analysis.md](pet-log-agent-sprints/03-rule-based-analysis.md) | rule-based 분석/제안 | 완료 |
+| Sprint 4 | [04-surface-pipelines.md](pet-log-agent-sprints/04-surface-pipelines.md) | 홈/케어 질문/펫 대화/병원 요약 | 완료 |
 | Sprint 5 | [05-entrypoints.md](pet-log-agent-sprints/05-entrypoints.md) | CLI/API/STT/TTS 진입점 | 완료 |
-| Sprint 6 | [06-real-infrastructure.md](pet-log-agent-sprints/06-real-infrastructure.md) | 실제 DB/LLM/STT/TTS/agent runtime 연결 | 진행 중 (DB 완료) |
+| Sprint 6 | [06-real-infrastructure.md](pet-log-agent-sprints/06-real-infrastructure.md) | 실제 DB/LLM/STT/TTS/agent runtime 연결 | 완료 |
 
 ---
 
 ## 공통 완료 기준
 
-- [ ] 전체 테스트가 통과한다.
+- [x] 전체 테스트가 통과한다.
 
 ```bash
 uv run python -B -m unittest discover -s tests -v
 ```
 
-- [ ] 목표 패키지 import가 통과한다.
+- [x] 목표 패키지 import가 통과한다.
 
 ```bash
 uv run python -B -c "import application, agent_runtime, middleware, tools, infrastructure, presentation, composition; print('target imports ok')"
 ```
 
-- [ ] application/domain에서 금지 의존성을 import하지 않는다.
+- [x] application/domain에서 금지 의존성을 import하지 않는다.
 
 ```bash
 rg -n "fastapi|openai|sqlalchemy|sqlite|postgres|psycopg" src/application src/domain
