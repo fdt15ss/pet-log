@@ -90,6 +90,12 @@ export type ChatbotThreadMessageResponse = {
   safetyNotice: string;
 };
 
+export type CareAnswerResponse = {
+  answer: string;
+  referencedRecordIds: string[];
+  safetyNotice: string;
+};
+
 export type SpeechTranscriptionResponse = {
   text: string;
 };
@@ -250,6 +256,10 @@ export function sendChatbotThreadMessage(threadId: string, question: string, con
 
 export function sendChatbotMessage(question: string, contextRecordIds?: string[], threadId?: string) {
   return requestData<ChatbotMessageResponse>(apiClient.post("/chatbot/messages", { question, contextRecordIds, threadId }));
+}
+
+export function askCareAnswer(question: string, petId?: string) {
+  return requestData<CareAnswerResponse>(apiClient.post("/ai/care-answer", { question, pet_id: petId }));
 }
 
 export type HospitalRecommendationItem = {

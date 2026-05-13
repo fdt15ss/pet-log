@@ -8,6 +8,7 @@ from application.dto import PetLogAgentInput, PetLogAgentResult
 from composition import AppContext
 from domain.models import CareSchedule, PetProfile, PetRecord
 from presentation.http.schemas import (
+    CareAnswerRequest,
     PetCreateRequest,
     PetLogRecordRequest,
     ProfileUpdateRequest,
@@ -268,6 +269,26 @@ def build_pet_log_router() -> APIRouter:
         context = app_context.context_analysis_agent.analyze(pet, recent_records, due_items)
         suggestions = app_context.suggestion_agent.suggest(pet, context, ())
         return success_response({"suggestions": [suggestion_to_dict(s) for s in suggestions]})
+
+    @router.post("/api/v1/ai/care-answer")
+    def answer_care_question(http_request: Request, request: CareAnswerRequest) -> dict[str, object]:
+        app_context = _app_context(http_request)
+        if app_context.care_question_pipeline is None:
+            raise HTTPException(status_code=500, detail="Care answer pipeline not configured")
+
+        try:
+            app_context.pet_profile_reader.get_pet(request.pet_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="Pet not found") from exc
+
+        result = app_context.care_question_pipeline.ask(request.pet_id, request.question)
+        return success_response(
+            {
+                "answer": result.answer,
+                "referencedRecordIds": list(result.referenced_record_ids),
+                "safetyNotice": result.safety_notice.message if result.safety_notice else "",
+            }
+        )
 
     return router
 

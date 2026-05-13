@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
+from application.agents.care_context import CareContextBuilder
 from application.agents.context_analysis import ContextAnalysisAgent
 from application.agents.hospital import HospitalRecommendationAgent
 from application.agents.record_structuring import RecordStructuringAgent
@@ -10,8 +11,11 @@ from application.agents.reminder import ReminderAgent
 from application.agents.risk_detection import RiskDetectionAgent
 from application.agents.shopping import ShoppingAgent, ShoppingRecommendationAgent
 from application.agents.suggestion import SuggestionAgent
+from application.pipelines.care_question import CareQuestionPipeline
 from application.pipelines.pet_log_graph import LangGraphPetLogAgentPipeline
 from infrastructure.database import connect
+from infrastructure.knowledge import CareKnowledgeRetriever
+from infrastructure.llm.care_answer import CareAnswerProvider
 from infrastructure.llm.preload import preload_configured_llm_providers
 from infrastructure.llm.record_structuring import RecordStructurer
 from infrastructure.llm.shopping_reason import ShoppingReasonProvider
@@ -38,6 +42,7 @@ class AppContext:
     pet_log_agent_pipeline: LangGraphPetLogAgentPipeline
     pet_profile_reader: PetProfileRepository
     speech_to_text: SpeechToTextProvider
+    care_question_pipeline: CareQuestionPipeline | None = None
     risk_detection_agent: RiskDetectionAgent | None = None
     context_analysis_agent: ContextAnalysisAgent | None = None
     suggestion_agent: SuggestionAgent | None = None
@@ -66,6 +71,18 @@ def build_app_context(database_path: str | None = None) -> AppContext:
     risk_detection_agent = RiskDetectionAgent(RiskSignalPolicy())
     context_analysis_agent = ContextAnalysisAgent(PatternAnalyzer(), MissingRecordPolicy())
     suggestion_agent = SuggestionAgent(SuggestionComposer())
+    care_context_builder = CareContextBuilder(
+        pet_profile_reader=pet_profile_reader,
+        record_history_reader=record_repository,
+        schedule_context_reader=schedule_repository,
+        days_ahead=14,
+    )
+    care_question_pipeline = CareQuestionPipeline(
+        context_builder=care_context_builder,
+        safety_guard=_NoopSafetyGuard(),
+        answer_provider=CareAnswerProvider(knowledge_retriever=CareKnowledgeRetriever()),
+        lookback_days=30,
+    )
 
     shopping_agent = ShoppingAgent(
         ShoppingFallbackMiddleware(ShoppingRecommendationProvider(NaverShoppingClient())),
@@ -86,6 +103,7 @@ def build_app_context(database_path: str | None = None) -> AppContext:
         pet_log_agent_pipeline=pipeline,
         pet_profile_reader=pet_profile_reader,
         speech_to_text=SpeechToTextProvider(),
+        care_question_pipeline=care_question_pipeline,
         risk_detection_agent=risk_detection_agent,
         context_analysis_agent=context_analysis_agent,
         suggestion_agent=suggestion_agent,
@@ -130,3 +148,8 @@ def build_pet_profile_reader(database_path: str | None = None) -> PetProfileRepo
 
 def _record_structurer():
     return RecordStructurer()
+
+
+class _NoopSafetyGuard:
+    def check(self, text: str):
+        return None
