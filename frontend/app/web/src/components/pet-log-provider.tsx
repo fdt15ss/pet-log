@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   createRecord as createRecordApi,
   createSchedule as createScheduleApi,
@@ -13,6 +13,7 @@ import {
   fetchSchedules,
   fetchAiInsights,
   fetchAiSuggestions,
+  synthesizeSpeech,
   updateExpansionState as updateExpansionStateApi,
   updateProfile as updateProfileApi,
   updateReadNotifications,
@@ -21,6 +22,12 @@ import {
   updateSettings as updateSettingsApi,
 } from "@/lib/api-client";
 import { defaultExpansionState, normalizeExpansionState } from "@/lib/expansion-state";
+import {
+  buildNotificationSpeechText,
+  getNewUnreadNotificationsForSpeech,
+  notificationTtsStorageKey,
+  parseSpokenNotificationIds,
+} from "@/lib/notification-tts";
 import { sortCareNotificationsByLatest } from "@/lib/notifications";
 import { defaultAppSettings } from "@/lib/settings";
 import type { ExpansionState, HospitalState, SharedCareState, ShoppingState } from "@/lib/expansion-state";
@@ -35,11 +42,6 @@ import type {
   RecordEntry,
   ScheduleCategory,
 } from "@/lib/types";
-
-type PetNotification = {
-  id: string;
-  isRead: boolean;
-};
 
 type NewRecordInput = {
   category: RecordCategoryChoice;
@@ -146,6 +148,64 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
   const [syncStatus, setSyncStatus] = useState<"idle" | "synced" | "offline" | "error">(
     "error",
   );
+  const hasCompletedInitialNotificationLoadRef = useRef(false);
+  const knownNotificationIdsRef = useRef<Set<string>>(new Set());
+  const notificationTtsQueueRef = useRef<CareNotification[]>([]);
+  const isPlayingNotificationTtsRef = useRef(false);
+  const spokenNotificationIdsRef = useRef<Set<string>>(new Set());
+
+  const persistSpokenNotificationIds = useCallback((ids: Set<string>) => {
+    try {
+      window.localStorage.setItem(notificationTtsStorageKey, JSON.stringify([...ids]));
+    } catch {
+      // TTS 중복 방지 저장이 막혀도 알림 기능은 계속 동작해야 합니다.
+    }
+  }, []);
+
+  const playAudioBlob = useCallback(async (audioBlob: Blob) => {
+    const audioUrl = URL.createObjectURL(audioBlob);
+    try {
+      const audio = new Audio(audioUrl);
+      await new Promise<void>((resolve, reject) => {
+        audio.addEventListener("ended", () => resolve(), { once: true });
+        audio.addEventListener("error", () => reject(new Error("Notification TTS playback failed")), { once: true });
+        audio.play().catch(reject);
+      });
+    } finally {
+      URL.revokeObjectURL(audioUrl);
+    }
+  }, []);
+
+  const playQueuedNotificationTts = useCallback(async () => {
+    if (isPlayingNotificationTtsRef.current) {
+      return;
+    }
+
+    isPlayingNotificationTtsRef.current = true;
+    try {
+      let [nextNotification, ...remainingNotifications] = notificationTtsQueueRef.current;
+      notificationTtsQueueRef.current = remainingNotifications;
+      while (nextNotification) {
+        if (!spokenNotificationIdsRef.current.has(nextNotification.id) && !nextNotification.isRead) {
+          const text = buildNotificationSpeechText(nextNotification);
+          try {
+            const audioBlob = await synthesizeSpeech(text);
+            await playAudioBlob(audioBlob);
+            const nextSpokenIds = new Set(spokenNotificationIdsRef.current);
+            nextSpokenIds.add(nextNotification.id);
+            spokenNotificationIdsRef.current = nextSpokenIds;
+            persistSpokenNotificationIds(nextSpokenIds);
+          } catch (err) {
+            console.error("[provider] 알림 TTS 재생 실패:", err);
+          }
+        }
+        [nextNotification, ...remainingNotifications] = notificationTtsQueueRef.current;
+        notificationTtsQueueRef.current = remainingNotifications;
+      }
+    } finally {
+      isPlayingNotificationTtsRef.current = false;
+    }
+  }, [persistSpokenNotificationIds, playAudioBlob]);
 
   const refreshAnalysis = useCallback(async (petId: string) => {
     setIsAnalysisLoading(true);
@@ -241,7 +301,47 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
+  }, [refreshAnalysis]);
+
+  useEffect(() => {
+    try {
+      spokenNotificationIdsRef.current = new Set(
+        parseSpokenNotificationIds(window.localStorage.getItem(notificationTtsStorageKey)),
+      );
+    } catch {
+      spokenNotificationIdsRef.current = new Set();
+    }
   }, []);
+
+  useEffect(() => {
+    if (!isStorageReady) {
+      return;
+    }
+
+    const currentNotificationIds = notifications.map((notification) => notification.id);
+    const pendingNotifications = getNewUnreadNotificationsForSpeech({
+      hasCompletedInitialLoad: hasCompletedInitialNotificationLoadRef.current,
+      knownNotificationIds: [...knownNotificationIdsRef.current],
+      notifications,
+      spokenNotificationIds: [...spokenNotificationIdsRef.current],
+    });
+
+    knownNotificationIdsRef.current = new Set(currentNotificationIds);
+    if (!hasCompletedInitialNotificationLoadRef.current) {
+      hasCompletedInitialNotificationLoadRef.current = true;
+      return;
+    }
+    if (pendingNotifications.length === 0) {
+      return;
+    }
+
+    const queuedIds = new Set(notificationTtsQueueRef.current.map((notification) => notification.id));
+    notificationTtsQueueRef.current = [
+      ...notificationTtsQueueRef.current,
+      ...pendingNotifications.filter((notification) => !queuedIds.has(notification.id)),
+    ];
+    void playQueuedNotificationTts();
+  }, [isStorageReady, notifications, playQueuedNotificationTts]);
 
   useEffect(() => {
     if (!isStorageReady) {
@@ -265,6 +365,21 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
     }
   }, [isStorageReady, profile, records, schedules, settings, readNotificationIds, expansionState]);
 
+  const refreshNotifications = useCallback(async (petId?: string) => {
+    const targetPetId = petId ?? profile.id;
+    if (!targetPetId) {
+      return;
+    }
+
+    try {
+      const notificationsData = await fetchNotifications(targetPetId);
+      setNotifications(sortCareNotificationsByLatest(notificationsData.notifications ?? []));
+      setReadNotificationIds(notificationsData.readNotificationIds ?? []);
+    } catch (err) {
+      console.error("[provider] 알림 갱신 실패:", err);
+    }
+  }, [profile.id]);
+
   const addRecord = useCallback(async (input: NewRecordInput) => {
     try {
       const { records } = await createRecordApi(input);
@@ -277,6 +392,7 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
       // 분석 데이터 갱신 (비동기)
       if (profile.id) {
         void refreshAnalysis(profile.id);
+        void refreshNotifications(profile.id);
       }
 
       setError("");
@@ -287,7 +403,7 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
       setSyncStatus("error");
       throw new Error("API 저장에 실패했습니다.");
     }
-  }, []);
+  }, [profile.id, refreshAnalysis, refreshNotifications]);
 
   const updateRecord = useCallback(async (id: string, input: UpdateRecordInput) => {
     try {
@@ -297,6 +413,7 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
       // 분석 데이터 갱신 (비동기)
       if (profile.id) {
         void refreshAnalysis(profile.id);
+        void refreshNotifications(profile.id);
       }
 
       setError("");
@@ -305,7 +422,7 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
       setError("API 수정에 실패해 이전 기록으로 되돌렸습니다.");
       setSyncStatus("offline");
     }
-  }, []);
+  }, [profile.id, refreshAnalysis, refreshNotifications]);
 
   const deleteRecord = useCallback(async (id: string) => {
     const previousRecords = records;
@@ -317,6 +434,7 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
       // 분석 데이터 갱신 (비동기)
       if (profile.id) {
         void refreshAnalysis(profile.id);
+        void refreshNotifications(profile.id);
       }
 
       setError("");
@@ -326,7 +444,7 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
       setError("API 삭제에 실패해 이전 기록으로 되돌렸습니다.");
       setSyncStatus("offline");
     }
-  }, [records]);
+  }, [profile.id, records, refreshAnalysis, refreshNotifications]);
 
   const updateProfile = useCallback(async (input: PetProfile) => {
     const nextProfile = {
@@ -464,7 +582,7 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
       setError("API 알림 읽음 저장에 실패했습니다.");
       setSyncStatus("offline");
     }
-  }, []);
+  }, [profile.id]);
 
   const markNotificationRead = useCallback(async (id: string) => {
     const nextIds = readNotificationIds.includes(id) ? readNotificationIds : [...readNotificationIds, id];
@@ -487,6 +605,9 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
     try {
       const { schedule } = await createScheduleApi(input);
       setSchedules((current) => current.map((item) => (item.id === fallbackSchedule.id ? schedule : item)));
+      if (profile.id) {
+        void refreshNotifications(profile.id);
+      }
       setError("");
       setSyncStatus("synced");
       return schedule;
@@ -495,7 +616,7 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
       setSyncStatus("offline");
       return fallbackSchedule;
     }
-  }, []);
+  }, [profile.id, refreshNotifications]);
 
   const toggleScheduleDone = useCallback(async (id: string) => {
     const targetSchedule = schedules.find((schedule) => schedule.id === id);
@@ -510,6 +631,9 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
     try {
       const { schedule } = await updateScheduleApi(id, { isDone: nextDone });
       setSchedules((current) => current.map((item) => (item.id === id ? schedule : item)));
+      if (profile.id) {
+        void refreshNotifications(profile.id);
+      }
       setError("");
       setSyncStatus("synced");
     } catch {
@@ -517,7 +641,7 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
       setError("API 일정 수정에 실패했습니다.");
       setSyncStatus("offline");
     }
-  }, [schedules]);
+  }, [profile.id, refreshNotifications, schedules]);
 
   const deleteSchedule = useCallback(async (id: string) => {
     const previousSchedules = schedules;
@@ -525,6 +649,9 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
 
     try {
       await deleteScheduleApi(id);
+      if (profile.id) {
+        void refreshNotifications(profile.id);
+      }
       setError("");
       setSyncStatus("synced");
     } catch {
@@ -532,7 +659,7 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
       setError("API 일정 삭제에 실패했습니다.");
       setSyncStatus("offline");
     }
-  }, [schedules]);
+  }, [profile.id, refreshNotifications, schedules]);
 
   const value = useMemo(
     () => ({
