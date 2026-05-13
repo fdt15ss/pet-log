@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from uuid import uuid4
+
 from application.dto import PetLogAgentInput, PetLogAgentResult
 from domain.models import CareSuggestion, PetProfile, PetRecord, ShoppingRecommendation
 from infrastructure.repositories import RecordRepository, ScheduleRepository
@@ -57,8 +59,9 @@ class PetLogAgentPipeline:
                 safety_notices=safety_notices,
             )
 
+        batch_id = str(uuid4())
         saved_records = tuple(
-            self._record_repository.save_candidate(input.pet.id, candidate, source=input.source)
+            self._record_repository.save_candidate(input.pet.id, candidate, source=input.source, batch_id=batch_id)
             for candidate in record_batch.candidates
         )
         suggestions = self._suggestion_agent.suggest(input.pet, context, safety_notices)
