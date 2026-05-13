@@ -64,6 +64,8 @@ export type RecordEntry = {
   id: string;
   time: string;
   date: string;
+  batchId?: string;
+  recordedAt?: string;
   category: RecordCategory;
   categoryChoice?: RecordCategoryChoice;
   title: string;
