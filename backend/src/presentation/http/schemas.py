@@ -46,6 +46,19 @@ class CareAnswerRequest(BaseModel):
         return stripped
 
 
+class PetChatRequest(BaseModel):
+    pet_id: str = Field(min_length=1)
+    message: str = Field(min_length=1)
+
+    @field_validator("pet_id", "message")
+    @classmethod
+    def reject_blank_pet_chat(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("value must not be blank")
+        return stripped
+
+
 class HospitalRecommendationRequest(BaseModel):
     latitude: float = Field(ge=-90, le=90)
     longitude: float = Field(ge=-180, le=180)

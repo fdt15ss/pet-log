@@ -8,7 +8,7 @@ import { usePetLog } from "@/components/pet-log-provider";
 import { AiMascot, Card, CategoryBadge, SectionHeader } from "@/components/ui";
 import { getRecentChange, getRecordStatusLabel, getTodaySummary, type HomeSummaryTone } from "@/lib/home-summary";
 import { PetIcon } from "@/components/pet-icons";
-import { sendChatbotMessage } from "@/lib/api-client";
+import { askPetChat, sendChatbotMessage } from "@/lib/api-client";
 import type { ChatbotThread } from "@/lib/types";
 
 type SpeechRecognitionEventLike = {
@@ -90,6 +90,7 @@ export default function Home() {
   const [petChatNotice, setPetChatNotice] = useState("");
   const [petChatMessages, setPetChatMessages] = useState<PetChatMessage[]>([]);
   const [isChatbotSending, setIsChatbotSending] = useState(false);
+  const [isPetChatSending, setIsPetChatSending] = useState(false);
   const [isChatbotHistoryLoading] = useState(false);
   const [isVoiceListening, setIsVoiceListening] = useState(false);
   const [isPetVoiceListening, setIsPetVoiceListening] = useState(false);
@@ -274,7 +275,7 @@ export default function Home() {
       : `아직 오늘 기록이 많지는 않지만, 네가 말 걸어줘서 좋아. 밥, 산책, 배변 같은 걸 남겨주면 더 내 얘기처럼 답할 수 있어.`;
   }
 
-  function sendPetChatMessage(question: string) {
+  async function sendPetChatMessage(question: string) {
     const trimmedQuestion = question.trim();
     if (!trimmedQuestion) {
       setPetChatNotice(`${profile.name}에게 하고 싶은 말을 입력해주세요.`);
@@ -288,24 +289,34 @@ export default function Home() {
       role: "user",
       content: trimmedQuestion,
     };
-    const petMessage: PetChatMessage = {
-      id: `pet-reply-${messageId}`,
-      role: "pet",
-      content: createPetReply(trimmedQuestion),
-    };
+    setPetChatMessages((current) => [...current, userMessage].slice(-12));
+    setIsPetChatSending(true);
 
-    setPetChatMessages((current) => [...current, userMessage, petMessage].slice(-12));
-    setPetChatInput("");
-    setPetChatNotice("");
+    try {
+      const response = await askPetChat(trimmedQuestion, profile.id);
+      const petMessage: PetChatMessage = {
+        id: `pet-reply-${messageId}`,
+        role: "pet",
+        content: response.answer,
+      };
+
+      setPetChatMessages((current) => [...current, petMessage].slice(-12));
+      setPetChatInput("");
+      setPetChatNotice(response.safetyNotice || "");
+    } catch {
+      setPetChatNotice("대화 답변을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.");
+    } finally {
+      setIsPetChatSending(false);
+    }
   }
 
   function selectPetChatQuestion(question: string) {
     setPetChatInput(question);
-    sendPetChatMessage(question);
+    void sendPetChatMessage(question);
   }
 
   function submitPetChatQuestion() {
-    sendPetChatMessage(petChatInput);
+    void sendPetChatMessage(petChatInput);
   }
 
   function startChatbotVoiceInput() {
@@ -718,6 +729,7 @@ export default function Home() {
                 {petChatQuestions.map((question) => (
                   <button
                     className="flex h-12 w-full items-center gap-3 rounded-full border border-[#dfe6d9] bg-white px-4 text-left text-sm font-bold text-[#40513f] shadow-[0_4px_14px_rgba(49,65,44,0.04)]"
+                    disabled={isPetChatSending}
                     key={question}
                     onClick={() => selectPetChatQuestion(question)}
                     type="button"
@@ -741,9 +753,14 @@ export default function Home() {
                     }`}
                     key={message.id}
                   >
-                    <p className="break-words">{message.content}</p>
+                    <p className="whitespace-pre-line break-words">{message.content}</p>
                   </div>
                 ))}
+                {isPetChatSending ? (
+                  <div className="mr-auto max-w-[92%] rounded-2xl border border-[#dfe8d9] bg-white px-4 py-3 text-sm font-semibold leading-6 text-[#667262] shadow-sm">
+                    <p>답변을 생각하는 중입니다.</p>
+                  </div>
+                ) : null}
               </div>
 
               {petChatNotice ? (
@@ -774,7 +791,7 @@ export default function Home() {
                     ? "border-[#16804b] bg-[#e7f4eb] text-[#16804b]"
                     : "border-[#d8e2d2] bg-[#f6f8f3] text-[#667262] disabled:text-[#a9b2a5]"
                 }`}
-                disabled={isPetVoiceListening}
+                disabled={isPetChatSending || isPetVoiceListening}
                 onClick={startPetChatVoiceInput}
                 title="음성 입력"
                 type="button"
@@ -783,7 +800,8 @@ export default function Home() {
               </button>
               <button
                 aria-label="펫 대화 보내기"
-                className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#1f2922] text-white"
+                className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#1f2922] text-white disabled:bg-[#7c847f]"
+                disabled={isPetChatSending}
                 onClick={submitPetChatQuestion}
                 type="button"
               >
