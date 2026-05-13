@@ -18,7 +18,7 @@ export type StructuredRecordCandidate = {
   status: RecordStatus;
   confidence: number;
   needsConfirmation: boolean;
-  measurements?: string[];
+  measurements?: ExtractedMeasurement[];
 };
 
 export type StructuredRecord = {
@@ -165,7 +165,7 @@ export type CareNotification = {
   actionHref: string;
   dueLabel: string;
   tone: CareNotificationTone;
-  isRead: boolean;
+  isRead?: boolean;
 };
 
 export type MetricSeries = {

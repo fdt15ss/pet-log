@@ -540,7 +540,7 @@ export default function RecordPage() {
     }
 
     const baseMeasurements = selectedCandidate
-      ? selectedCandidate.measurements
+      ? (selectedCandidate.measurements ?? [])
       : displayPreview.measurements;
 
     const filteredMeasurements = filterMeasurementsForCategory(
@@ -754,7 +754,7 @@ export default function RecordPage() {
           ...candidate,
           detail: candidate.detail || trimmedDetail,
           measurements:
-            candidate.measurements.length > 0
+            candidate.measurements && candidate.measurements.length > 0
               ? candidate.measurements
               : inferMeasurementsForDisplay(trimmedDetail, candidate.category),
         })),

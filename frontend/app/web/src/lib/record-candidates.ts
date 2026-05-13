@@ -49,9 +49,10 @@ export function buildConfirmedRecordCandidates(structured: StructuredRecord): St
 
 export function refineRecordCandidateDetails(sourceText: string, candidates: StructuredRecordCandidate[]) {
   return candidates.map((candidate) => {
+    const candidateMeasurements = candidate.measurements ?? [];
     const refinedMeasurements =
-      candidate.measurements.length > 0
-        ? candidate.measurements
+      candidateMeasurements.length > 0
+        ? candidateMeasurements
         : inferMeasurementsForCategory(sourceText, candidate.category);
 
     const detail = createCandidateDetail(sourceText, candidate.category, refinedMeasurements);
@@ -344,7 +345,7 @@ export function structuredFromCandidate(candidate: StructuredRecordCandidate, so
     suggestedCategory: candidate.category,
     detectedCategories: [candidate.category],
     confidence: candidate.confidence,
-    measurements: candidate.measurements,
+    measurements: candidate.measurements ?? [],
     needsConfirmation: candidate.needsConfirmation,
   };
 }
