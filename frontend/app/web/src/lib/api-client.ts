@@ -202,6 +202,11 @@ export function transcribeSpeechAudio(audio: File) {
   return requestData<SpeechTranscriptionResponse>(axios.post("/api/v1/speech/transcriptions", formData));
 }
 
+export async function synthesizeSpeech(text: string, voice?: string) {
+  const response = await axios.post("/api/v1/speech/synthesis", { text, voice }, { responseType: "blob" });
+  return response.data as Blob;
+}
+
 export function uploadProfilePhoto(photo: File) {
   const formData = new FormData();
   formData.set("file", photo);
