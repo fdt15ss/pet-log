@@ -155,6 +155,7 @@ class Notification:
     tone: str  # "green", "orange", "red", "blue"
     created_at: str
     read_at: str | None = None
+    dedupe_key: str | None = None
 
 
 @dataclass(frozen=True)

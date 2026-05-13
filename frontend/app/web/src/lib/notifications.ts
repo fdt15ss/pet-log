@@ -22,6 +22,29 @@ function formatToday(date = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
+function notificationTimestamp(notification: CareNotification) {
+  const match = notification.createdAt.match(
+    /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2}))?)?/,
+  );
+  if (!match) {
+    return 0;
+  }
+
+  const [, year, month, day, hour = "00", minute = "00", second = "00"] = match;
+  return Date.UTC(
+    Number(year),
+    Number(month) - 1,
+    Number(day),
+    Number(hour),
+    Number(minute),
+    Number(second),
+  );
+}
+
+export function sortCareNotificationsByLatest(notifications: CareNotification[]) {
+  return [...notifications].sort((left, right) => notificationTimestamp(right) - notificationTimestamp(left));
+}
+
 export function getCareNotifications(
   records: RecordEntry[],
   schedules: CareSchedule[] = [],
@@ -30,6 +53,7 @@ export function getCareNotifications(
 ): CareNotification[] {
   const recentRecords = records.slice(0, recentRecordLimit);
   const notifications: CareNotification[] = [];
+  const todayStart = `${today}T00:00:00`;
 
   const alertRecord = recentRecords.find((record) => record.status === "alert");
   if (preferences.alert && alertRecord) {
@@ -42,6 +66,8 @@ export function getCareNotifications(
       actionHref: "/timeline",
       dueLabel: "오늘",
       tone: "red",
+      createdAt: `${today}T09:30:00`,
+      isRead: false,
     });
   }
 
@@ -55,6 +81,8 @@ export function getCareNotifications(
       actionHref: "/record",
       dueLabel: "오늘",
       tone: "orange",
+      createdAt: `${today}T09:20:00`,
+      isRead: false,
     });
   }
 
@@ -68,6 +96,8 @@ export function getCareNotifications(
       actionHref: "/record",
       dueLabel: "오늘",
       tone: "green",
+      createdAt: `${today}T09:10:00`,
+      isRead: false,
     });
   }
 
@@ -84,6 +114,8 @@ export function getCareNotifications(
           actionHref: "/schedule",
           dueLabel: status.label,
           tone: status.tone,
+          createdAt: schedule.dueDate ? `${schedule.dueDate}T00:00:00` : todayStart,
+          isRead: false,
         });
       });
     } else {
@@ -96,11 +128,13 @@ export function getCareNotifications(
         actionHref: "/schedule",
         dueLabel: "3일 후",
         tone: "blue",
+        createdAt: todayStart,
+        isRead: false,
       });
     }
   }
 
-  return notifications;
+  return sortCareNotificationsByLatest(notifications);
 }
 
 export function getNotificationsWithReadState(

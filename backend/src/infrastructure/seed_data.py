@@ -207,6 +207,54 @@ def seed_default_data(connection: sqlite3.Connection, today: date | None = None)
     )
     connection.executemany(
         """
+        INSERT OR IGNORE INTO notifications
+            (id, pet_id, category, title, detail, action, action_href, due_label, tone, dedupe_key, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            (
+                "sample-notification-behavior-change",
+                "pet_01JCM7V8H9Q2K4N6R8T0A1B2C3",
+                "행동 변화",
+                "행동 변화 관찰",
+                "최근 낯선 소리 반응 기록이 이어졌습니다. 같은 상황에서 반복되는지 오늘 기록을 확인해보세요.",
+                "기록 확인",
+                "/timeline",
+                "오늘",
+                "orange",
+                "sample:behavior_change:sound-reaction",
+                _at(base_date, time(9, 20)),
+            ),
+            (
+                "sample-notification-missing-record",
+                "pet_01JCM7V8H9Q2K4N6R8T0A1B2C3",
+                "기록",
+                "기록 누락 알림",
+                "오늘 식사, 산책, 배변 중 빠진 항목이 있는지 확인하고 짧게 기록해보세요.",
+                "기록 추가",
+                "/record",
+                "오늘",
+                "orange",
+                "sample:missing_record:daily-care",
+                _at(base_date, time(9, 30)),
+            ),
+            (
+                "sample-notification-risk",
+                "pet_01JCM7V8H9Q2K4N6R8T0A1B2C3",
+                "주의",
+                "주의 기록 확인",
+                "귀를 긁는 행동과 피부 붉어짐 기록이 있습니다. 증상이 이어지는지 오늘 한 번 더 확인해보세요.",
+                "기록 확인",
+                "/timeline",
+                "오늘",
+                "red",
+                "sample:risk:ear-scratch",
+                _at(base_date, time(9, 10)),
+            ),
+        ),
+    )
+    connection.executemany(
+        """
         INSERT OR IGNORE INTO community_posts
             (id, board, title, body, author_name, created_at, likes, distance, feeds, tags)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)

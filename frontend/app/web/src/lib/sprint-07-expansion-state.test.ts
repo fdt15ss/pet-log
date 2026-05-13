@@ -1,10 +1,10 @@
 import { strict as assert } from "node:assert";
 import test from "node:test";
 import { defaultExpansionState, normalizeExpansionState } from "./expansion-state";
-import { resetMockPetLogSnapshot, updateMockExpansionState } from "./server/mock-pet-log-store";
+import { resetMockPetLogState, updateMockExpansionState } from "./server/mock-pet-log-store";
 
 test("스프린트 7: 확장 UI 상태는 부분 업데이트와 정규화를 지원한다", () => {
-  resetMockPetLogSnapshot();
+  resetMockPetLogState();
   const sharedCareState = updateMockExpansionState({
     sharedCare: { ...defaultExpansionState.sharedCare, inviteTarget: "가족", selectedRole: "읽기 전용" },
   });

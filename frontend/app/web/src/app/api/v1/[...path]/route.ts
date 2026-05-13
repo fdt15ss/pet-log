@@ -4,7 +4,7 @@ import {
   appendMockChatbotExchange,
   createMockChatbotThread,
   getMockChatbotThreads,
-  getMockPetLogSnapshot,
+  getMockPetLogState,
   updateMockExpansionState,
   updateMockSettings,
 } from "@/lib/server/mock-pet-log-store";
@@ -610,7 +610,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const message = await createPetLogChatbotMessage({
       question: body.question,
       contextRecordIds: Array.isArray(body.contextRecordIds) ? body.contextRecordIds : [],
-      snapshot: getMockPetLogSnapshot(),
+      state: getMockPetLogState(),
     });
     const exchange = appendMockChatbotExchange(path[2], body.question, message);
     if (!exchange) {
@@ -631,7 +631,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const message = await createPetLogChatbotMessage({
       question: body.question,
       contextRecordIds: Array.isArray(body.contextRecordIds) ? body.contextRecordIds : [],
-      snapshot: getMockPetLogSnapshot(),
+      state: getMockPetLogState(),
     });
     const exchange = appendMockChatbotExchange(typeof body.threadId === "string" ? body.threadId : undefined, body.question, message);
     if (!exchange) {

@@ -117,6 +117,60 @@ class TestDatabaseRepositories(unittest.TestCase):
         self.assertEqual(schedule_dates, ("2026-05-10", "2026-05-14"))
         self.assertEqual(schedule_titles, ("미용 예약", "정기 검진"))
 
+    def test_seed_default_data_adds_sample_notifications(self):
+        connection = connect(":memory:")
+        seed_default_data(connection, today=date(2026, 5, 7))
+
+        notifications = connection.execute(
+            """
+            SELECT id, category, title, detail, action, action_href, due_label, tone, dedupe_key
+            FROM notifications
+            WHERE pet_id = ?
+            ORDER BY id
+            """,
+            (SAMPLE_PET_ID,),
+        ).fetchall()
+        notifications_by_id = {notification["id"]: notification for notification in notifications}
+
+        self.assertEqual(
+            {
+                "sample-notification-behavior-change",
+                "sample-notification-missing-record",
+                "sample-notification-risk",
+            },
+            set(notifications_by_id),
+        )
+
+        missing_record = notifications_by_id["sample-notification-missing-record"]
+        self.assertEqual(missing_record["category"], "기록")
+        self.assertEqual(missing_record["title"], "기록 누락 알림")
+        self.assertIn("식사, 산책, 배변", missing_record["detail"])
+        self.assertEqual(missing_record["action"], "기록 추가")
+        self.assertEqual(missing_record["action_href"], "/record")
+        self.assertEqual(missing_record["due_label"], "오늘")
+        self.assertEqual(missing_record["tone"], "orange")
+        self.assertEqual(missing_record["dedupe_key"], "sample:missing_record:daily-care")
+
+        risk = notifications_by_id["sample-notification-risk"]
+        self.assertEqual(risk["category"], "주의")
+        self.assertEqual(risk["title"], "주의 기록 확인")
+        self.assertIn("귀를 긁는 행동", risk["detail"])
+        self.assertEqual(risk["action"], "기록 확인")
+        self.assertEqual(risk["action_href"], "/timeline")
+        self.assertEqual(risk["due_label"], "오늘")
+        self.assertEqual(risk["tone"], "red")
+        self.assertEqual(risk["dedupe_key"], "sample:risk:ear-scratch")
+
+        behavior_change = notifications_by_id["sample-notification-behavior-change"]
+        self.assertEqual(behavior_change["category"], "행동 변화")
+        self.assertEqual(behavior_change["title"], "행동 변화 관찰")
+        self.assertIn("낯선 소리 반응", behavior_change["detail"])
+        self.assertEqual(behavior_change["action"], "기록 확인")
+        self.assertEqual(behavior_change["action_href"], "/timeline")
+        self.assertEqual(behavior_change["due_label"], "오늘")
+        self.assertEqual(behavior_change["tone"], "orange")
+        self.assertEqual(behavior_change["dedupe_key"], "sample:behavior_change:sound-reaction")
+
     def test_seed_database_can_seed_existing_empty_file(self):
         with tempfile.TemporaryDirectory() as directory:
             database_path = Path(directory) / "pet_log.sqlite3"

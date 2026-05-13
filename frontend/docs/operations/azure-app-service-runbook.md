@@ -55,7 +55,7 @@ curl -I https://pet-log-kp-20260504.azurewebsites.net
 API route 응답을 확인합니다.
 
 ```bash
-curl -I https://pet-log-kp-20260504.azurewebsites.net/api/v1/me/pet-log
+curl -I https://pet-log-kp-20260504.azurewebsites.net/api/v1/me
 ```
 
 정상 기준:
@@ -98,7 +98,7 @@ npm run azure:deploy -- pet-log-rg pet-log-kp-20260504 "Azure for Students"
 
 ```bash
 curl -I https://pet-log-kp-20260504.azurewebsites.net
-curl -I https://pet-log-kp-20260504.azurewebsites.net/api/v1/me/pet-log
+curl -I https://pet-log-kp-20260504.azurewebsites.net/api/v1/me
 ```
 
 ## 로그 확인

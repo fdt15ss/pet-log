@@ -2,7 +2,7 @@ import unittest
 from fastapi.testclient import TestClient
 from presentation.http.app import create_app
 from composition import AppContext
-from infrastructure.database import connect, initialize_schema
+from infrastructure.database import connect
 from infrastructure.seed_data import seed_default_data
 from infrastructure.repositories import PetProfileRepository, NotificationRepository, RecordRepository, ScheduleRepository
 
@@ -86,15 +86,30 @@ class TestNewHttpRoutes(unittest.TestCase):
         response = self.client.get(f"/api/v1/notifications?pet_id={pet_id}")
         self.assertEqual(response.status_code, 200)
         notifs = response.json()["data"]["notifications"]
-        self.assertEqual(len(notifs), 1)
-        notif_id = notifs[0]["id"]
+        self.assertTrue(any(n["title"] == "기록 누락 알림" for n in notifs))
+        self.assertTrue(all("createdAt" in n for n in notifs))
+        self.assertEqual(
+            [n["createdAt"] for n in notifs],
+            sorted((n["createdAt"] for n in notifs), reverse=True),
+        )
+        self.assertEqual(
+            [n["title"] for n in notifs[:3]],
+            ["기록 누락 알림", "행동 변화 관찰", "주의 기록 확인"],
+        )
+        behavior_change = next(n for n in notifs if n["title"] == "행동 변화 관찰")
+        self.assertEqual(behavior_change["dueLabel"], "오늘")
+        created_notif = next(n for n in notifs if n["title"] == "API Test")
+        notif_id = created_notif["id"]
 
         # Mark as read
         response = self.client.patch(f"/api/v1/notifications/{notif_id}/read")
         self.assertEqual(response.status_code, 200)
 
         # Mark all as read
-        response = self.client.put(f"/api/v1/notifications/read?pet_id={pet_id}")
+        response = self.client.put(
+            f"/api/v1/notifications/read?pet_id={pet_id}",
+            json={"readNotificationIds": [n["id"] for n in notifs]},
+        )
         self.assertEqual(response.status_code, 200)
 
 if __name__ == "__main__":

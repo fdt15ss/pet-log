@@ -366,69 +366,6 @@ class TestHttpRoutes(unittest.TestCase):
         self.assertEqual(context.shopping_agent.handled_records[0].id, "record-1")
         self.assertEqual(context.shopping_agent.handled_suggestions[0].title, "식사 관리")
 
-    def test_snapshot_route_returns_db_backed_frontend_snapshot(self):
-        context = FakeAppContext()
-
-        with TestClient(create_app(app_context_factory=lambda: context)) as client:
-            response = client.get("/api/v1/pet-log/snapshot?pet_id=pet_01JCM7V8H9Q2K4N6R8T0A1B2C3")
-
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(
-            response.json(),
-            {
-                "success": True,
-                "data": {
-                    "version": 1,
-                    "profile": {
-                        "name": "초코",
-                        "breed": "말티푸",
-                        "age": "3살",
-                        "sex": "암컷",
-                        "weight": "3.4kg",
-                        "birthday": "2018.5.11",
-                        "personality": "저녁 산책을 좋아해요",
-                        "notes": ["아침 식사는 천천히 먹는 편"],
-                    },
-                    "records": [
-                        {
-                            "id": "record-1",
-                            "date": "5월 9일",
-                            "time": "08:10",
-                            "category": "meal",
-                            "title": "아침 식사",
-                            "detail": "사료를 조금 남겼어요.",
-                            "status": "notice",
-                        }
-                    ],
-                    "schedules": [
-                        {
-                            "id": "schedule-1",
-                            "category": "checkup",
-                            "title": "정기 검진",
-                            "dueDate": "2026-05-16",
-                            "repeatLabel": "6개월마다",
-                            "note": "식사량 같이 상담",
-                            "isDone": False,
-                        }
-                    ],
-                    "settings": {
-                        "notificationPreferences": {
-                            "missingRecord": True,
-                            "alert": True,
-                            "schedule": True,
-                        },
-                        "aiInsightEnabled": True,
-                    },
-                    "readNotificationIds": [],
-                    "expansionState": {
-                        "sharedCare": {},
-                        "hospital": {},
-                        "shopping": {},
-                    },
-                },
-            },
-        )
-
     def test_record_route_logs_pipeline_result_summary(self):
         context = FakeAppContext()
 

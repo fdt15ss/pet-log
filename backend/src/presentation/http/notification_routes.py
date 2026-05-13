@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
 from application.dto import NotificationCandidate
 from composition import AppContext
+from domain.models import Notification
 from presentation.http.schemas import success_response
 
 _KIND_CATEGORY = {
@@ -29,9 +32,9 @@ _KIND_ACTION = {
 }
 
 _KIND_HREF = {
-    "risk": "/records",
-    "behavior_change": "/records",
-    "missing_record": "/records/new",
+    "risk": "/timeline",
+    "behavior_change": "/timeline",
+    "missing_record": "/record",
     "schedule": "/schedules",
 }
 
@@ -63,8 +66,13 @@ def build_notification_router() -> APIRouter:
                     tone=_KIND_TONE[c.kind],
                 )
 
+        stored_notifications = app_context.notification_repository.list_for_pet(pet_id)
+        notification_payloads = _merge_notification_payloads(
+            tuple(_notification_to_frontend(n, read_ids) for n in stored_notifications),
+            tuple(_candidate_to_frontend(c, read_ids) for c in candidates),
+        )
         return success_response({
-            "notifications": [_candidate_to_frontend(c, read_ids) for c in candidates],
+            "notifications": notification_payloads,
             "readNotificationIds": list(read_ids),
         })
 
@@ -126,5 +134,51 @@ def _candidate_to_frontend(c: NotificationCandidate, read_ids: set[str]) -> dict
         "actionHref": _KIND_HREF[c.kind],
         "dueLabel": c.due_date or "",
         "tone": _KIND_TONE[c.kind],
+        "createdAt": c.due_date or "",
         "isRead": c.dedupe_key in read_ids,
     }
+
+
+def _notification_to_frontend(notification: Notification, read_ids: set[str]) -> dict[str, object]:
+    notification_id = notification.dedupe_key or notification.id
+    return {
+        "id": notification_id,
+        "category": notification.category,
+        "title": notification.title,
+        "detail": notification.detail,
+        "action": notification.action,
+        "actionHref": notification.action_href,
+        "dueLabel": notification.due_label,
+        "tone": notification.tone,
+        "createdAt": notification.created_at,
+        "isRead": notification_id in read_ids or notification.read_at is not None,
+    }
+
+
+def _merge_notification_payloads(
+    stored: tuple[dict[str, object], ...],
+    computed: tuple[dict[str, object], ...],
+) -> list[dict[str, object]]:
+    merged: list[dict[str, object]] = []
+    seen: set[object] = set()
+    for notification in stored + computed:
+        notification_id = notification["id"]
+        if notification_id in seen:
+            continue
+        seen.add(notification_id)
+        merged.append(notification)
+    return sorted(merged, key=_notification_created_at_key, reverse=True)
+
+
+def _notification_created_at_key(notification: dict[str, object]) -> float:
+    created_at = str(notification.get("createdAt", ""))
+    if not created_at:
+        return 0
+    normalized = created_at.replace("Z", "+00:00")
+    try:
+        parsed = datetime.fromisoformat(normalized)
+    except ValueError:
+        return 0
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.timestamp()
