@@ -200,6 +200,7 @@ def _record_to_dict(record: PetRecord) -> dict[str, Any]:
         "status": record.status,
         "recorded_at": record.recorded_at,
         "source": record.source,
+        "batch_id": record.batch_id,
     }
 
 

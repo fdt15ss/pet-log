@@ -47,6 +47,7 @@ type BackendPetLogRecord = {
   detail?: unknown;
   status?: unknown;
   recorded_at?: unknown;
+  batch_id?: unknown;
 };
 
 type BackendRecordEntry = {
@@ -216,6 +217,186 @@ function firstBackendSavedRecord(result: BackendPetLogResult): BackendPetLogReco
   return record && typeof record === "object" ? (record as BackendPetLogRecord) : null;
 }
 
+function backendSavedRecords(result: BackendPetLogResult): BackendPetLogRecord[] {
+  if (!Array.isArray(result.saved_records)) {
+    return [];
+  }
+
+  return result.saved_records.filter(
+    (record): record is BackendPetLogRecord => !!record && typeof record === "object",
+  );
+}
+
+function backendCandidates(result: BackendPetLogResult): BackendPetLogCandidate[] {
+  if (!Array.isArray(result.candidates)) {
+    return [];
+  }
+
+  return result.candidates.filter(
+    (candidate): candidate is BackendPetLogCandidate => !!candidate && typeof candidate === "object",
+  );
+}
+
+function uniqueValues(values: string[]) {
+  return values.reduce<string[]>((unique, value) => {
+    const trimmed = value.trim();
+    if (!trimmed || unique.includes(trimmed)) {
+      return unique;
+    }
+    return [...unique, trimmed];
+  }, []);
+}
+
+function strongestRecordStatus(records: Array<{ status?: unknown }>): RecordStatus {
+  const statuses = records.map((record) => record.status).filter(isRecordStatus);
+  if (statuses.includes("alert")) {
+    return "alert";
+  }
+  if (statuses.includes("notice")) {
+    return "notice";
+  }
+  return "normal";
+}
+
+function mergeBackendMeasurements(result: BackendPetLogResult) {
+  return backendCandidates(result).reduce<ExtractedMeasurement[]>((measurements, candidate) => {
+    const nextMeasurements = mapBackendMeasurements(candidate.measurements);
+    return [...measurements, ...nextMeasurements].filter(
+      (measurement, index, all) =>
+        all.findIndex((item) => item.label === measurement.label && item.value === measurement.value) === index,
+    );
+  }, []);
+}
+
+function mapBackendSavedRecordsToEntry(
+  result: BackendPetLogResult,
+  structured: StructuredRecord,
+  detail: string,
+  fallbackCategory: RecordCategory,
+  categoryChoice: RecordCategoryChoice,
+): RecordEntry | null {
+  const savedRecords = backendSavedRecords(result);
+  const firstRecord = savedRecords[0] ?? firstBackendSavedRecord(result);
+  if (!firstRecord) {
+    return null;
+  }
+
+  if (savedRecords.length <= 1) {
+    return mapBackendRecordToEntry(firstRecord, structured, fallbackCategory, categoryChoice);
+  }
+
+  const detectedCategories = uniqueValues(
+    savedRecords.map((record) => (isRecordCategory(record.category) ? record.category : "")),
+  ).filter(isRecordCategory);
+  const title = uniqueValues(savedRecords.map((record) => (typeof record.title === "string" ? record.title : ""))).join(" · ");
+  const measurements = mergeBackendMeasurements(result);
+  const mergedStructured: StructuredRecord = {
+    ...structured,
+    sourceText: detail,
+    normalizedSummary: title || detail,
+    detectedCategories: detectedCategories.length > 1 ? detectedCategories : structured.detectedCategories,
+    measurements: measurements.length ? measurements.slice(0, 4) : structured.measurements,
+  };
+  const entry = mapBackendRecordToEntry(
+    firstRecord,
+    mergedStructured,
+    fallbackCategory,
+    detectedCategories.length > 1 ? "all" : categoryChoice,
+  );
+  if (!entry) {
+    return null;
+  }
+
+  return {
+    ...entry,
+    title: title || entry.title,
+    detail,
+    status: strongestRecordStatus(savedRecords),
+  };
+}
+
+type BackendFetchedRecord = RecordEntry & {
+  batchId?: unknown;
+  recordedAt?: unknown;
+};
+
+function isBackendFetchedRecord(record: unknown): record is BackendFetchedRecord {
+  if (!record || typeof record !== "object") {
+    return false;
+  }
+
+  const candidate = record as Partial<BackendFetchedRecord>;
+  return (
+    typeof candidate.id === "string" &&
+    typeof candidate.date === "string" &&
+    typeof candidate.time === "string" &&
+    isRecordCategory(candidate.category) &&
+    typeof candidate.title === "string" &&
+    typeof candidate.detail === "string" &&
+    isRecordStatus(candidate.status)
+  );
+}
+
+function combineFetchedRecords(records: BackendFetchedRecord[]): RecordEntry[] {
+  const groups = records.reduce<Map<string, BackendFetchedRecord[]>>((grouped, record) => {
+    const key = typeof record.batchId === "string" && record.batchId.trim() ? record.batchId : record.id;
+    return new Map(grouped).set(key, [...(grouped.get(key) ?? []), record]);
+  }, new Map());
+  const consumed = new Set<string>();
+
+  return records.reduce<RecordEntry[]>((combined, record) => {
+    const key = typeof record.batchId === "string" && record.batchId.trim() ? record.batchId : record.id;
+    if (consumed.has(key)) {
+      return combined;
+    }
+
+    consumed.add(key);
+    const group = groups.get(key) ?? [record];
+    const categories = uniqueValues(group.map((item) => item.category)).filter(isRecordCategory);
+    if (group.length <= 1 || categories.length <= 1) {
+      return [...combined, record];
+    }
+
+    const title = uniqueValues(group.map((item) => item.title)).join(" · ");
+    const detail = uniqueValues(group.map((item) => item.detail)).join("\n");
+    return [
+      ...combined,
+      {
+        ...record,
+        categoryChoice: "all",
+        title: title || record.title,
+        detail: detail || record.detail,
+        status: strongestRecordStatus(group),
+        structured: {
+          sourceText: detail || record.detail,
+          normalizedSummary: title || record.title,
+          suggestedCategory: record.category,
+          detectedCategories: categories,
+          confidence: 0.9,
+          measurements: [],
+          needsConfirmation: false,
+        },
+      },
+    ];
+  }, []);
+}
+
+function combineFetchedRecordResponse(data: unknown) {
+  if (!data || typeof data !== "object" || !Array.isArray((data as { records?: unknown }).records)) {
+    return data;
+  }
+
+  const records = (data as { records: unknown[] }).records;
+  if (!records.every(isBackendFetchedRecord)) {
+    return data;
+  }
+
+  return {
+    ...data,
+    records: combineFetchedRecords(records),
+  };
+}
+
 function mapBackendCandidateToStructured(
   candidate: BackendPetLogCandidate,
   detail: string,
@@ -270,6 +451,7 @@ function mapBackendRecordToEntry(
     id: record.id,
     date,
     time,
+    batchId: typeof record.batch_id === "string" && record.batch_id.trim() ? record.batch_id : undefined,
     category: isRecordCategory(record.category) ? record.category : fallbackCategory,
     categoryChoice,
     title: record.title,
@@ -473,7 +655,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
         timeout: backendTimeoutMs(),
         validateStatus: () => true,
       });
-      return ok(response.data.data);
+      return ok(combineFetchedRecordResponse(response.data.data));
     } catch {
       return fail("BACKEND_RECORDS_FAILED", "기록 목록을 불러오지 못했습니다.", 502);
     }
@@ -563,10 +745,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
     try {
       const { result, structured } = await requestBackendPetLogRecord(body.detail, body.category, true);
-      const savedRecord = firstBackendSavedRecord(result);
-      const record = savedRecord
-        ? mapBackendRecordToEntry(savedRecord, structured, structured.suggestedCategory, body.category)
-        : null;
+      const record = mapBackendSavedRecordsToEntry(
+        result,
+        structured,
+        body.detail,
+        structured.suggestedCategory,
+        body.category,
+      );
       if (record) {
         return ok({ record }, 201);
       }
@@ -587,7 +772,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       console.error("[api/ai/records/structure] Error:", error);
       const status = error instanceof BackendRouteError ? error.status : 502;
       const code = error instanceof BackendRouteError ? error.code : "BACKEND_RECORD_FAILED";
-      const message = error instanceof Error ? error.message : "기록 서버 요청을 처리하지 못했습니다.";
+      const message = error instanceof BackendRouteError ? error.message : "기록 서버 요청을 처리하지 못했습니다.";
       return fail(code, message, status);
     }
   }

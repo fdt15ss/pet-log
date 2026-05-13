@@ -388,11 +388,12 @@ class TestDatabaseRepositories(unittest.TestCase):
             needs_confirmation=False,
         )
 
-        saved = repository.save_candidate("pet-1", candidate, source="manual")
+        saved = repository.save_candidate("pet-1", candidate, source="manual", batch_id="batch-123")
 
         self.assertEqual(saved.pet_id, "pet-1")
         self.assertEqual(saved.title, "Morning meal")
         self.assertEqual(saved.source, "manual")
+        self.assertEqual(saved.batch_id, "batch-123")
         self.assertEqual(repository.list_recent("pet-1", lookback_days=30), (saved,))
         self.assertEqual(repository.list_by_ids("pet-1", (saved.id,)), (saved,))
         self.assertEqual(repository.list_recent("pet-2", lookback_days=30), ())

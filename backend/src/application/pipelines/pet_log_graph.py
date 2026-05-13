@@ -4,6 +4,7 @@ import logging
 import warnings
 from collections.abc import Iterator
 from typing import Literal, TypedDict
+from uuid import uuid4
 
 from langchain_core._api.deprecation import LangChainPendingDeprecationWarning
 
@@ -181,9 +182,10 @@ class LangGraphPetLogAgentPipeline:
 
     def _save_records(self, state: PetLogAgentState) -> PetLogAgentState:
         input = state["input"]
+        batch_id = str(uuid4())
         return {
             "saved_records": tuple(
-                self._record_repository.save_candidate(input.pet.id, candidate, source=input.source)
+                self._record_repository.save_candidate(input.pet.id, candidate, source=input.source, batch_id=batch_id)
                 for candidate in state["record_batch"].candidates
             )
         }

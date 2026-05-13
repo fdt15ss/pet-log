@@ -42,6 +42,7 @@ class FakeRecordRepository:
         pet_id: str,
         candidate: StructuredRecordCandidate,
         source: RecordInputSource = "ai_preview",
+        batch_id: str | None = None,
     ) -> PetRecord:
         self.saved_candidates.append(candidate)
         self.saved_sources.append(source)
@@ -54,6 +55,7 @@ class FakeRecordRepository:
             status=candidate.status,
             recorded_at="2026-05-08T09:00:00Z",
             source=source,
+            batch_id=batch_id,
         )
 
 
@@ -169,6 +171,8 @@ class TestPetLogAgentPipeline(unittest.TestCase):
 
         self.assertEqual(result.candidates, (meal, walk))
         self.assertEqual(tuple(record.title for record in result.saved_records), ("식사", "산책"))
+        self.assertEqual(result.saved_records[0].batch_id, result.saved_records[1].batch_id)
+        self.assertTrue(result.saved_records[0].batch_id)
         self.assertEqual(tuple(record.source for record in result.saved_records), ("manual", "manual"))
         self.assertEqual(repository.saved_candidates, [meal, walk])
         self.assertEqual(repository.saved_sources, ["manual", "manual"])
@@ -243,7 +247,19 @@ class TestPetLogAgentPipeline(unittest.TestCase):
         linear_result = self._pipeline(batch, linear_repository).handle(input)
         graph_result = self._graph_pipeline(batch, graph_repository).handle(input)
 
-        self.assertEqual(graph_result, linear_result)
+        self.assertEqual(graph_result.candidates, linear_result.candidates)
+        self.assertEqual(
+            tuple(record.batch_id is not None for record in graph_result.saved_records),
+            tuple(record.batch_id is not None for record in linear_result.saved_records),
+        )
+        self.assertEqual(
+            tuple((record.title, record.category, record.source) for record in graph_result.saved_records),
+            tuple((record.title, record.category, record.source) for record in linear_result.saved_records),
+        )
+        self.assertEqual(graph_result.context_analysis, linear_result.context_analysis)
+        self.assertEqual(graph_result.safety_notices, linear_result.safety_notices)
+        self.assertEqual(graph_result.suggestions, linear_result.suggestions)
+        self.assertEqual(graph_result.reminders, linear_result.reminders)
         self.assertEqual(graph_repository.saved_candidates, linear_repository.saved_candidates)
 
     def test_langgraph_pipeline_streams_node_updates(self) -> None:
