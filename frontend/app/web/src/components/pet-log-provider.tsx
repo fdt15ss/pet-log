@@ -267,8 +267,12 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
 
   const addRecord = useCallback(async (input: NewRecordInput) => {
     try {
-      const { record } = await createRecordApi(input);
-      setRecords((current) => [record, ...current]);
+      const { records } = await createRecordApi(input);
+      const firstRecord = records[0];
+      if (!firstRecord) {
+        throw new Error("저장된 기록이 없습니다.");
+      }
+      setRecords((current) => [...records, ...current]);
 
       // 분석 데이터 갱신 (비동기)
       if (profile.id) {
@@ -277,7 +281,7 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
 
       setError("");
       setSyncStatus("synced");
-      return record;
+      return firstRecord;
     } catch {
       setError("API 저장에 실패했습니다.");
       setSyncStatus("error");

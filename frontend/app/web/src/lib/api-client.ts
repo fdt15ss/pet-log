@@ -175,7 +175,7 @@ export function updateProfile(input: PetProfile) {
 }
 
 export function createRecord(input: NewRecordInput) {
-  return requestData<{ record: RecordEntry }>(apiClient.post("/records", input));
+  return requestData<{ records: RecordEntry[] }>(apiClient.post("/records", input));
 }
 
 export function structureRecordPreview(input: StructureRecordInput) {

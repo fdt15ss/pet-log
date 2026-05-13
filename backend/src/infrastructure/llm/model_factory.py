@@ -5,6 +5,7 @@ import os
 from collections.abc import Callable, Sequence
 from typing import Protocol, TypeVar, cast
 
+from google.api_core.exceptions import DeadlineExceeded, ResourceExhausted, ServiceUnavailable
 from openai import APIConnectionError, APITimeoutError, InternalServerError, RateLimitError
 
 from langchain_openai import ChatOpenAI
@@ -25,6 +26,9 @@ TRANSIENT_LLM_ERRORS: tuple[type[BaseException], ...] = (
     APITimeoutError,
     InternalServerError,
     RateLimitError,
+    ResourceExhausted,
+    DeadlineExceeded,
+    ServiceUnavailable,
 )
 
 
