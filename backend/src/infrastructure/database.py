@@ -22,7 +22,13 @@ def connect(database_path: str | Path | None = None) -> sqlite3.Connection:
     connection.row_factory = sqlite3.Row
     connection.execute("PRAGMA foreign_keys = ON")
     initialize_schema(connection)
-    if should_seed or (path != Path(":memory:") and _default_sample_pet_missing(connection)):
+    if should_seed or (
+        path != Path(":memory:")
+        and (
+            _default_sample_pet_missing(connection)
+            or _default_community_posts_missing(connection)
+        )
+    ):
         from infrastructure.seed_data import seed_default_data
 
         seed_default_data(connection)
@@ -178,5 +184,12 @@ def _default_sample_pet_missing(connection: sqlite3.Connection) -> bool:
     row = connection.execute(
         "SELECT 1 FROM pets WHERE id = ? AND deleted_at IS NULL",
         (SAMPLE_PET_ID,),
+    ).fetchone()
+    return row is None
+
+
+def _default_community_posts_missing(connection: sqlite3.Connection) -> bool:
+    row = connection.execute(
+        "SELECT 1 FROM community_posts WHERE id = 'c1' AND deleted_at IS NULL",
     ).fetchone()
     return row is None

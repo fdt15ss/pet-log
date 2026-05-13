@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import json
+import random
 import sqlite3
 from datetime import UTC, datetime
+from collections.abc import Sequence
 from uuid import uuid4
 
 from domain.models import CommunityComment, CommunityPost
@@ -10,10 +12,32 @@ from infrastructure.database import initialize_schema
 
 COMMUNITY_BOARDS = ("유기동물", "용품 나눔", "자유게시판", "행동 고민", "후기")
 COMMUNITY_FEEDS = ("인기글", "최신글", "내 주변")
+POPULAR_LIKE_THRESHOLD = 10
 
 _BOARD_ALIASES = {
     "반려용품 나눔": "용품 나눔",
 }
+
+_NICKNAME_ADJECTIVES = (
+    "희망찬",
+    "꿈꾸는",
+    "다정한",
+    "용감한",
+    "상냥한",
+    "느긋한",
+    "반짝이는",
+    "활기찬",
+)
+_NICKNAME_NOUNS = (
+    "낙타",
+    "돌고래",
+    "고래",
+    "수달",
+    "여우",
+    "판다",
+    "코알라",
+    "알파카",
+)
 
 
 class CommunityRepository:
@@ -43,7 +67,7 @@ class CommunityRepository:
         return tuple(
             post
             for post in posts
-            if (feed is None or feed in post.feeds) and (board is None or post.board == board)
+            if (feed is None or _matches_feed(post, feed)) and (board is None or post.board == board)
         )
 
     def get_post(self, post_id: str) -> CommunityPost | None:
@@ -76,10 +100,19 @@ class CommunityRepository:
         ).fetchall()
         return tuple(_comment_from_row(row) for row in rows)
 
-    def create_post(self, board: str, title: str, body: str, author_name: str = "나") -> CommunityPost:
+    def create_post(
+        self,
+        board: str,
+        title: str,
+        body: str,
+        author_name: str | None = None,
+        tags: Sequence[str] | None = None,
+    ) -> CommunityPost:
         post_id = f"community-{uuid4().hex}"
-        created_at = "방금"
+        created_at = _now_label()
         board = _normalize_board(board)
+        resolved_author_name = _author_name_or_random(author_name)
+        resolved_tags = _normalize_tags(tags)
         self._connection.execute(
             """
             INSERT INTO community_posts
@@ -91,11 +124,11 @@ class CommunityRepository:
                 board,
                 title.strip(),
                 body.strip(),
-                author_name,
+                resolved_author_name,
                 created_at,
                 0,
                 json.dumps(["최신글"], ensure_ascii=False),
-                json.dumps(["새 글"], ensure_ascii=False),
+                json.dumps(resolved_tags, ensure_ascii=False),
             ),
         )
         self._connection.commit()
@@ -104,21 +137,22 @@ class CommunityRepository:
             raise RuntimeError("community post was not created")
         return post
 
-    def create_comment(self, post_id: str, body: str, author_name: str = "나") -> CommunityComment:
+    def create_comment(self, post_id: str, body: str, author_name: str | None = None) -> CommunityComment:
         comment_id = f"comment-{post_id}-{uuid4().hex}"
         created_at = _now_label()
+        resolved_author_name = _author_name_or_random(author_name)
         self._connection.execute(
             """
             INSERT INTO community_comments (id, post_id, author_name, body, created_at)
             VALUES (?, ?, ?, ?, ?)
             """,
-            (comment_id, post_id, author_name, body.strip(), created_at),
+            (comment_id, post_id, resolved_author_name, body.strip(), created_at),
         )
         self._connection.commit()
         return CommunityComment(
             id=comment_id,
             post_id=post_id,
-            author_name=author_name,
+            author_name=resolved_author_name,
             body=body.strip(),
             created_at=created_at,
         )
@@ -165,6 +199,27 @@ def _comment_from_row(row: sqlite3.Row) -> CommunityComment:
 
 def _normalize_board(board: str) -> str:
     return _BOARD_ALIASES.get(board, board)
+
+
+def _matches_feed(post: CommunityPost, feed: str) -> bool:
+    if feed == "인기글":
+        return post.likes >= POPULAR_LIKE_THRESHOLD
+    return feed in post.feeds
+
+
+def _normalize_tags(tags: Sequence[str] | None) -> tuple[str, ...]:
+    normalized: list[str] = []
+    for tag in tags or ():
+        value = tag.strip().lstrip("#").strip()
+        if value and value not in normalized:
+            normalized.append(value)
+    return tuple(normalized or ("새 글",))
+
+
+def _author_name_or_random(author_name: str | None) -> str:
+    if author_name and author_name.strip():
+        return author_name.strip()
+    return f"{random.choice(_NICKNAME_ADJECTIVES)} {random.choice(_NICKNAME_NOUNS)}"
 
 
 def _now_label() -> str:

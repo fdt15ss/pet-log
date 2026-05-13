@@ -383,8 +383,44 @@ async function proxyFileDownload(fileId: string) {
   return new NextResponse(await response.arrayBuffer(), { status: response.status, headers });
 }
 
+async function proxyCommunityGet(request: NextRequest, path: string[]) {
+  const communityPath = path.slice(1).map(encodeURIComponent).join("/");
+  const query = request.nextUrl.searchParams.toString();
+  const response = await axios.get<{ success?: boolean; data?: unknown; detail?: unknown }>(
+    backendApiUrl(`/api/v1/community/${communityPath}${query ? `?${query}` : ""}`),
+    { timeout: backendTimeoutMs(), validateStatus: () => true },
+  );
+
+  if (response.status < 200 || response.status >= 300 || response.data?.success !== true) {
+    const message = typeof response.data?.detail === "string" ? response.data.detail : "커뮤니티 데이터를 불러오지 못했습니다.";
+    return fail("BACKEND_COMMUNITY_FAILED", message, response.status || 502);
+  }
+
+  return ok(response.data.data, response.status);
+}
+
+async function proxyCommunityPost(path: string[], body: unknown) {
+  const communityPath = path.slice(1).map(encodeURIComponent).join("/");
+  const response = await axios.post<{ success?: boolean; data?: unknown; detail?: unknown }>(
+    backendApiUrl(`/api/v1/community/${communityPath}`),
+    body ?? {},
+    { headers: { "Content-Type": "application/json" }, timeout: backendTimeoutMs(), validateStatus: () => true },
+  );
+
+  if (response.status < 200 || response.status >= 300 || response.data?.success !== true) {
+    const message = typeof response.data?.detail === "string" ? response.data.detail : "커뮤니티 요청을 처리하지 못했습니다.";
+    return fail("BACKEND_COMMUNITY_FAILED", message, response.status || 502);
+  }
+
+  return ok(response.data.data, response.status);
+}
+
 export async function GET(_request: NextRequest, context: RouteContext) {
   const path = await getPath(context);
+
+  if (path[0] === "community" && path.length >= 2) {
+    return proxyCommunityGet(_request, path);
+  }
 
   if (path[0] === "files" && path[1] && path.length === 2) {
     return proxyFileDownload(path[1]);
@@ -511,6 +547,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 
   const body = await readJson(request);
+
+  if (path[0] === "community" && path.length >= 2) {
+    return proxyCommunityPost(path, body);
+  }
 
   if (path[0] === "records" && path.length === 1) {
     if (!body || typeof body.detail !== "string" || !isRecordCategoryChoice(body.category)) {

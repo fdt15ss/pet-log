@@ -13,28 +13,57 @@ class _CreateCommunityPostBody(BaseModel):
     board: str = Field(min_length=1)
     title: str = Field(min_length=1)
     body: str = Field(min_length=1)
-    authorName: str = "나"
+    authorName: str | None = None
+    tags: list[str] | None = None
 
-    @field_validator("board", "title", "body", "authorName")
+    @field_validator("board", "title", "body")
     @classmethod
     def reject_blank(cls, value: str) -> str:
         stripped = value.strip()
         if not stripped:
             raise ValueError("value must not be blank")
         return stripped
+
+    @field_validator("authorName")
+    @classmethod
+    def normalize_author_name(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        stripped = value.strip()
+        return stripped or None
+
+    @field_validator("tags")
+    @classmethod
+    def normalize_tags(cls, value: list[str] | None) -> list[str] | None:
+        if value is None:
+            return None
+        normalized: list[str] = []
+        for tag in value:
+            stripped = tag.strip().lstrip("#").strip()
+            if stripped and stripped not in normalized:
+                normalized.append(stripped)
+        return normalized or None
 
 
 class _CreateCommunityCommentBody(BaseModel):
     body: str = Field(min_length=1)
-    authorName: str = "나"
+    authorName: str | None = None
 
-    @field_validator("body", "authorName")
+    @field_validator("body")
     @classmethod
     def reject_blank(cls, value: str) -> str:
         stripped = value.strip()
         if not stripped:
             raise ValueError("value must not be blank")
         return stripped
+
+    @field_validator("authorName")
+    @classmethod
+    def normalize_author_name(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        stripped = value.strip()
+        return stripped or None
 
 
 def build_community_router() -> APIRouter:
@@ -68,6 +97,7 @@ def build_community_router() -> APIRouter:
             title=body.title,
             body=body.body,
             author_name=body.authorName,
+            tags=body.tags,
         )
         return success_response({"post": _post_to_frontend(post)})
 
