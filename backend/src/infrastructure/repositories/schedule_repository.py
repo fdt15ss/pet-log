@@ -24,7 +24,11 @@ class ScheduleRepository:
             max_due_date = (datetime.now(UTC).date() + timedelta(days=days_ahead)).isoformat()
             rows = self._connection.execute(
                 """
-                SELECT title, due_date, note, repeat_label
+                SELECT
+                    title AS title,
+                    due_date AS due_date,
+                    note AS note,
+                    repeat_label AS repeat_label
                 FROM care_schedules
                 WHERE pet_id = ?
                     AND deleted_at IS NULL
@@ -49,7 +53,15 @@ class ScheduleRepository:
         if self._connection is not None:
             rows = self._connection.execute(
                 """
-                SELECT id, pet_id, category, title, due_date, repeat_label, note, is_done
+                SELECT
+                    id AS id,
+                    pet_id AS pet_id,
+                    category AS category,
+                    title AS title,
+                    due_date AS due_date,
+                    repeat_label AS repeat_label,
+                    note AS note,
+                    is_done AS is_done
                 FROM care_schedules
                 WHERE pet_id = ? AND deleted_at IS NULL
                 ORDER BY due_date, created_at
@@ -97,7 +109,8 @@ class ScheduleRepository:
     def get_by_id(self, schedule_id: str) -> CareSchedule | None:
         if self._connection is not None:
             row = self._connection.execute(
-                "SELECT id, pet_id, category, title, due_date, repeat_label, note, is_done "
+                "SELECT id AS id, pet_id AS pet_id, category AS category, title AS title, due_date AS due_date, "
+                "repeat_label AS repeat_label, note AS note, is_done AS is_done "
                 "FROM care_schedules WHERE id=? AND deleted_at IS NULL",
                 (schedule_id,),
             ).fetchone()

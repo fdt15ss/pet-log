@@ -17,7 +17,19 @@ class NotificationRepository:
     def list_for_pet(self, pet_id: str, limit: int = 50) -> tuple[Notification, ...]:
         rows = self._connection.execute(
             """
-            SELECT id, pet_id, category, title, detail, action, action_href, due_label, tone, read_at, created_at, dedupe_key
+            SELECT
+                id AS id,
+                pet_id AS pet_id,
+                category AS category,
+                title AS title,
+                detail AS detail,
+                action AS action,
+                action_href AS action_href,
+                due_label AS due_label,
+                tone AS tone,
+                read_at AS read_at,
+                created_at AS created_at,
+                dedupe_key AS dedupe_key
             FROM notifications
             WHERE pet_id = ? AND deleted_at IS NULL
             ORDER BY created_at DESC
@@ -145,7 +157,19 @@ class NotificationRepository:
     def find_by_dedupe_key(self, dedupe_key: str) -> Notification | None:
         row = self._connection.execute(
             """
-            SELECT id, pet_id, category, title, detail, action, action_href, due_label, tone, read_at, created_at, dedupe_key
+            SELECT
+                id AS id,
+                pet_id AS pet_id,
+                category AS category,
+                title AS title,
+                detail AS detail,
+                action AS action,
+                action_href AS action_href,
+                due_label AS due_label,
+                tone AS tone,
+                read_at AS read_at,
+                created_at AS created_at,
+                dedupe_key AS dedupe_key
             FROM notifications
             WHERE dedupe_key = ? AND deleted_at IS NULL
             """,

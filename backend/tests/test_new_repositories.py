@@ -87,5 +87,25 @@ class TestNewRepositories(unittest.TestCase):
         notifs = self.notif_repo.list_for_pet(pet_id)
         self.assertTrue(all(n.read_at is not None for n in notifs))
 
+    def test_notification_repository_reads_rows_when_sqlite_uses_full_column_names(self):
+        self.connection.execute("PRAGMA short_column_names = OFF")
+        self.connection.execute("PRAGMA full_column_names = ON")
+        notif = self.notif_repo.create(
+            pet_id="pet-1",
+            category="alert",
+            title="Full Names",
+            detail="Detail",
+            action="Check",
+            action_href="/test",
+            due_label="Today",
+            tone="warning",
+        )
+
+        notifications = self.notif_repo.list_for_pet("pet-1")
+        found = self.notif_repo.find_by_dedupe_key("missing")
+
+        self.assertEqual(tuple(item.id for item in notifications), (notif.id,))
+        self.assertIsNone(found)
+
 if __name__ == "__main__":
     unittest.main()
