@@ -7,6 +7,7 @@ import { Card, Pill, SectionHeader } from "@/components/ui";
 import {
   DEFAULT_COMMUNITY_BOARD,
   DEFAULT_COMMUNITY_FEED,
+  COMMUNITY_POST_PAGE_SIZE,
   fetchCommunityBoards,
   fetchCommunityPostDetail,
   fetchCommunityPosts,
@@ -15,6 +16,7 @@ import {
   getCommunityDefaultPosts,
   getCommunityPostDetail,
   getCommunityPosts,
+  getCommunitySummaryPostCount,
   parseCommunityTags,
   resolveCommunityDraftBoard,
   resolveCommunityFetchQuery,
@@ -27,7 +29,7 @@ import {
 import { communityBoards, communityComments, communityPosts } from "@/lib/mock-data";
 import type { CommunityBoard, CommunityFeed, CommunityPost } from "@/lib/types";
 
-const feedFilters: CommunityFeed[] = ["인기글", "최신글", "내 주변"];
+const feedFilters: CommunityFeed[] = ["인기글", "최신글"];
 
 const boardStyles: Record<CommunityBoard, { marker: string; text: string; bg: string }> = {
   유기동물: { marker: "bg-[#be4c3c]", text: "text-[#be4c3c]", bg: "bg-[#fff7f5]" },
@@ -45,10 +47,9 @@ const boardIcons: Record<CommunityBoard, "heart" | "shopping" | "community" | "b
   후기: "check",
 };
 
-const feedIcons: Record<CommunityFeed, "sparkle" | "timeline" | "home"> = {
+const feedIcons: Record<CommunityFeed, "sparkle" | "timeline"> = {
   인기글: "sparkle",
   최신글: "timeline",
-  "내 주변": "home",
 };
 
 export default function CommunityPage() {
@@ -57,7 +58,7 @@ export default function CommunityPage() {
   const [allPosts, setAllPosts] = useState<CommunityPost[]>(communityPosts);
   const [posts, setPosts] = useState<CommunityPost[]>(initialPosts);
   const [activeBoard, setActiveBoard] = useState<CommunityBoard | null>(DEFAULT_COMMUNITY_BOARD);
-  const [activeFeed, setActiveFeed] = useState<CommunityFeed>(DEFAULT_COMMUNITY_FEED);
+  const [activeFeed, setActiveFeed] = useState<CommunityFeed | null>(DEFAULT_COMMUNITY_FEED);
   const [selectedPostId, setSelectedPostId] = useState(initialPosts[0]?.id ?? "");
   const [selectedDetail, setSelectedDetail] = useState<CommunityPostDetail | null>(() =>
     initialPosts[0] ? getCommunityPostDetail(initialPosts[0], communityComments) : null,
@@ -68,8 +69,12 @@ export default function CommunityPage() {
   const [draftBoard, setDraftBoard] = useState<CommunityBoard>("자유게시판");
   const [draftTitle, setDraftTitle] = useState("");
   const [draftBody, setDraftBody] = useState("");
+  const [draftAuthorName, setDraftAuthorName] = useState("");
   const [draftTags, setDraftTags] = useState("");
+  const [draftLocationLabel, setDraftLocationLabel] = useState("");
   const [isLoadingPosts, setIsLoadingPosts] = useState(false);
+  const [isLoadingMorePosts, setIsLoadingMorePosts] = useState(false);
+  const [hasMorePosts, setHasMorePosts] = useState(false);
   const [isSubmittingPost, setIsSubmittingPost] = useState(false);
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
   const [isReactingPost, setIsReactingPost] = useState(false);
@@ -77,6 +82,7 @@ export default function CommunityPage() {
 
   const visiblePosts = useMemo(() => getCommunityPosts(posts, { feed: activeFeed, board: activeBoard }), [activeBoard, activeFeed, posts]);
   const boardCounts = useMemo(() => getCommunityBoardCounts(allPosts), [allPosts]);
+  const summaryPostCount = useMemo(() => getCommunitySummaryPostCount(allPosts, activeBoard), [activeBoard, allPosts]);
 
   useEffect(() => {
     let ignore = false;
@@ -122,12 +128,13 @@ export default function CommunityPage() {
     let ignore = false;
 
     setIsLoadingPosts(true);
-    fetchCommunityPosts(resolveCommunityFetchQuery({ feed: activeFeed, board: activeBoard }))
-      .then(({ posts }) => {
+    fetchCommunityPosts(resolveCommunityFetchQuery({ feed: activeFeed, board: activeBoard, limit: COMMUNITY_POST_PAGE_SIZE, offset: 0 }))
+      .then(({ posts, hasMore }) => {
         if (ignore) {
           return;
         }
         setPosts(posts);
+        setHasMorePosts(Boolean(hasMore));
         setSelectedPostId((current) => resolveCommunitySelectedPostId(posts, current));
         setCommunityError("");
       })
@@ -187,7 +194,7 @@ export default function CommunityPage() {
       setPosts((current) => current.map((item) => (item.id === post.id ? post : item)));
       setAllPosts((current) => current.map((item) => (item.id === post.id ? post : item)));
       setSelectedDetail((current) =>
-        current && current.id === post.id ? getCommunityPostDetail(post, [comment, ...current.commentItems]) : current,
+        current && current.id === post.id ? getCommunityPostDetail(post, [...current.commentItems, comment]) : current,
       );
       setCommentDraft("");
       setCommunityError("");
@@ -209,7 +216,9 @@ export default function CommunityPage() {
         board: draftBoard,
         title: draftTitle,
         body: draftBody,
+        authorName: draftAuthorName,
         tags: parseCommunityTags(draftTags),
+        locationLabel: draftLocationLabel,
       });
       setPosts((current) => [post, ...current.filter((item) => item.id !== post.id)]);
       setAllPosts((current) => [post, ...current.filter((item) => item.id !== post.id)]);
@@ -219,7 +228,9 @@ export default function CommunityPage() {
       setActiveFeed("최신글");
       setDraftTitle("");
       setDraftBody("");
+      setDraftAuthorName("");
       setDraftTags("");
+      setDraftLocationLabel("");
       setIsComposerOpen(false);
       setCommunityError("");
     } catch {
@@ -252,6 +263,34 @@ export default function CommunityPage() {
     setSavedPostIds((current) => (current.includes(postId) ? current.filter((id) => id !== postId) : [...current, postId]));
   }
 
+  async function loadMorePosts() {
+    if (isLoadingMorePosts || !hasMorePosts) {
+      return;
+    }
+
+    setIsLoadingMorePosts(true);
+    try {
+      const { posts: nextPosts, hasMore } = await fetchCommunityPosts(
+        resolveCommunityFetchQuery({
+          feed: activeFeed,
+          board: activeBoard,
+          limit: COMMUNITY_POST_PAGE_SIZE,
+          offset: posts.length,
+        }),
+      );
+      setPosts((current) => {
+        const existingIds = new Set(current.map((post) => post.id));
+        return [...current, ...nextPosts.filter((post) => !existingIds.has(post.id))];
+      });
+      setHasMorePosts(Boolean(hasMore));
+      setCommunityError("");
+    } catch {
+      setCommunityError("추가 글을 불러오지 못했습니다.");
+    } finally {
+      setIsLoadingMorePosts(false);
+    }
+  }
+
   function toggleComposer() {
     setIsComposerOpen((current) => {
       const next = !current;
@@ -266,21 +305,21 @@ export default function CommunityPage() {
     <AppShell subtitle="커뮤니티" title="커뮤니티">
       <div className="space-y-5">
         <Card className="bg-gradient-to-br from-white to-[#f6f9ff]">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="inline-flex items-center gap-1.5 text-sm font-bold text-[#356aa8]">
-                <PetIcon className="h-4 w-4" name="community" />
-                동네 보호자 피드
-              </p>
-              <h2 className="mt-1 text-lg font-black text-[#1f2922]">
-                {activeBoard ? `${activeBoard} 중심으로 보기` : "필요한 게시판을 빠르게 찾기"}
-              </h2>
-              <p className="mt-2 text-sm leading-6 text-[#667262]">
-                {visiblePosts.length}개 글 · 저장 {savedPostIds.length}개 · {activeFeed}
-              </p>
-            </div>
+          <div className="min-w-0">
+            <p className="inline-flex items-center gap-1.5 text-sm font-bold text-[#356aa8]">
+              <PetIcon className="h-4 w-4" name="community" />
+              동네 보호자 피드
+            </p>
+            <h2 className="mt-1 text-lg font-black text-[#1f2922]">
+              {activeBoard ? `${activeBoard} 중심으로 보기` : "필요한 게시판을 빠르게 찾기"}
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-[#667262]">
+              {summaryPostCount}개 글 · 저장 {savedPostIds.length}개 · {activeFeed ?? "전체글"}
+            </p>
+          </div>
+          <div className="mt-4 flex justify-end border-t border-[#e0e6da] pt-3">
             <button
-              className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-xl bg-[#16804b] px-3 text-sm font-black text-white"
+              className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-xl bg-[#16804b] px-3 text-sm font-black text-white"
               onClick={toggleComposer}
               type="button"
             >
@@ -303,11 +342,17 @@ export default function CommunityPage() {
                 <Pill active={draftBoard === board} className="w-full px-2 text-xs" key={board} onClick={() => setDraftBoard(board)}>
                   <span className="inline-flex items-center gap-1.5">
                     <PetIcon className="h-3.5 w-3.5" name={boardIcons[board]} />
-                  {board}
+                    {board}
                   </span>
                 </Pill>
               ))}
             </div>
+            <input
+              className="mt-3 h-11 w-full rounded-xl border border-[#dce7d7] bg-[#fbfdf8] px-3 text-sm font-bold text-[#1f2922] outline-none focus:border-[#16804b]"
+              onChange={(event) => setDraftAuthorName(event.target.value)}
+              placeholder="닉네임 (비우면 랜덤)"
+              value={draftAuthorName}
+            />
             <input
               className="mt-3 h-11 w-full rounded-xl border border-[#dce7d7] bg-[#fbfdf8] px-3 text-sm font-bold text-[#1f2922] outline-none focus:border-[#16804b]"
               onChange={(event) => setDraftTitle(event.target.value)}
@@ -325,6 +370,12 @@ export default function CommunityPage() {
               onChange={(event) => setDraftTags(event.target.value)}
               placeholder="#입양 #임시보호"
               value={draftTags}
+            />
+            <input
+              className="mt-3 h-11 w-full rounded-xl border border-[#dce7d7] bg-[#fbfdf8] px-3 text-sm font-bold text-[#1f2922] outline-none focus:border-[#16804b]"
+              onChange={(event) => setDraftLocationLabel(event.target.value)}
+              placeholder="위치 라벨 (예: 마포구 보호소 근처)"
+              value={draftLocationLabel}
             />
             <button
               className="mt-3 h-11 w-full rounded-xl bg-[#16804b] text-sm font-black text-white disabled:bg-[#cfd8ca]"
@@ -370,7 +421,7 @@ export default function CommunityPage() {
             <Pill active={activeFeed === filter} className="w-full px-2 text-xs" key={filter} onClick={() => setActiveFeed(filter)}>
               <span className="inline-flex items-center gap-1.5">
                 <PetIcon className="h-3.5 w-3.5" name={feedIcons[filter]} />
-              {filter}
+                {filter}
               </span>
             </Pill>
           ))}
@@ -379,12 +430,11 @@ export default function CommunityPage() {
         <section>
           <SectionHeader
             action={
-              activeBoard ? (
+              activeFeed ? (
                 <button
                   className="text-xs font-bold text-[#16804b]"
                   onClick={() => {
-                    setActiveBoard(null);
-                    setSelectedPostId("");
+                    setActiveFeed(null);
                   }}
                   type="button"
                 >
@@ -392,7 +442,7 @@ export default function CommunityPage() {
                 </button>
               ) : null
             }
-            title={activeBoard ? `${activeBoard} ${activeFeed}` : activeFeed}
+            title={activeBoard ? `${activeBoard} ${activeFeed ?? "전체글"}` : activeFeed ?? "전체글"}
           />
           <div className="space-y-3">
             {isLoadingPosts ? <p className="px-1 text-sm font-bold text-[#667262]">커뮤니티 글을 불러오는 중입니다.</p> : null}
@@ -420,7 +470,7 @@ export default function CommunityPage() {
                 <p className="mt-2 line-clamp-2 text-xs font-semibold leading-5 text-[#667262]">{post.body}</p>
                 <p className="mt-2 text-xs font-semibold text-[#7c8777]">
                   {post.authorName} · 댓글 {post.comments} · 공감 {post.likes}
-                  {post.distance ? ` · ${post.distance}` : ""}
+                  {post.locationLabel ? ` · 위치 ${post.locationLabel}` : ""}
                 </p>
               </button>
             ))}
@@ -430,6 +480,16 @@ export default function CommunityPage() {
                 <p className="mt-2 text-sm leading-6 text-[#667262]">게시판이나 글 필터를 바꿔보세요.</p>
               </Card>
             ) : null}
+            {hasMorePosts ? (
+              <button
+                className="h-11 w-full rounded-xl border border-[#cdd8c6] bg-white text-sm font-black text-[#16804b] disabled:text-[#9aa393]"
+                disabled={isLoadingMorePosts}
+                onClick={loadMorePosts}
+                type="button"
+              >
+                {isLoadingMorePosts ? "불러오는 중" : "더 보기"}
+              </button>
+            ) : null}
           </div>
         </section>
 
@@ -437,36 +497,39 @@ export default function CommunityPage() {
           <section>
             <SectionHeader title="상세" />
             <Card>
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-xs font-bold text-[#16804b]">{selectedDetail.meta}</p>
-                  <h2 className="mt-2 text-lg font-black leading-6 text-[#1f2922]">{selectedDetail.title}</h2>
-                  <p className="mt-1 text-xs font-semibold text-[#7c8777]">
+              <p className="text-xs font-bold text-[#16804b]">{selectedDetail.meta}</p>
+              <div className="mt-3 flex items-center justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-2">
+                  <p className="truncate text-xs font-semibold text-[#7c8777]">
                     {selectedDetail.authorName} · {formatCommunityCreatedAt(selectedDetail.createdAt)}
                   </p>
                 </div>
-                <div className="flex shrink-0 items-center gap-2">
+                <div className="flex shrink-0 items-center gap-1.5">
                   <button
-                    className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-[#fff2dd] px-3 text-sm font-black text-[#a4651a] disabled:opacity-60"
+                    aria-label={`공감 ${selectedDetail.likes}`}
+                    className="inline-flex h-7 items-center gap-1 rounded-md bg-[#fff2dd] px-2 text-[11px] font-black text-[#a4651a] disabled:opacity-60"
                     disabled={isReactingPost}
                     onClick={reactToPost}
                     type="button"
                   >
-                    <PetIcon className="h-4 w-4" name="heart" />
-                    공감 {selectedDetail.likes}
+                    <PetIcon className="h-3 w-3" name="heart" />
+                    <span>{selectedDetail.likes}</span>
                   </button>
                   <button
+                    aria-label={savedPostIds.includes(selectedDetail.id) ? "저장됨" : "저장"}
                     aria-pressed={savedPostIds.includes(selectedDetail.id)}
-                    className={`inline-flex h-10 items-center gap-1.5 rounded-xl px-3 text-sm font-black ${
+                    className={`inline-flex h-7 w-7 items-center justify-center rounded-md text-[11px] font-black ${
                       savedPostIds.includes(selectedDetail.id) ? "bg-[#fff2dd] text-[#a4651a]" : "bg-[#edf8ed] text-[#16804b]"
                     }`}
                     onClick={() => toggleSavedPost(selectedDetail.id)}
                     type="button"
                   >
-                    <PetIcon className="h-4 w-4" name={savedPostIds.includes(selectedDetail.id) ? "check" : "heart"} />
-                    {savedPostIds.includes(selectedDetail.id) ? "저장됨" : "저장"}
+                    <PetIcon className="h-3 w-3" name={savedPostIds.includes(selectedDetail.id) ? "check" : "bookmark"} />
                   </button>
                 </div>
+              </div>
+              <div className="mt-3 border-b border-[#e0e6da] pb-3">
+                <h2 className="text-lg font-black leading-6 text-[#1f2922]">{selectedDetail.title}</h2>
               </div>
               <p className="mt-4 text-sm font-semibold leading-7 text-[#4d594b]">{selectedDetail.body}</p>
               {selectedDetail.tags?.length ? (

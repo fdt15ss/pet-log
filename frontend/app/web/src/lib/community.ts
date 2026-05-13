@@ -5,10 +5,13 @@ import type { CommunityBoard, CommunityComment, CommunityFeed, CommunityPost } f
 export const DEFAULT_COMMUNITY_BOARD: CommunityBoard = "유기동물";
 export const DEFAULT_COMMUNITY_FEED: CommunityFeed = "최신글";
 export const COMMUNITY_POPULAR_LIKE_THRESHOLD = 10;
+export const COMMUNITY_POST_PAGE_SIZE = 10;
 
 type CommunityPostQuery = {
   feed?: CommunityFeed | null;
   board?: CommunityBoard | null;
+  limit?: number;
+  offset?: number;
 };
 
 type CreateCommunityCommentInput = {
@@ -21,7 +24,9 @@ type CreateCommunityPostInput = {
   board: CommunityBoard;
   title: string;
   body: string;
+  authorName?: string;
   tags?: string[];
+  locationLabel?: string;
   createdAt?: string;
 };
 
@@ -37,6 +42,8 @@ type CommunityBoardsResponse = {
 
 type CommunityPostsResponse = {
   posts: CommunityPost[];
+  hasMore?: boolean;
+  totalCount?: number;
 };
 
 type CommunityPostDetailResponse = {
@@ -85,6 +92,9 @@ function matchesCommunityFeed(post: CommunityPost, feed: CommunityFeed) {
   if (feed === "인기글") {
     return post.likes >= COMMUNITY_POPULAR_LIKE_THRESHOLD;
   }
+  if (feed === "최신글") {
+    return true;
+  }
   return post.feeds.includes(feed);
 }
 
@@ -95,15 +105,24 @@ export function getCommunityBoardCounts(posts: CommunityPost[]) {
   }, {});
 }
 
+export function getCommunitySummaryPostCount(posts: CommunityPost[], activeBoard: CommunityBoard | null) {
+  if (!activeBoard) {
+    return posts.length;
+  }
+  return posts.filter((post) => post.board === activeBoard).length;
+}
+
 export function getCommunityDefaultPosts(posts: CommunityPost[]) {
   return getCommunityPosts(posts, { feed: DEFAULT_COMMUNITY_FEED, board: DEFAULT_COMMUNITY_BOARD });
 }
 
 export function resolveCommunityFetchQuery(query: CommunityPostQuery): CommunityPostQuery {
-  if (query.feed === "인기글") {
-    return { board: query.board };
-  }
-  return query;
+  return {
+    ...(query.feed ? { feed: query.feed } : {}),
+    ...(query.board ? { board: query.board } : {}),
+    ...(typeof query.limit === "number" ? { limit: query.limit } : {}),
+    ...(typeof query.offset === "number" ? { offset: query.offset } : {}),
+  };
 }
 
 export function resolveCommunitySelectedPostId(posts: CommunityPost[], currentPostId: string) {
@@ -166,12 +185,12 @@ function isSameLocalDate(first: Date, second: Date) {
 
 export function getCommunityPostDetail(post: CommunityPost, comments: CommunityComment[]) {
   const commentItems = comments.filter((comment) => comment.postId === post.id);
-  const distanceLabel = post.distance ? ` · ${post.distance}` : "";
+  const locationLabel = post.locationLabel ? ` · 위치 ${post.locationLabel}` : "";
 
   return {
     ...post,
     commentItems,
-    meta: `${post.board} · 댓글 ${post.comments} · 공감 ${post.likes}${distanceLabel}`,
+    meta: `${post.board} · 댓글 ${post.comments} · 공감 ${post.likes}${locationLabel}`,
   };
 }
 
@@ -183,6 +202,8 @@ export function fetchCommunityPosts(query: CommunityPostQuery = {}) {
   const params = {
     ...(query.feed ? { feed: query.feed } : {}),
     ...(query.board ? { board: query.board } : {}),
+    ...(typeof query.limit === "number" ? { limit: query.limit } : {}),
+    ...(typeof query.offset === "number" ? { offset: query.offset } : {}),
   };
   return requestCommunityData<CommunityPostsResponse>(apiClient.get("/community/posts", { params }));
 }
@@ -192,13 +213,17 @@ export function fetchCommunityPostDetail(postId: string) {
 }
 
 export function submitCommunityPost(input: CreateCommunityPostInput) {
+  const authorName = input.authorName?.trim();
   const tags = input.tags?.filter((tag) => tag.trim());
+  const locationLabel = input.locationLabel?.trim();
   return requestCommunityData<CommunityPostResponse>(
     apiClient.post("/community/posts", {
       board: input.board,
       title: input.title,
       body: input.body,
+      ...(authorName ? { authorName } : {}),
       ...(tags?.length ? { tags } : {}),
+      ...(locationLabel ? { locationLabel } : {}),
     }),
   );
 }
@@ -225,7 +250,15 @@ export function createCommunityComment({ postId, body, createdAt = "방금" }: C
   };
 }
 
-export function createCommunityPost({ board, title, body, tags, createdAt = "방금" }: CreateCommunityPostInput): CommunityPost {
+export function createCommunityPost({
+  board,
+  title,
+  body,
+  authorName,
+  tags,
+  locationLabel,
+  createdAt = "방금",
+}: CreateCommunityPostInput): CommunityPost {
   const id = `community-${Date.now()}`;
 
   return {
@@ -233,11 +266,12 @@ export function createCommunityPost({ board, title, body, tags, createdAt = "방
     board,
     title: title.trim(),
     body: body.trim(),
-    authorName: "나",
+    authorName: authorName?.trim() || "나",
     createdAt,
     comments: 0,
     likes: 0,
     feeds: ["최신글"],
+    ...(locationLabel?.trim() ? { locationLabel: locationLabel.trim() } : {}),
     tags: tags?.length ? tags : ["새 글"],
   };
 }

@@ -15,6 +15,7 @@ import {
   getCommunityBoardCounts,
   getCommunityPostDetail,
   getCommunityPosts,
+  getCommunitySummaryPostCount,
   parseCommunityTags,
   resolveCommunityFetchQuery,
   resolveCommunitySelectedPostId,
@@ -67,9 +68,21 @@ test("getCommunityBoardCounts counts all loaded posts independently from the act
   const latestOnlyPosts = getCommunityPosts(communityPosts, { feed: "최신글", board: null });
   const counts = getCommunityBoardCounts(communityPosts);
 
-  assert.equal(latestOnlyPosts.filter((post) => post.board === "용품 나눔").length, 0);
+  assert.equal(latestOnlyPosts.filter((post) => post.board === "용품 나눔").length, 1);
   assert.equal(counts["용품 나눔"], 1);
   assert.equal(counts["행동 고민"], 1);
+});
+
+test("getCommunitySummaryPostCount matches the selected board tab count", () => {
+  const posts: CommunityPost[] = [
+    { ...communityPosts[0], id: "free-latest", board: "자유게시판", feeds: ["최신글"] },
+    { ...communityPosts[0], id: "free-popular", board: "자유게시판", feeds: ["인기글"] },
+    { ...communityPosts[0], id: "review-latest", board: "후기", feeds: ["최신글"] },
+  ];
+
+  assert.equal(getCommunityPosts(posts, { feed: "최신글", board: "자유게시판" }).length, 2);
+  assert.equal(getCommunitySummaryPostCount(posts, "자유게시판"), 2);
+  assert.equal(getCommunitySummaryPostCount(posts, null), 3);
 });
 
 test("getCommunityPosts treats ten likes as the popular threshold", () => {
@@ -84,9 +97,22 @@ test("getCommunityPosts treats ten likes as the popular threshold", () => {
   );
 });
 
-test("resolveCommunityFetchQuery omits popular feed so the client can apply the likes threshold", () => {
-  assert.deepEqual(resolveCommunityFetchQuery({ feed: "인기글", board: "유기동물" }), { board: "유기동물" });
+test("getCommunityPosts treats latest as all posts, not only posts tagged latest", () => {
+  const posts: CommunityPost[] = [
+    { ...communityPosts[0], id: "latest-tagged", board: "자유게시판", feeds: ["최신글"] },
+    { ...communityPosts[0], id: "popular-only", board: "자유게시판", feeds: ["인기글"] },
+  ];
+
+  assert.deepEqual(
+    getCommunityPosts(posts, { feed: "최신글", board: "자유게시판" }).map((post) => post.id),
+    ["latest-tagged", "popular-only"],
+  );
+});
+
+test("resolveCommunityFetchQuery keeps selected filters and omits all-view feed", () => {
+  assert.deepEqual(resolveCommunityFetchQuery({ feed: "인기글", board: "유기동물" }), { feed: "인기글", board: "유기동물" });
   assert.deepEqual(resolveCommunityFetchQuery({ feed: "최신글", board: "유기동물" }), { feed: "최신글", board: "유기동물" });
+  assert.deepEqual(resolveCommunityFetchQuery({ feed: null, board: "유기동물" }), { board: "유기동물" });
 });
 
 test("resolveCommunityDraftBoard follows the active board when opening the composer", () => {
@@ -119,20 +145,38 @@ test("parseCommunityTags accepts hash and comma separated tags", () => {
   assert.deepEqual(parseCommunityTags(""), []);
 });
 
+test("getCommunityPostDetail uses manual location labels instead of distance labels", () => {
+  const detail = getCommunityPostDetail(
+    {
+      ...communityPosts[0],
+      board: "유기동물",
+      locationLabel: "마포구 보호소 근처",
+      distance: "2.4km",
+    },
+    [],
+  );
+
+  assert.equal(detail.meta, "유기동물 · 댓글 8 · 공감 26 · 위치 마포구 보호소 근처");
+});
+
 test("fetchCommunityPosts calls community API with filters", async () => {
   const getMock = mock.method(apiClient, "get", async () => ({
-    data: { ok: true, data: { posts: communityPosts } },
+    data: { ok: true, data: { posts: communityPosts, hasMore: true, totalCount: 15 } },
   }));
 
   try {
-    const result = await fetchCommunityPosts({ feed: "인기글", board: "행동 고민" });
+    const result = await fetchCommunityPosts({ feed: "인기글", board: "행동 고민", limit: 10, offset: 10 });
 
     assert.deepEqual(result.posts, communityPosts);
+    assert.equal(result.hasMore, true);
+    assert.equal(result.totalCount, 15);
     assert.equal(getMock.mock.callCount(), 1);
     assert.equal(getMock.mock.calls[0].arguments[0], "/community/posts");
     assert.deepEqual((getMock.mock.calls[0].arguments[1] as { params: object }).params, {
       feed: "인기글",
       board: "행동 고민",
+      limit: 10,
+      offset: 10,
     });
   } finally {
     getMock.mock.restore();
@@ -141,7 +185,7 @@ test("fetchCommunityPosts calls community API with filters", async () => {
 
 test("fetchCommunityPosts can request every community post for board counts", async () => {
   const getMock = mock.method(apiClient, "get", async () => ({
-    data: { ok: true, data: { posts: communityPosts } },
+    data: { ok: true, data: { posts: communityPosts, totalCount: communityPosts.length } },
   }));
 
   try {
@@ -177,7 +221,14 @@ test("submitCommunityPost sends post draft to community API", async () => {
   }));
 
   try {
-    const result = await submitCommunityPost({ board: "자유게시판", title: "새 글", body: "본문입니다.", tags: ["입양", "임시보호"] });
+    const result = await submitCommunityPost({
+      board: "자유게시판",
+      title: "새 글",
+      body: "본문입니다.",
+      authorName: "희망찬 낙타",
+      tags: ["입양", "임시보호"],
+      locationLabel: "마포구 보호소 근처",
+    });
 
     assert.deepEqual(result.post, communityPosts[0]);
     assert.equal(postMock.mock.calls[0].arguments[0], "/community/posts");
@@ -185,7 +236,9 @@ test("submitCommunityPost sends post draft to community API", async () => {
       board: "자유게시판",
       title: "새 글",
       body: "본문입니다.",
+      authorName: "희망찬 낙타",
       tags: ["입양", "임시보호"],
+      locationLabel: "마포구 보호소 근처",
     });
   } finally {
     postMock.mock.restore();

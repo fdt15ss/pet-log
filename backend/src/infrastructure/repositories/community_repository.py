@@ -11,7 +11,7 @@ from domain.models import CommunityComment, CommunityPost
 from infrastructure.database import initialize_schema
 
 COMMUNITY_BOARDS = ("유기동물", "용품 나눔", "자유게시판", "행동 고민", "후기")
-COMMUNITY_FEEDS = ("인기글", "최신글", "내 주변")
+COMMUNITY_FEEDS = ("인기글", "최신글")
 POPULAR_LIKE_THRESHOLD = 10
 
 _BOARD_ALIASES = {
@@ -48,13 +48,19 @@ class CommunityRepository:
     def list_boards(self) -> tuple[str, ...]:
         return COMMUNITY_BOARDS
 
-    def list_posts(self, feed: str | None = None, board: str | None = None) -> tuple[CommunityPost, ...]:
+    def list_posts(
+        self,
+        feed: str | None = None,
+        board: str | None = None,
+        limit: int | None = None,
+        offset: int = 0,
+    ) -> tuple[CommunityPost, ...]:
         board = _normalize_board(board) if board else None
         rows = self._connection.execute(
             """
             SELECT
                 p.id, p.board, p.title, p.body, p.author_name, p.created_at, p.likes,
-                p.distance, p.feeds, p.tags, COUNT(c.id) AS comment_count
+                p.distance, p.location_label, p.feeds, p.tags, COUNT(c.id) AS comment_count
             FROM community_posts p
             LEFT JOIN community_comments c
                 ON c.post_id = p.id AND c.deleted_at IS NULL
@@ -64,18 +70,25 @@ class CommunityRepository:
             """
         ).fetchall()
         posts = tuple(_post_from_row(row) for row in rows)
-        return tuple(
+        filtered_posts = tuple(
             post
             for post in posts
             if (feed is None or _matches_feed(post, feed)) and (board is None or post.board == board)
         )
+        start = max(offset, 0)
+        if limit is None:
+            return filtered_posts[start:]
+        return filtered_posts[start : start + max(limit, 0)]
+
+    def count_posts(self, feed: str | None = None, board: str | None = None) -> int:
+        return len(self.list_posts(feed=feed, board=board))
 
     def get_post(self, post_id: str) -> CommunityPost | None:
         row = self._connection.execute(
             """
             SELECT
                 p.id, p.board, p.title, p.body, p.author_name, p.created_at, p.likes,
-                p.distance, p.feeds, p.tags, COUNT(c.id) AS comment_count
+                p.distance, p.location_label, p.feeds, p.tags, COUNT(c.id) AS comment_count
             FROM community_posts p
             LEFT JOIN community_comments c
                 ON c.post_id = p.id AND c.deleted_at IS NULL
@@ -94,7 +107,7 @@ class CommunityRepository:
             SELECT id, post_id, author_name, body, created_at
             FROM community_comments
             WHERE post_id = ? AND deleted_at IS NULL
-            ORDER BY created_at DESC, id DESC
+            ORDER BY created_at ASC, id ASC
             """,
             (post_id,),
         ).fetchall()
@@ -107,17 +120,19 @@ class CommunityRepository:
         body: str,
         author_name: str | None = None,
         tags: Sequence[str] | None = None,
+        location_label: str | None = None,
     ) -> CommunityPost:
         post_id = f"community-{uuid4().hex}"
         created_at = _now_label()
         board = _normalize_board(board)
         resolved_author_name = _author_name_or_random(author_name)
         resolved_tags = _normalize_tags(tags)
+        resolved_location_label = _normalize_location_label(location_label)
         self._connection.execute(
             """
             INSERT INTO community_posts
-                (id, board, title, body, author_name, created_at, likes, feeds, tags)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (id, board, title, body, author_name, created_at, likes, location_label, feeds, tags)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 post_id,
@@ -127,6 +142,7 @@ class CommunityRepository:
                 resolved_author_name,
                 created_at,
                 0,
+                resolved_location_label,
                 json.dumps(["최신글"], ensure_ascii=False),
                 json.dumps(resolved_tags, ensure_ascii=False),
             ),
@@ -182,6 +198,7 @@ def _post_from_row(row: sqlite3.Row) -> CommunityPost:
         comments=row["comment_count"],
         likes=row["likes"],
         distance=row["distance"],
+        location_label=row["location_label"],
         feeds=tuple(json.loads(row["feeds"] or "[]")),
         tags=tuple(json.loads(row["tags"] or "[]")),
     )
@@ -204,6 +221,8 @@ def _normalize_board(board: str) -> str:
 def _matches_feed(post: CommunityPost, feed: str) -> bool:
     if feed == "인기글":
         return post.likes >= POPULAR_LIKE_THRESHOLD
+    if feed == "최신글":
+        return True
     return feed in post.feeds
 
 
@@ -214,6 +233,13 @@ def _normalize_tags(tags: Sequence[str] | None) -> tuple[str, ...]:
         if value and value not in normalized:
             normalized.append(value)
     return tuple(normalized or ("새 글",))
+
+
+def _normalize_location_label(location_label: str | None) -> str | None:
+    if location_label is None:
+        return None
+    stripped = location_label.strip()
+    return stripped or None
 
 
 def _author_name_or_random(author_name: str | None) -> str:

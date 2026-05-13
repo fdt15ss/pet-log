@@ -21,6 +21,7 @@ type PetIconProps = {
 		| "mic"
 		| "close"
 		| "heart"
+		| "bookmark"
 		| "syringe"
 		| "meal"
 		| "walk"
@@ -56,6 +57,7 @@ const iconPaths: Record<PetIconProps["name"], string> = {
 		mic: "M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0M12 19v3m-4 0h8",
 		close: "M6 6l12 12M18 6 6 18",
 		heart: "M20.8 8.6c0 5.4-8.8 10.4-8.8 10.4S3.2 14 3.2 8.6A4.6 4.6 0 0 1 12 6a4.6 4.6 0 0 1 8.8 2.6Z",
+		bookmark: "M7 4h10a1 1 0 0 1 1 1v16l-6-4-6 4V5a1 1 0 0 1 1-1Z",
 		syringe: "M18 3l3 3M11 10l7-7 3 3-7 7M4 20l6-6M6 18l-2 2M9 15l-4-4 6-6 4 4",
 		meal: "M6 3v7m4-7v7M6 10h4m-2 0v11m8-18v18m0-18c2.2 1.4 3.5 3.6 3.5 6.5 0 2.2-1.3 4-3.5 4",
 		walk: "M9 7a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Zm5.5 6.5 2 2.5 3 1M7 9l4 2 2 4 3 6M11 11l-3 4-4 1",

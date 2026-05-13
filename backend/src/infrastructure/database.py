@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import sqlite3
+from datetime import date, datetime, time, timedelta
 from pathlib import Path
 
 DEFAULT_DATABASE_PATH = Path(
@@ -139,6 +140,7 @@ def initialize_schema(connection: sqlite3.Connection) -> None:
             created_at TEXT NOT NULL,
             likes INTEGER NOT NULL DEFAULT 0,
             distance TEXT,
+            location_label TEXT,
             feeds TEXT NOT NULL DEFAULT '[]',
             tags TEXT NOT NULL DEFAULT '[]',
             deleted_at TEXT
@@ -166,6 +168,9 @@ def initialize_schema(connection: sqlite3.Connection) -> None:
     )
     _add_column_if_missing(connection, "pets", "photo_file_id", "TEXT")
     _add_column_if_missing(connection, "notifications", "dedupe_key", "TEXT")
+    _add_column_if_missing(connection, "community_posts", "location_label", "TEXT")
+    _backfill_community_location_labels(connection)
+    _backfill_community_sample_created_at(connection)
     connection.commit()
 
 
@@ -176,6 +181,64 @@ def _add_column_if_missing(connection: sqlite3.Connection, table: str, column: s
     }
     if column not in columns:
         connection.execute(f"ALTER TABLE {table} ADD COLUMN {column} {column_definition}")
+
+
+def _backfill_community_location_labels(connection: sqlite3.Connection) -> None:
+    connection.execute(
+        """
+        UPDATE community_posts
+        SET location_label = ?, distance = NULL
+        WHERE id = ? AND location_label IS NULL AND distance = ?
+        """,
+        ("동네 직거래 가능", "c2", "1.2km"),
+    )
+    connection.execute(
+        """
+        UPDATE community_posts
+        SET location_label = ?, distance = NULL
+        WHERE id = ? AND location_label IS NULL AND distance = ?
+        """,
+        ("동네 보호소 공지", "c5", "2.4km"),
+    )
+
+
+def _backfill_community_sample_created_at(connection: sqlite3.Connection) -> None:
+    base_date = date.today()
+    legacy_post_times = {
+        "c1": ("오늘 09:20", _at(base_date, time(9, 20))),
+        "c2": ("어제 18:10", _at(base_date - timedelta(days=1), time(18, 10))),
+        "c3": ("어제 12:40", _at(base_date - timedelta(days=1), time(12, 40))),
+        "c4": ("오늘 07:50", _at(base_date, time(7, 50))),
+        "c5": ("오늘 06:30", _at(base_date, time(6, 30))),
+    }
+    for post_id, (legacy_label, created_at) in legacy_post_times.items():
+        connection.execute(
+            """
+            UPDATE community_posts
+            SET created_at = ?
+            WHERE id = ? AND created_at = ?
+            """,
+            (created_at, post_id, legacy_label),
+        )
+
+    legacy_comment_times = {
+        "comment-c1-1": ("오늘 09:42", _at(base_date, time(9, 42))),
+        "comment-c1-2": ("오늘 10:05", _at(base_date, time(10, 5))),
+        "comment-c4-1": ("오늘 08:10", _at(base_date, time(8, 10))),
+    }
+    for comment_id, (legacy_label, created_at) in legacy_comment_times.items():
+        connection.execute(
+            """
+            UPDATE community_comments
+            SET created_at = ?
+            WHERE id = ? AND created_at = ?
+            """,
+            (created_at, comment_id, legacy_label),
+        )
+
+
+def _at(day: date, value: time) -> str:
+    return datetime.combine(day, value).isoformat()
 
 
 def _default_sample_pet_missing(connection: sqlite3.Connection) -> bool:
