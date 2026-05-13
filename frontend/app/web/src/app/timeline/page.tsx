@@ -281,7 +281,13 @@ export default function TimelinePage() {
                           <div>
                             <div className="flex items-center gap-2">
                               <span className="text-xs font-bold text-[#7a8374]">{record.time}</span>
-                              {recordCategoryChoice === "all" ? (
+                              {recordCategoryChoice === "all" && (record.structured?.detectedCategories?.length ?? 0) > 0 ? (
+                                <div className="flex flex-wrap gap-1">
+                                  {record.structured!.detectedCategories!.map((cat) => (
+                                    <CategoryBadge category={cat} key={cat} />
+                                  ))}
+                                </div>
+                              ) : recordCategoryChoice === "all" ? (
                                 <span className="rounded-full bg-[#f1f5ed] px-2.5 py-1 text-xs font-bold text-[#53604f]">
                                   {getRecordCategoryChoiceLabel(recordCategoryChoice)}
                                 </span>

@@ -315,6 +315,32 @@ function mapBackendSavedRecordsToEntry(
   };
 }
 
+function mapBackendSavedRecordsToEntries(
+  result: BackendPetLogResult,
+  detail: string,
+  categoryChoice: RecordCategoryChoice,
+): RecordEntry[] {
+  const savedRecords = backendSavedRecords(result);
+  const candidates = backendCandidates(result);
+  const fallback: RecordCategory = categoryChoice === "all" ? "meal" : categoryChoice;
+
+  return savedRecords.flatMap((record, index): RecordEntry[] => {
+    const candidate = candidates[index] ?? null;
+    const structured: StructuredRecord = candidate
+      ? mapBackendCandidateToStructured(candidate, detail, categoryChoice, false)
+      : {
+          sourceText: typeof record.detail === "string" ? record.detail : detail,
+          normalizedSummary: typeof record.title === "string" ? record.title : detail.slice(0, 80),
+          suggestedCategory: isRecordCategory(record.category) ? record.category : fallback,
+          confidence: 0.85,
+          measurements: [],
+          needsConfirmation: false,
+        };
+    const entry = mapBackendRecordToEntry(record, structured, fallback, categoryChoice);
+    return entry ? [entry] : [];
+  });
+}
+
 type BackendFetchedRecord = RecordEntry & {
   batchId?: unknown;
   recordedAt?: unknown;
@@ -744,16 +770,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return fail("VALIDATION_ERROR", "기록 카테고리와 내용을 입력해주세요.");
     }
     try {
-      const { result, structured } = await requestBackendPetLogRecord(body.detail, body.category, true);
-      const record = mapBackendSavedRecordsToEntry(
-        result,
-        structured,
-        body.detail,
-        structured.suggestedCategory,
-        body.category,
-      );
-      if (record) {
-        return ok({ record }, 201);
+      const { result } = await requestBackendPetLogRecord(body.detail, body.category, true);
+      const records = mapBackendSavedRecordsToEntries(result, body.detail, body.category);
+      if (records.length > 0) {
+        return ok({ records }, 201);
       }
       return fail("BACKEND_RECORD_FAILED", "기록 서버 응답에 저장된 기록이 없습니다.", 502);
     } catch {
