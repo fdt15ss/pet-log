@@ -281,7 +281,7 @@ class TestHttpRoutes(unittest.TestCase):
         with TestClient(create_app(app_context=context)) as client:
             post_response = client.post(
                 "/api/v1/community/posts",
-                json={"board": "자유게시판", "title": "새 글", "body": "본문입니다."},
+                json={"board": "자유게시판", "title": "새 글", "body": "본문입니다.", "tags": ["입양", "#임시보호"]},
             )
             post_id = post_response.json()["data"]["post"]["id"]
             comment_response = client.post(
@@ -291,9 +291,11 @@ class TestHttpRoutes(unittest.TestCase):
             reaction_response = client.post(f"/api/v1/community/posts/{post_id}/reactions")
 
         self.assertEqual(post_response.status_code, 201)
-        self.assertEqual(post_response.json()["data"]["post"]["authorName"], "나")
+        self.assertRegex(post_response.json()["data"]["post"]["authorName"], r"^[가-힣]+ [가-힣]+$")
         self.assertEqual(post_response.json()["data"]["post"]["feeds"], ["최신글"])
+        self.assertEqual(post_response.json()["data"]["post"]["tags"], ["입양", "임시보호"])
         self.assertEqual(comment_response.status_code, 201)
+        self.assertRegex(comment_response.json()["data"]["comment"]["authorName"], r"^[가-힣]+ [가-힣]+$")
         self.assertEqual(comment_response.json()["data"]["comment"]["body"], "첫 댓글입니다.")
         self.assertEqual(comment_response.json()["data"]["post"]["comments"], 1)
         self.assertEqual(reaction_response.status_code, 200)

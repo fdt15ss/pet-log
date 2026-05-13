@@ -56,6 +56,23 @@ class TestDatabaseRepositories(unittest.TestCase):
 
         self.assertIsNotNone(sample_pet)
 
+    def test_connect_seeds_existing_file_when_default_community_posts_are_missing(self):
+        with tempfile.TemporaryDirectory() as directory:
+            database_path = Path(directory) / "pet_log.sqlite3"
+            connection = connect(database_path)
+            connection.execute("DELETE FROM community_comments")
+            connection.execute("DELETE FROM community_posts")
+            connection.commit()
+            connection.close()
+
+            seeded_connection = connect(database_path)
+            community_post_count = seeded_connection.execute(
+                "SELECT COUNT(*) FROM community_posts WHERE deleted_at IS NULL",
+            ).fetchone()[0]
+            seeded_connection.close()
+
+        self.assertEqual(community_post_count, 5)
+
     def test_seed_default_data_adds_three_korean_sample_pets(self):
         connection = connect(":memory:")
         seed_default_data(connection, today=date(2026, 5, 7))
@@ -402,6 +419,57 @@ class TestDatabaseRepositories(unittest.TestCase):
         self.assertEqual(post.feeds, ("최신글",))
         self.assertEqual(post.tags, ("새 글",))
         self.assertEqual(reacted.likes, 1)
+
+    def test_community_repository_uses_custom_post_tags(self):
+        connection = connect(":memory:")
+        repository = CommunityRepository(connection=connection)
+
+        post = repository.create_post(
+            board="자유게시판",
+            title="새 글",
+            body="본문입니다.",
+            author_name="나",
+            tags=("입양", "임시보호"),
+        )
+
+        self.assertEqual(post.tags, ("입양", "임시보호"))
+
+    def test_community_repository_lists_popular_posts_from_ten_likes(self):
+        connection = connect(":memory:")
+        repository = CommunityRepository(connection=connection)
+
+        post = repository.create_post(board="자유게시판", title="인기 후보", body="본문입니다.", author_name="나")
+        for _ in range(9):
+            repository.add_reaction(post.id)
+
+        popular_before = repository.list_posts(feed="인기글", board="자유게시판")
+        self.assertNotIn(post.id, tuple(item.id for item in popular_before))
+
+        repository.add_reaction(post.id)
+
+        popular_after = repository.list_posts(feed="인기글", board="자유게시판")
+        self.assertIn(post.id, tuple(item.id for item in popular_after))
+
+    def test_community_repository_stores_created_post_time_as_iso_timestamp(self):
+        connection = connect(":memory:")
+        repository = CommunityRepository(connection=connection)
+
+        post = repository.create_post(board="자유게시판", title="새 글", body="본문입니다.", author_name="나")
+
+        parsed = datetime.fromisoformat(post.created_at.replace("Z", "+00:00"))
+        self.assertEqual(parsed.tzinfo, UTC)
+
+    def test_community_repository_uses_random_nickname_when_author_is_omitted(self):
+        connection = connect(":memory:")
+        repository = CommunityRepository(connection=connection)
+
+        post = repository.create_post(board="자유게시판", title="새 글", body="본문입니다.")
+        comment = repository.create_comment(post_id=post.id, body="첫 댓글입니다.")
+
+        self.assertRegex(post.author_name, r"^[가-힣]+ [가-힣]+$")
+        self.assertRegex(comment.author_name, r"^[가-힣]+ [가-힣]+$")
+        self.assertNotEqual(post.author_name, "나")
+        self.assertNotEqual(comment.author_name, "나")
 
     def test_schedule_repository_reads_due_sqlite_items(self):
         connection = connect(":memory:")
