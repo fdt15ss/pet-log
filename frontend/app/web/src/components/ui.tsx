@@ -63,17 +63,17 @@ export function Pill({
   );
 }
 
-export function CategoryBadge({ category }: { category: RecordCategory }) {
-  const colors: Record<RecordCategory, string> = {
-    meal: "bg-[#e8f5df] text-[#32783c]",
-    walk: "bg-[#e8f0ff] text-[#356aa8]",
-    stool: "bg-[#fff2dd] text-[#a4651a]",
-    medical: "bg-[#ffe9e6] text-[#be4c3c]",
-    behavior: "bg-[#f0eaff] text-[#7256b8]",
-  };
+export const categoryBadgeColors: Record<RecordCategory, string> = {
+  meal: "bg-[#e8f5df] text-[#32783c]",
+  walk: "bg-[#e8f0ff] text-[#356aa8]",
+  stool: "bg-[#fff2dd] text-[#a4651a]",
+  medical: "bg-[#ffe9e6] text-[#be4c3c]",
+  behavior: "bg-[#f0eaff] text-[#7256b8]",
+};
 
+export function CategoryBadge({ category }: { category: RecordCategory }) {
   return (
-    <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${colors[category]}`}>
+    <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${categoryBadgeColors[category]}`}>
       {categoryLabels[category]}
     </span>
   );

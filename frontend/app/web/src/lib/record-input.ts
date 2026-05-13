@@ -96,3 +96,21 @@ export function getBrowserSpeechRecognitionConstructor(
 ) {
   return windowLike.SpeechRecognition ?? windowLike.webkitSpeechRecognition ?? null;
 }
+
+export function resolveSpeechRecognitionDetail({
+  currentDetail,
+  transcript,
+  isFreshSession,
+}: {
+  currentDetail: string;
+  transcript: string;
+  isFreshSession: boolean;
+}) {
+  const trimmedTranscript = transcript.trim();
+  if (isFreshSession) {
+    return trimmedTranscript;
+  }
+
+  const trimmedCurrent = currentDetail.trim();
+  return trimmedCurrent ? `${trimmedCurrent} ${trimmedTranscript}` : trimmedTranscript;
+}

@@ -1,5 +1,6 @@
 import axios, { AxiosError } from "axios";
 import type { ExpansionState } from "./expansion-state";
+import { buildConfirmedRecordCandidates } from "./record-candidates";
 import type {
   AiInsight,
   AiSuggestion,
@@ -12,9 +13,11 @@ import type {
   RecordCategoryChoice,
   RecordEntry,
   ScheduleCategory,
+  StructuredRecordCandidate,
   StructuredRecord,
 } from "./types";
 import type { ShoppingRecommendation } from "./expansion-features";
+import type { ContextCorrectionSuggestion } from "./voice-transcript-review";
 
 export type ApiSuccess<T> = {
   ok: true;
@@ -42,6 +45,9 @@ export type Pet = PetProfile & { id: string };
 export type NewRecordInput = {
   category: RecordCategoryChoice;
   detail: string;
+  structured?: StructuredRecord;
+  candidates?: StructuredRecordCandidate[];
+  source?: "manual" | "voice" | "ai_preview";
 };
 
 export type UpdateRecordInput = {
@@ -52,6 +58,30 @@ export type UpdateRecordInput = {
 export type StructureRecordInput = {
   detail: string;
   fallbackCategory: RecordCategoryChoice;
+};
+
+export type StructureRecordResponse = {
+  structured: StructuredRecord;
+  candidates: StructuredRecordCandidate[];
+};
+
+export type CreateRecordResponse = {
+  record: RecordEntry;
+  records: RecordEntry[];
+  storage: "backend" | "mock" | "local";
+  storageMessage: string;
+};
+
+type RawCreateRecordResponse = {
+  record: RecordEntry;
+  records?: RecordEntry[];
+  storage?: "backend" | "mock" | "local";
+  storageMessage?: string;
+};
+
+type RawStructureRecordResponse = {
+  structured: StructuredRecord;
+  candidates?: StructuredRecordCandidate[];
 };
 
 export type NewScheduleInput = {
@@ -92,6 +122,15 @@ export type ChatbotThreadMessageResponse = {
 
 export type SpeechTranscriptionResponse = {
   text: string;
+};
+
+export type VoiceTranscriptCorrectionInput = {
+  text: string;
+  profileName: string;
+};
+
+export type VoiceTranscriptCorrectionResponse = {
+  suggestions: ContextCorrectionSuggestion[];
 };
 
 export type UploadedFile = {
@@ -168,12 +207,26 @@ export function updateProfile(input: PetProfile) {
   return requestData<{ profile: PetProfile }>(apiClient.put("/profile", input));
 }
 
-export function createRecord(input: NewRecordInput) {
-  return requestData<{ record: RecordEntry }>(apiClient.post("/records", input));
+export async function createRecord(input: NewRecordInput) {
+  const response = await requestData<RawCreateRecordResponse>(apiClient.post("/records", input));
+
+  return {
+    record: response.record,
+    records: response.records ?? [response.record],
+    storage: response.storage ?? "backend",
+    storageMessage: response.storageMessage ?? "DB에 저장되었습니다.",
+  } satisfies CreateRecordResponse;
 }
 
-export function structureRecordPreview(input: StructureRecordInput) {
-  return requestData<{ structured: StructuredRecord }>(apiClient.post("/ai/records/structure", input));
+export async function structureRecordPreview(input: StructureRecordInput) {
+  const response = await requestData<RawStructureRecordResponse>(
+    apiClient.post("/ai/records/structure", input),
+  );
+
+  return {
+    structured: response.structured,
+    candidates: response.candidates ?? buildConfirmedRecordCandidates(response.structured),
+  } satisfies StructureRecordResponse;
 }
 
 export function fetchAiInsights(petId: string) {
@@ -194,6 +247,12 @@ export function transcribeSpeechAudio(audio: File) {
   const formData = new FormData();
   formData.set("audio", audio);
   return requestData<SpeechTranscriptionResponse>(axios.post("/api/v1/speech/transcriptions", formData));
+}
+
+export function suggestVoiceTranscriptCorrections(input: VoiceTranscriptCorrectionInput) {
+  return requestData<VoiceTranscriptCorrectionResponse>(
+    apiClient.post("/ai/voice/corrections", input),
+  );
 }
 
 export function uploadProfilePhoto(photo: File) {
@@ -226,9 +285,9 @@ export function updateSettings(input: AppSettings) {
   return requestData<{ settings: AppSettings }>(apiClient.put("/settings", input));
 }
 
-export function updateReadNotifications(petId: string, readNotificationIds: string[]) {
+export function updateReadNotifications(readNotificationIds: string[], petId?: string) {
   return requestData<{ readNotificationIds: string[] }>(
-    apiClient.put("/notifications/read", { readNotificationIds }, { params: { pet_id: petId } })
+    apiClient.put("/notifications/read", { readNotificationIds }, { params: petId ? { pet_id: petId } : undefined })
   );
 }
 

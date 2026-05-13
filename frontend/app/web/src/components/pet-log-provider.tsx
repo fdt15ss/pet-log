@@ -49,6 +49,7 @@ import type {
   AiInsight,
   AiSuggestion,
   AppSettings,
+  CareNotification,
   CareSchedule,
   PetProfile,
   RecordCategory,
@@ -99,6 +100,7 @@ type PetLogContextValue = {
   profile: PetProfile;
   records: RecordEntry[];
   schedules: CareSchedule[];
+  notifications: CareNotification[];
   settings: AppSettings;
   readNotificationIds: string[];
   expansionState: ExpansionState;
@@ -221,6 +223,7 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<PetProfile>(emptyProfile);
   const [records, setRecords] = useState<RecordEntry[]>([]);
   const [schedules, setSchedules] = useState<CareSchedule[]>([]);
+  const [notifications, setNotifications] = useState<CareNotification[]>([]);
   const [settings, setSettings] = useState<AppSettings>(defaultAppSettings);
   const [readNotificationIds, setReadNotificationIds] = useState<string[]>([]);
   const [expansionState, setExpansionState] = useState<ExpansionState>(
@@ -302,6 +305,7 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
           setProfile(emptyProfile);
           setRecords([]);
           setSchedules([]);
+          setNotifications([]);
           setSettings(defaultAppSettings);
           setReadNotificationIds([]);
           setExpansionState(defaultExpansionState);
@@ -332,6 +336,7 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
         setProfile(activePet);
         setRecords(recordsData.records);
         setSchedules(schedulesData.schedules);
+        setNotifications(notificationsData.notifications);
         setSettings(defaultAppSettings);
         setReadNotificationIds(
           (notificationsData.notifications as PetNotification[])
@@ -631,6 +636,7 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
         setProfile(activePet);
         setRecords(recordsData.records);
         setSchedules(schedulesData.schedules);
+        setNotifications(notificationsData.notifications);
         setReadNotificationIds(
           (notificationsData.notifications as PetNotification[])
             .filter((notification) => notification.isRead)
@@ -642,6 +648,7 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
         setProfile(emptyProfile);
         setRecords([]);
         setSchedules([]);
+        setNotifications([]);
         setReadNotificationIds([]);
         setInsights([]);
         setSuggestions([]);
@@ -764,6 +771,11 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
       profile,
       records,
       schedules,
+      notifications: notifications.map((notification) => ({
+        ...notification,
+        isRead:
+          notification.isRead || readNotificationIds.includes(notification.id),
+      })),
       settings,
       readNotificationIds,
       expansionState,
@@ -793,6 +805,7 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
       profile,
       records,
       schedules,
+      notifications,
       settings,
       readNotificationIds,
       expansionState,

@@ -9,6 +9,7 @@ import {
   updateMockSettings,
 } from "@/lib/server/mock-pet-log-store";
 import { createPetLogChatbotMessage } from "@/lib/server/pet-log-ai-service";
+import { createVoiceTranscriptReview } from "@/lib/voice-transcript-review";
 import {
   ExtractedMeasurement,
   RecordCategory,
@@ -545,6 +546,17 @@ export async function POST(request: NextRequest, context: RouteContext) {
       const message = error instanceof BackendRouteError ? error.message : "기록 서버 요청을 처리하지 못했습니다.";
       return fail(code, message, status);
     }
+  }
+
+  if (path[0] === "ai" && path[1] === "voice" && path[2] === "corrections" && path.length === 3) {
+    if (!body || typeof body.text !== "string" || !body.text.trim()) {
+      return fail("VALIDATION_ERROR", "교정할 음성 인식 문장이 필요합니다.");
+    }
+
+    const profileName = typeof body.profileName === "string" ? body.profileName : "";
+    return ok({
+      suggestions: createVoiceTranscriptReview(body.text, profileName).contextCorrectionSuggestions,
+    });
   }
 
   if (path[0] === "schedules" && path.length === 1) {
