@@ -30,6 +30,7 @@ class PetRecord:
     status: RecordStatus
     recorded_at: str
     source: RecordInputSource
+    batch_id: str | None = None
 
 
 @dataclass(frozen=True)

@@ -22,7 +22,7 @@ class RecordRepository:
         if self._connection is not None:
             rows = self._connection.execute(
                 """
-                SELECT id, pet_id, category, title, detail, status, recorded_at, source
+                SELECT id, pet_id, category, title, detail, status, recorded_at, source, batch_id
                 FROM pet_records
                 WHERE pet_id = ? AND deleted_at IS NULL AND recorded_at >= ?
                 ORDER BY recorded_at, created_at
@@ -45,7 +45,7 @@ class RecordRepository:
             placeholders = ", ".join("?" for _ in record_ids)
             rows = self._connection.execute(
                 f"""
-                SELECT id, pet_id, category, title, detail, status, recorded_at, source
+                SELECT id, pet_id, category, title, detail, status, recorded_at, source, batch_id
                 FROM pet_records
                 WHERE pet_id = ? AND deleted_at IS NULL AND id IN ({placeholders})
                 """,
@@ -62,6 +62,7 @@ class RecordRepository:
         pet_id: str,
         candidate: StructuredRecordCandidate,
         source: RecordInputSource = "ai_preview",
+        batch_id: str | None = None,
     ) -> PetRecord:
         if self._connection is not None:
             record = PetRecord(
@@ -73,11 +74,12 @@ class RecordRepository:
                 status=candidate.status,
                 recorded_at=_utc_now(),
                 source=source,
+                batch_id=batch_id,
             )
             self._connection.execute(
                 """
-                INSERT INTO pet_records (id, pet_id, category, title, detail, status, recorded_at, source)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO pet_records (id, pet_id, category, title, detail, status, recorded_at, source, batch_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     record.id,
@@ -88,6 +90,7 @@ class RecordRepository:
                     record.status,
                     record.recorded_at,
                     record.source,
+                    record.batch_id,
                 ),
             )
             self._connection.commit()
@@ -102,6 +105,7 @@ class RecordRepository:
             status=candidate.status,
             recorded_at=_utc_now(),
             source=source,
+            batch_id=batch_id,
         )
         self._records.append(record)
         return record
@@ -110,7 +114,7 @@ class RecordRepository:
     def get_by_id(self, record_id: str) -> PetRecord | None:
         if self._connection is not None:
             row = self._connection.execute(
-                "SELECT id, pet_id, category, title, detail, status, recorded_at, source "
+                "SELECT id, pet_id, category, title, detail, status, recorded_at, source, batch_id "
                 "FROM pet_records WHERE id = ? AND deleted_at IS NULL",
                 (record_id,),
             ).fetchone()
@@ -134,7 +138,7 @@ class RecordRepository:
             id=old.id, pet_id=old.pet_id,
             category=cast("RecordCategory", category), title=title,
             detail=detail, status=cast("RecordStatus", status),
-            recorded_at=old.recorded_at, source=old.source,
+            recorded_at=old.recorded_at, source=old.source, batch_id=old.batch_id,
         )
         self._records[idx] = updated
         return updated
@@ -164,6 +168,7 @@ def _record_from_row(row: sqlite3.Row) -> PetRecord:
         status=row["status"],
         recorded_at=row["recorded_at"],
         source=row["source"],
+        batch_id=row["batch_id"],
     )
 
 

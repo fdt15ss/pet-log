@@ -57,6 +57,7 @@ class PetRecordRow(TypedDict):
     detail: str
     status: RecordStatus
     source: RecordInputSource
+    batch_id: UUID | None
     created_at: ISODateTimeString
     updated_at: ISODateTimeString
     deleted_at: ISODateTimeString | None

@@ -125,6 +125,7 @@ CREATE TABLE IF NOT EXISTS pet_records (
     status TEXT NOT NULL,
     recorded_at TEXT NOT NULL,
     source TEXT NOT NULL,
+    batch_id TEXT,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted_at TEXT
@@ -212,6 +213,7 @@ CREATE INDEX IF NOT EXISTS idx_files_pet_purpose_created_at
 | `status` | 구조화 후보의 status |
 | `recorded_at` | 저장 시점 UTC ISO timestamp |
 | `source` | 현재 저장 경로에서는 `ai_preview` |
+| `batch_id` | 같은 원문 입력에서 분류되어 저장된 record 묶음 id |
 | `created_at` | DB row 생성 시점 |
 | `updated_at` | DB row 수정 시점 |
 | `deleted_at` | soft delete 시점, 기본 `NULL` |
@@ -225,7 +227,6 @@ CREATE INDEX IF NOT EXISTS idx_files_pet_purpose_created_at
 | `needs_confirmation` | 저장 여부 판단에만 쓰고, 저장된 record에는 남기지 않는다. |
 | `measurements` | domain 후보에는 있으나 현재 record table 컬럼이 없다. |
 | `original_text` | 현재 record table 컬럼이 없다. |
-| `batch_id` | 현재는 한 입력에서 나온 기록끼리 묶는 DB 컬럼이 없다. |
 
 ## LLM 구조화 입력
 
@@ -298,7 +299,7 @@ LLM structured output:
 미리보기와 저장 분리 확인:
 
 ```sql
-SELECT id, pet_id, category, title, detail, status, recorded_at, source
+SELECT id, pet_id, category, title, detail, status, recorded_at, source, batch_id
 FROM pet_records
 WHERE pet_id = 'pet_01JCM7V8H9Q2K4N6R8T0A1B2C3'
 ORDER BY created_at DESC
@@ -358,7 +359,7 @@ RecordRepository.list_by_ids(pet_id, record_ids)
 현재 `list_recent()` 의도:
 
 ```sql
-SELECT id, pet_id, category, title, detail, status, recorded_at, source
+SELECT id, pet_id, category, title, detail, status, recorded_at, source, batch_id
 FROM pet_records
 WHERE pet_id = ?
   AND deleted_at IS NULL
@@ -379,7 +380,7 @@ ORDER BY recorded_at, created_at;
 목표 쿼리:
 
 ```sql
-SELECT id, pet_id, category, title, detail, status, recorded_at, source
+SELECT id, pet_id, category, title, detail, status, recorded_at, source, batch_id
 FROM pet_records
 WHERE pet_id = ?
   AND deleted_at IS NULL
@@ -390,7 +391,7 @@ ORDER BY recorded_at DESC, created_at DESC;
 특정 기록 묶음 조회는 `pet_id + record_ids` 기준이다.
 
 ```sql
-SELECT id, pet_id, category, title, detail, status, recorded_at, source
+SELECT id, pet_id, category, title, detail, status, recorded_at, source, batch_id
 FROM pet_records
 WHERE pet_id = ?
   AND deleted_at IS NULL
@@ -426,4 +427,5 @@ list_recent("pet-1", lookback_days=30)
 - `list_recent(pet_id, lookback_days)`는 interface에 기간 인자가 있지만, 현재 구현은 아직 날짜 필터를 적용하지 않는다.
 - 저장 시 `recorded_at`은 UTC `Z` 포맷으로 생성하지만, seed 데이터에는 timezone 없는 ISO 문자열도 있다.
 - 기간 조회를 정확하게 하려면 `recorded_at` 저장 포맷을 UTC ISO로 통일하는 것이 좋다.
-- batch 단위 추적이 필요하면 `batch_id`, `original_text`, `confidence`, `measurements` 저장 전략을 별도로 설계해야 한다.
+- 한 입력에서 여러 카테고리 후보가 저장되면 같은 `batch_id`를 공유한다. 조회 UI는 이 값을 기준으로 여러 record를 한 카드로 조립할 수 있다.
+- `original_text`, `confidence`, `measurements`를 저장하려면 별도 저장 전략을 추가로 설계해야 한다.

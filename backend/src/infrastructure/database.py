@@ -41,6 +41,7 @@ def initialize_schema(connection: sqlite3.Connection) -> None:
             status TEXT NOT NULL,
             recorded_at TEXT NOT NULL,
             source TEXT NOT NULL,
+            batch_id TEXT,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             deleted_at TEXT
@@ -158,6 +159,19 @@ def initialize_schema(connection: sqlite3.Connection) -> None:
             ON community_comments (post_id, created_at);
         """
     )
+    _ensure_pet_records_batch_id(connection)
+
+
+def _ensure_pet_records_batch_id(connection: sqlite3.Connection) -> None:
+    columns = {
+        row["name"] if isinstance(row, sqlite3.Row) else row[1]
+        for row in connection.execute("PRAGMA table_info(pet_records)").fetchall()
+    }
+    if "batch_id" not in columns:
+        connection.execute("ALTER TABLE pet_records ADD COLUMN batch_id TEXT")
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_pet_records_pet_batch_id ON pet_records (pet_id, batch_id)"
+    )
     _add_column_if_missing(connection, "pets", "photo_file_id", "TEXT")
     _add_column_if_missing(connection, "notifications", "dedupe_key", "TEXT")
     connection.commit()
@@ -165,7 +179,7 @@ def initialize_schema(connection: sqlite3.Connection) -> None:
 
 def _add_column_if_missing(connection: sqlite3.Connection, table: str, column: str, column_definition: str) -> None:
     columns = {
-        row["name"]
+        row["name"] if isinstance(row, sqlite3.Row) else row[1]
         for row in connection.execute(f"PRAGMA table_info({table})").fetchall()
     }
     if column not in columns:
