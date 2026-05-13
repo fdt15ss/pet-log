@@ -66,6 +66,11 @@ const toneCard: Record<HomeSummaryTone, string> = {
   blue: "border-[#d4e0f5] bg-[#f6f9ff]",
 };
 
+const homeNotificationBorderClasses: Partial<Record<HomeSummaryTone, string>> = {
+  orange: "pet-log-notification-alert-border pet-log-notification-alert-border-orange",
+  red: "pet-log-notification-alert-border pet-log-notification-alert-border-red",
+};
+
 const chatbotQuestions: Array<{ icon: "heart" | "bell" | "syringe"; text: string }> = [
   { icon: "heart", text: "오늘 상태 괜찮아?" },
   { icon: "bell", text: "주의 알림은 왜 떴어?" },
@@ -538,7 +543,11 @@ export default function Home() {
           />
           <div className="space-y-3">
             {homeNotifications.map((notification) => (
-              <Card className={`border-l-4 p-4 ${toneCard[notification.tone]}`} key={notification.id} motion="rise">
+              <Card
+                className={`p-4 ${homeNotificationBorderClasses[notification.tone] ?? `border-l-4 ${toneCard[notification.tone]}`}`}
+                key={notification.id}
+                motion="rise"
+              >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className={`text-xs font-bold ${toneText[notification.tone]}`}>

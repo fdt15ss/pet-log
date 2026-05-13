@@ -104,7 +104,14 @@ export default function NotificationsPage() {
           <SectionHeader title="알림 목록" />
           <div className="space-y-3">
             {filteredNotifications.map((notification) => (
-              <Card className={notification.isRead ? "bg-white/70" : "border-[#b8dec4] bg-white"} key={notification.id}>
+              <Card
+                className={
+                  notification.isRead
+                    ? "bg-white/70"
+                    : `${notificationBorderClasses[notification.tone] ?? "border-[#b8dec4]"} bg-white`
+                }
+                key={notification.id}
+              >
                 <div className="flex gap-3">
                   <div
                     className={`grid h-12 w-12 shrink-0 place-items-center rounded-2xl text-sm font-black ${
