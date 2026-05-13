@@ -23,10 +23,10 @@ import {
 } from "@/lib/api-client";
 import { defaultExpansionState, normalizeExpansionState } from "@/lib/expansion-state";
 import {
-  buildNotificationSpeechText,
+  buildNotificationSpeechBatchText,
   getNewUnreadNotificationsForSpeech,
-  notificationTtsStorageKey,
-  parseSpokenNotificationIds,
+  isBrowserAudioAutoplayBlocked,
+  isSpeechSynthesisBackendUnavailable,
 } from "@/lib/notification-tts";
 import { sortCareNotificationsByLatest } from "@/lib/notifications";
 import { defaultAppSettings } from "@/lib/settings";
@@ -152,15 +152,9 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
   const knownNotificationIdsRef = useRef<Set<string>>(new Set());
   const notificationTtsQueueRef = useRef<CareNotification[]>([]);
   const isPlayingNotificationTtsRef = useRef(false);
+  const notificationTtsRetryAbortControllerRef = useRef<AbortController | null>(null);
+  const playQueuedNotificationTtsRef = useRef<() => Promise<void>>(async () => {});
   const spokenNotificationIdsRef = useRef<Set<string>>(new Set());
-
-  const persistSpokenNotificationIds = useCallback((ids: Set<string>) => {
-    try {
-      window.localStorage.setItem(notificationTtsStorageKey, JSON.stringify([...ids]));
-    } catch {
-      // TTS 중복 방지 저장이 막혀도 알림 기능은 계속 동작해야 합니다.
-    }
-  }, []);
 
   const playAudioBlob = useCallback(async (audioBlob: Blob) => {
     const audioUrl = URL.createObjectURL(audioBlob);
@@ -176,6 +170,55 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const playBrowserSpeechText = useCallback(async (text: string) => {
+    if (!("speechSynthesis" in window) || !("SpeechSynthesisUtterance" in window)) {
+      throw new Error("Browser speech synthesis is not available");
+    }
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = "ko-KR";
+
+    await new Promise<void>((resolve, reject) => {
+      utterance.onend = () => resolve();
+      utterance.onerror = (event) => {
+        const error = new Error(`Browser speech synthesis failed: ${event.error}`);
+        if (event.error === "not-allowed") {
+          error.name = "NotAllowedError";
+        }
+        reject(error);
+      };
+      window.speechSynthesis.speak(utterance);
+    });
+  }, []);
+
+  const markNotificationSpoken = useCallback((id: string) => {
+    const nextSpokenIds = new Set(spokenNotificationIdsRef.current);
+    nextSpokenIds.add(id);
+    spokenNotificationIdsRef.current = nextSpokenIds;
+  }, []);
+
+  const scheduleNotificationTtsRetryOnUserGesture = useCallback(() => {
+    if (notificationTtsRetryAbortControllerRef.current) {
+      return;
+    }
+
+    const controller = new AbortController();
+    notificationTtsRetryAbortControllerRef.current = controller;
+    const retry = () => {
+      notificationTtsRetryAbortControllerRef.current = null;
+      controller.abort();
+      void playQueuedNotificationTtsRef.current();
+    };
+
+    window.addEventListener("pointerdown", retry, { once: true, signal: controller.signal });
+    window.addEventListener("keydown", retry, { once: true, signal: controller.signal });
+  }, []);
+
+  const requeueNotificationTtsAfterUserGesture = useCallback((notifications: CareNotification[]) => {
+    notificationTtsQueueRef.current = [...notifications, ...notificationTtsQueueRef.current];
+    scheduleNotificationTtsRetryOnUserGesture();
+  }, [scheduleNotificationTtsRetryOnUserGesture]);
+
   const playQueuedNotificationTts = useCallback(async () => {
     if (isPlayingNotificationTtsRef.current) {
       return;
@@ -183,29 +226,62 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
 
     isPlayingNotificationTtsRef.current = true;
     try {
-      let [nextNotification, ...remainingNotifications] = notificationTtsQueueRef.current;
-      notificationTtsQueueRef.current = remainingNotifications;
-      while (nextNotification) {
-        if (!spokenNotificationIdsRef.current.has(nextNotification.id) && !nextNotification.isRead) {
-          const text = buildNotificationSpeechText(nextNotification);
+      let queuedNotifications = notificationTtsQueueRef.current;
+      notificationTtsQueueRef.current = [];
+      while (queuedNotifications.length > 0) {
+        const notificationsToSpeak = queuedNotifications.filter(
+          (notification) => !spokenNotificationIdsRef.current.has(notification.id) && !notification.isRead,
+        );
+        if (notificationsToSpeak.length > 0) {
+          const text = buildNotificationSpeechBatchText(notificationsToSpeak);
           try {
+            console.info("[provider] 알림 TTS 백엔드 합성 호출", {
+              notificationIds: notificationsToSpeak.map((notification) => notification.id),
+              textLength: text.length,
+            });
             const audioBlob = await synthesizeSpeech(text);
             await playAudioBlob(audioBlob);
-            const nextSpokenIds = new Set(spokenNotificationIdsRef.current);
-            nextSpokenIds.add(nextNotification.id);
-            spokenNotificationIdsRef.current = nextSpokenIds;
-            persistSpokenNotificationIds(nextSpokenIds);
-          } catch (err) {
-            console.error("[provider] 알림 TTS 재생 실패:", err);
+            notificationsToSpeak.forEach((notification) => markNotificationSpoken(notification.id));
+          } catch (backendSpeechErr) {
+            if (isBrowserAudioAutoplayBlocked(backendSpeechErr)) {
+              requeueNotificationTtsAfterUserGesture(notificationsToSpeak);
+              break;
+            }
+
+            if (isSpeechSynthesisBackendUnavailable(backendSpeechErr)) {
+              try {
+                await playBrowserSpeechText(text);
+                notificationsToSpeak.forEach((notification) => markNotificationSpoken(notification.id));
+                continue;
+              } catch (browserSpeechErr) {
+                if (isBrowserAudioAutoplayBlocked(browserSpeechErr)) {
+                  requeueNotificationTtsAfterUserGesture(notificationsToSpeak);
+                  break;
+                }
+                console.error("[provider] 브라우저 알림 TTS 재생 실패:", browserSpeechErr);
+              }
+            }
+            console.error("[provider] 알림 TTS 재생 실패:", backendSpeechErr);
           }
         }
-        [nextNotification, ...remainingNotifications] = notificationTtsQueueRef.current;
-        notificationTtsQueueRef.current = remainingNotifications;
+        queuedNotifications = notificationTtsQueueRef.current;
+        notificationTtsQueueRef.current = [];
       }
     } finally {
       isPlayingNotificationTtsRef.current = false;
     }
-  }, [persistSpokenNotificationIds, playAudioBlob]);
+  }, [markNotificationSpoken, playAudioBlob, playBrowserSpeechText, requeueNotificationTtsAfterUserGesture]);
+
+  useEffect(() => {
+    playQueuedNotificationTtsRef.current = playQueuedNotificationTts;
+  }, [playQueuedNotificationTts]);
+
+  useEffect(() => {
+    return () => {
+      notificationTtsRetryAbortControllerRef.current?.abort();
+      notificationTtsRetryAbortControllerRef.current = null;
+    };
+  }, []);
 
   const refreshAnalysis = useCallback(async (petId: string) => {
     setIsAnalysisLoading(true);
@@ -304,16 +380,6 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
   }, [refreshAnalysis]);
 
   useEffect(() => {
-    try {
-      spokenNotificationIdsRef.current = new Set(
-        parseSpokenNotificationIds(window.localStorage.getItem(notificationTtsStorageKey)),
-      );
-    } catch {
-      spokenNotificationIdsRef.current = new Set();
-    }
-  }, []);
-
-  useEffect(() => {
     if (!isStorageReady) {
       return;
     }
@@ -329,7 +395,6 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
     knownNotificationIdsRef.current = new Set(currentNotificationIds);
     if (!hasCompletedInitialNotificationLoadRef.current) {
       hasCompletedInitialNotificationLoadRef.current = true;
-      return;
     }
     if (pendingNotifications.length === 0) {
       return;

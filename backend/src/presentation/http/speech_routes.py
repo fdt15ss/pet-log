@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, File, HTTPException, Request, Response, UploadFile
 from pydantic import BaseModel
+from starlette.concurrency import run_in_threadpool
 
 from composition import AppContext
 from presentation.http.schemas import success_response
@@ -54,7 +55,11 @@ def build_speech_router() -> APIRouter:
             raise HTTPException(status_code=503, detail="Text-to-speech provider is not configured")
 
         try:
-            audio = context.text_to_speech.synthesize(text, synthesis_request.voice)
+            audio = await run_in_threadpool(
+                context.text_to_speech.synthesize,
+                text,
+                synthesis_request.voice,
+            )
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         except Exception as exc:

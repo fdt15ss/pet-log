@@ -203,6 +203,10 @@ export function transcribeSpeechAudio(audio: File) {
 }
 
 export async function synthesizeSpeech(text: string, voice?: string) {
+  console.info("[api-client] POST /api/v1/speech/synthesis", {
+    textLength: text.trim().length,
+    voice: voice ?? null,
+  });
   const response = await axios.post("/api/v1/speech/synthesis", { text, voice }, { responseType: "blob" });
   return response.data as Blob;
 }
