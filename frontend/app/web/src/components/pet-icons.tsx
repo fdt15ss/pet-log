@@ -16,6 +16,7 @@ type PetIconProps = {
 		| "shared"
 		| "hospital"
 		| "shopping"
+		| "chat"
 		| "question"
 		| "send"
 		| "mic"
@@ -52,6 +53,7 @@ const iconPaths: Record<PetIconProps["name"], string> = {
 	shared: "M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm8 2a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM3 20a5 5 0 0 1 10 0m-1-3a5 5 0 0 1 9 3",
 		hospital: "M12 5v14M5 12h14M6 4h12a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z",
 		shopping: "M6 8h12l-1 12H7L6 8Zm3 0a3 3 0 0 1 6 0",
+		chat: "M5 6h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-7l-5 4v-4H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2Zm3 5h.01M12 11h.01M16 11h.01",
 		question: "M9.5 9a2.5 2.5 0 1 1 4.4 1.6c-.9.7-1.4 1.1-1.4 2.4M12 17h.01M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z",
 		send: "M4 12 20 4l-4 16-4-7-8-1Z",
 		mic: "M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0M12 19v3m-4 0h8",

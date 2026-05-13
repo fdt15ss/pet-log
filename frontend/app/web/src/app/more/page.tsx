@@ -3,7 +3,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { ComponentProps } from "react";
+import { useState } from "react";
 import { AppShell } from "@/components/app-shell";
+import { PetChatDialog } from "@/components/pet-chat-dialog";
 import { usePetLog } from "@/components/pet-log-provider";
 import { PetIcon } from "@/components/pet-icons";
 import { Card, SectionHeader } from "@/components/ui";
@@ -47,13 +49,15 @@ const menuSections: Array<{ title: string; items: MoreMenuItem[] }> = [
 
 export default function MorePage() {
   const { profile, records, schedules } = usePetLog();
+  const [isPetChatOpen, setIsPetChatOpen] = useState(false);
   const pendingSchedules = schedules.filter((schedule) => !schedule.isDone).length;
+  const petChatName = profile.name.trim() || "꾸꾸";
 
   return (
     <AppShell subtitle="전체 메뉴" title="더보기">
       <div className="space-y-5">
         <Card className="bg-gradient-to-br from-white to-[#edf8ed]">
-          <div className="flex items-center gap-3">
+          <div className="flex items-start gap-3">
             <div className="grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-2xl bg-[#e6f3de] text-xl font-black text-[#16804b]">
               {profile.photoDataUrl ? (
                 <Image
@@ -75,6 +79,17 @@ export default function MorePage() {
                 {profile.breed} · {profile.age} · {profile.weight}
               </p>
             </div>
+            <button
+              aria-label={`${petChatName}와의 대화`}
+              className="pet-log-float-soft pet-log-pressable pet-log-chat-sparkle-border mt-1 inline-flex h-9 shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-full bg-[#1f2922] px-3 text-[12px] font-bold text-white shadow-[0_6px_14px_rgba(31,41,34,0.14)]"
+              onClick={() => setIsPetChatOpen(true)}
+              style={{ fontSize: 12 }}
+              title={`${petChatName}와의 대화`}
+              type="button"
+            >
+              <PetIcon className="h-4 w-4" name="chat" />
+              <span>{petChatName}와의 대화</span>
+            </button>
           </div>
           <div className="mt-4 grid grid-cols-2 gap-2">
             <div className="rounded-2xl bg-white/80 px-3 py-3">
@@ -121,6 +136,12 @@ export default function MorePage() {
           </section>
         ))}
       </div>
+      <PetChatDialog
+        isOpen={isPetChatOpen}
+        onClose={() => setIsPetChatOpen(false)}
+        profile={profile}
+        records={records}
+      />
     </AppShell>
   );
 }
