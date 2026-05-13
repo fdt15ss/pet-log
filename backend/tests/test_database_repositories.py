@@ -134,6 +134,81 @@ class TestDatabaseRepositories(unittest.TestCase):
         self.assertEqual(schedule_dates, ("2026-05-10", "2026-05-14"))
         self.assertEqual(schedule_titles, ("미용 예약", "정기 검진"))
 
+        community_dates = {
+            row["id"]: row["created_at"]
+            for row in connection.execute(
+                "SELECT id, created_at FROM community_posts ORDER BY id",
+            ).fetchall()
+        }
+        self.assertEqual(community_dates["c1"], "2026-05-07T09:20:00")
+        self.assertEqual(community_dates["c3"], "2026-05-06T12:40:00")
+        self.assertEqual(community_dates["c5"], "2026-05-07T06:30:00")
+
+    def test_initialize_schema_backfills_legacy_community_sample_time_labels(self):
+        connection = sqlite3.connect(":memory:")
+        connection.row_factory = sqlite3.Row
+        connection.executescript(
+            """
+            CREATE TABLE community_posts (
+                id TEXT PRIMARY KEY,
+                board TEXT NOT NULL,
+                title TEXT NOT NULL,
+                body TEXT NOT NULL,
+                author_name TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                likes INTEGER NOT NULL DEFAULT 0,
+                distance TEXT,
+                feeds TEXT NOT NULL DEFAULT '[]',
+                tags TEXT NOT NULL DEFAULT '[]',
+                deleted_at TEXT
+            );
+
+            CREATE TABLE community_comments (
+                id TEXT PRIMARY KEY,
+                post_id TEXT NOT NULL,
+                author_name TEXT NOT NULL,
+                body TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                deleted_at TEXT
+            );
+            """
+        )
+        connection.executemany(
+            """
+            INSERT INTO community_posts (id, board, title, body, author_name, created_at, likes, feeds, tags)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                ("c1", "행동 고민", "글 1", "본문", "나", "오늘 09:20", 0, '["최신글"]', "[]"),
+                ("c3", "자유게시판", "글 3", "본문", "나", "어제 12:40", 0, '["인기글"]', "[]"),
+            ),
+        )
+        connection.execute(
+            """
+            INSERT INTO community_comments (id, post_id, author_name, body, created_at)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            ("comment-c1-2", "c1", "나", "댓글", "오늘 10:05"),
+        )
+
+        initialize_schema(connection)
+
+        today = date.today()
+        yesterday = today - timedelta(days=1)
+
+        post_dates = {
+            row["id"]: row["created_at"]
+            for row in connection.execute("SELECT id, created_at FROM community_posts ORDER BY id").fetchall()
+        }
+        comment_date = connection.execute(
+            "SELECT created_at FROM community_comments WHERE id = ?",
+            ("comment-c1-2",),
+        ).fetchone()["created_at"]
+
+        self.assertEqual(post_dates["c1"], f"{today.isoformat()}T09:20:00")
+        self.assertEqual(post_dates["c3"], f"{yesterday.isoformat()}T12:40:00")
+        self.assertEqual(comment_date, f"{today.isoformat()}T10:05:00")
+
     def test_seed_default_data_adds_sample_notifications(self):
         connection = connect(":memory:")
         seed_default_data(connection, today=date(2026, 5, 7))
@@ -489,6 +564,20 @@ class TestDatabaseRepositories(unittest.TestCase):
 
         self.assertEqual(post.tags, ("입양", "임시보호"))
 
+    def test_community_repository_uses_manual_location_label(self):
+        connection = connect(":memory:")
+        repository = CommunityRepository(connection=connection)
+
+        post = repository.create_post(
+            board="유기동물",
+            title="임시 보호 정보",
+            body="보호소 공지를 공유합니다.",
+            author_name="나",
+            location_label="마포구 보호소 근처",
+        )
+
+        self.assertEqual(post.location_label, "마포구 보호소 근처")
+
     def test_community_repository_lists_popular_posts_from_ten_likes(self):
         connection = connect(":memory:")
         repository = CommunityRepository(connection=connection)
@@ -504,6 +593,48 @@ class TestDatabaseRepositories(unittest.TestCase):
 
         popular_after = repository.list_posts(feed="인기글", board="자유게시판")
         self.assertIn(post.id, tuple(item.id for item in popular_after))
+
+    def test_community_repository_treats_latest_as_all_posts_not_only_tagged_latest(self):
+        connection = connect(":memory:")
+        seed_default_data(connection, today=date(2026, 5, 7))
+        repository = CommunityRepository(connection=connection)
+
+        latest_posts = repository.list_posts(feed="최신글", board="자유게시판")
+
+        self.assertIn("c3", tuple(post.id for post in latest_posts))
+        self.assertEqual(latest_posts[0].title, "분리불안 어떻게 기록하고 계세요?")
+
+    def test_community_repository_paginates_after_board_and_feed_filters(self):
+        connection = connect(":memory:")
+        repository = CommunityRepository(connection=connection)
+        connection.executemany(
+            """
+            INSERT INTO community_posts (id, board, title, body, author_name, created_at, likes, feeds, tags)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                (
+                    f"page-post-{index:02d}",
+                    "자유게시판",
+                    f"글 {index}",
+                    "본문입니다.",
+                    "나",
+                    f"2026-05-13T00:{index:02d}:00Z",
+                    0,
+                    '["최신글"]',
+                    '["새 글"]',
+                )
+                for index in range(12)
+            ),
+        )
+        connection.commit()
+
+        first_page = repository.list_posts(feed="최신글", board="자유게시판", limit=10, offset=0)
+        second_page = repository.list_posts(feed="최신글", board="자유게시판", limit=10, offset=10)
+
+        self.assertEqual(len(first_page), 10)
+        self.assertEqual(tuple(post.id for post in first_page[:2]), ("page-post-11", "page-post-10"))
+        self.assertEqual(tuple(post.id for post in second_page), ("page-post-01", "page-post-00"))
 
     def test_community_repository_stores_created_post_time_as_iso_timestamp(self):
         connection = connect(":memory:")

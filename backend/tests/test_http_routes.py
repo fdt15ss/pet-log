@@ -1,6 +1,6 @@
-import unittest
 import tempfile
-from datetime import datetime
+import unittest
+from datetime import date, datetime
 from pathlib import Path
 from unittest.mock import patch
 
@@ -232,7 +232,7 @@ class TestHttpRoutes(unittest.TestCase):
 
     def test_community_routes_list_posts_and_detail(self):
         connection = connect(":memory:")
-        seed_default_data(connection)
+        seed_default_data(connection, today=date(2026, 5, 7))
         context = AppContext(
             pet_log_agent_pipeline=FakePetLogAgentPipeline(),
             pet_profile_reader=FakePetProfileReader(),
@@ -257,7 +257,7 @@ class TestHttpRoutes(unittest.TestCase):
                 "title": "말티즈 산책 줄면 쉽게 흥분하나요?",
                 "body": "산책 시간이 줄어든 뒤 현관 앞에서 기다리거나 소리에 예민하게 반응하는 날이 늘었어요. 짧게라도 산책을 나누는 게 도움이 될까요?",
                 "authorName": "코코 보호자",
-                "createdAt": "오늘 09:20",
+                "createdAt": "2026-05-07T09:20:00",
                 "comments": 2,
                 "likes": 26,
                 "feeds": ["인기글", "최신글"],
@@ -266,7 +266,65 @@ class TestHttpRoutes(unittest.TestCase):
         )
         detail = detail_response.json()["data"]["post"]
         self.assertEqual(detail["meta"], "행동 고민 · 댓글 2 · 공감 26")
-        self.assertEqual([comment["id"] for comment in detail["commentItems"]], ["comment-c1-2", "comment-c1-1"])
+        self.assertEqual([comment["id"] for comment in detail["commentItems"]], ["comment-c1-1", "comment-c1-2"])
+
+    def test_community_routes_do_not_expose_nearby_feed(self):
+        client = TestClient(create_app(app_context_factory=FakeAppContext))
+
+        response = client.get("/api/v1/community/boards")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["data"]["feeds"], ["인기글", "최신글"])
+
+    def test_community_routes_paginates_posts_by_ten(self):
+        connection = connect(":memory:")
+        repository = CommunityRepository(connection=connection)
+        connection.executemany(
+            """
+            INSERT INTO community_posts (id, board, title, body, author_name, created_at, likes, feeds, tags)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                (
+                    f"page-post-{index:02d}",
+                    "자유게시판",
+                    f"글 {index}",
+                    "본문입니다.",
+                    "나",
+                    f"2026-05-13T00:{index:02d}:00Z",
+                    0,
+                    '["최신글"]',
+                    '["새 글"]',
+                )
+                for index in range(12)
+            ),
+        )
+        connection.commit()
+        context = AppContext(
+            pet_log_agent_pipeline=FakePetLogAgentPipeline(),
+            pet_profile_reader=FakePetProfileReader(),
+            speech_to_text=FakeSpeechToText(),
+            community_repository=repository,
+            close=connection.close,
+        )
+
+        with TestClient(create_app(app_context=context)) as client:
+            first_response = client.get(
+                "/api/v1/community/posts",
+                params={"feed": "최신글", "board": "자유게시판", "limit": 10, "offset": 0},
+            )
+            second_response = client.get(
+                "/api/v1/community/posts",
+                params={"feed": "최신글", "board": "자유게시판", "limit": 10, "offset": 10},
+            )
+
+        self.assertEqual(first_response.status_code, 200)
+        self.assertEqual(len(first_response.json()["data"]["posts"]), 10)
+        self.assertEqual(first_response.json()["data"]["totalCount"], 12)
+        self.assertTrue(first_response.json()["data"]["hasMore"])
+        self.assertEqual([post["id"] for post in second_response.json()["data"]["posts"]], ["page-post-01", "page-post-00"])
+        self.assertEqual(second_response.json()["data"]["totalCount"], 12)
+        self.assertFalse(second_response.json()["data"]["hasMore"])
 
     def test_community_routes_create_post_comment_and_reaction(self):
         connection = connect(":memory:")
@@ -281,7 +339,13 @@ class TestHttpRoutes(unittest.TestCase):
         with TestClient(create_app(app_context=context)) as client:
             post_response = client.post(
                 "/api/v1/community/posts",
-                json={"board": "자유게시판", "title": "새 글", "body": "본문입니다.", "tags": ["입양", "#임시보호"]},
+                json={
+                    "board": "유기동물",
+                    "title": "새 글",
+                    "body": "본문입니다.",
+                    "tags": ["입양", "#임시보호"],
+                    "locationLabel": "마포구 보호소 근처",
+                },
             )
             post_id = post_response.json()["data"]["post"]["id"]
             comment_response = client.post(
@@ -294,6 +358,7 @@ class TestHttpRoutes(unittest.TestCase):
         self.assertRegex(post_response.json()["data"]["post"]["authorName"], r"^[가-힣]+ [가-힣]+$")
         self.assertEqual(post_response.json()["data"]["post"]["feeds"], ["최신글"])
         self.assertEqual(post_response.json()["data"]["post"]["tags"], ["입양", "임시보호"])
+        self.assertEqual(post_response.json()["data"]["post"]["locationLabel"], "마포구 보호소 근처")
         self.assertEqual(comment_response.status_code, 201)
         self.assertRegex(comment_response.json()["data"]["comment"]["authorName"], r"^[가-힣]+ [가-힣]+$")
         self.assertEqual(comment_response.json()["data"]["comment"]["body"], "첫 댓글입니다.")

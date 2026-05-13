@@ -171,6 +171,7 @@ class CommunityPost:
     likes: int
     feeds: tuple[str, ...]
     distance: str | None = None
+    location_label: str | None = None
     tags: tuple[str, ...] = ()
 
 

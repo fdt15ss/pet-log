@@ -181,7 +181,7 @@ export type MetricSeries = {
 
 export type CommunityBoard = "유기동물" | "용품 나눔" | "자유게시판" | "행동 고민" | "후기";
 
-export type CommunityFeed = "인기글" | "최신글" | "내 주변";
+export type CommunityFeed = "인기글" | "최신글";
 
 export type CommunityPost = {
   id: string;
@@ -193,6 +193,7 @@ export type CommunityPost = {
   comments: number;
   likes: number;
   distance?: string;
+  locationLabel?: string;
   feeds: CommunityFeed[];
   tags?: string[];
 };

@@ -256,8 +256,8 @@ def seed_default_data(connection: sqlite3.Connection, today: date | None = None)
     connection.executemany(
         """
         INSERT OR IGNORE INTO community_posts
-            (id, board, title, body, author_name, created_at, likes, distance, feeds, tags)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (id, board, title, body, author_name, created_at, likes, distance, location_label, feeds, tags)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             (
@@ -266,8 +266,9 @@ def seed_default_data(connection: sqlite3.Connection, today: date | None = None)
                 "말티즈 산책 줄면 쉽게 흥분하나요?",
                 "산책 시간이 줄어든 뒤 현관 앞에서 기다리거나 소리에 예민하게 반응하는 날이 늘었어요. 짧게라도 산책을 나누는 게 도움이 될까요?",
                 "코코 보호자",
-                "오늘 09:20",
+                _at(base_date, time(9, 20)),
                 26,
+                None,
                 None,
                 json.dumps(["인기글", "최신글"], ensure_ascii=False),
                 json.dumps(["산책", "흥분", "말티즈"], ensure_ascii=False),
@@ -278,10 +279,11 @@ def seed_default_data(connection: sqlite3.Connection, today: date | None = None)
                 "소형 반려동물 하네스 나눔합니다",
                 "3~5kg 소형 반려동물용 하네스입니다. 세탁해두었고 동네에서 직접 전달 가능해요.",
                 "산책메이트",
-                "어제 18:10",
+                _at(base_date - timedelta(days=1), time(18, 10)),
                 15,
-                "1.2km",
-                json.dumps(["인기글", "내 주변"], ensure_ascii=False),
+                None,
+                "동네 직거래 가능",
+                json.dumps(["인기글"], ensure_ascii=False),
                 json.dumps(["나눔", "하네스"], ensure_ascii=False),
             ),
             (
@@ -290,8 +292,9 @@ def seed_default_data(connection: sqlite3.Connection, today: date | None = None)
                 "분리불안 어떻게 기록하고 계세요?",
                 "외출 전후 행동을 기록하고 있는데 어떤 항목을 남기면 분석에 더 도움이 되는지 궁금해요.",
                 "두부네",
-                "어제 12:40",
+                _at(base_date - timedelta(days=1), time(12, 40)),
                 32,
+                None,
                 None,
                 json.dumps(["인기글"], ensure_ascii=False),
                 json.dumps(["분리불안", "기록팁"], ensure_ascii=False),
@@ -302,8 +305,9 @@ def seed_default_data(connection: sqlite3.Connection, today: date | None = None)
                 "AI 제안대로 산책을 나눠본 후기",
                 "저녁 산책을 한 번 길게 하던 것을 아침 10분, 저녁 20분으로 나눴더니 밤에 낑낑거리는 시간이 줄었어요.",
                 "밤산책",
-                "오늘 07:50",
+                _at(base_date, time(7, 50)),
                 18,
+                None,
                 None,
                 json.dumps(["최신글"], ensure_ascii=False),
                 json.dumps(["AI제안", "산책"], ensure_ascii=False),
@@ -314,10 +318,11 @@ def seed_default_data(connection: sqlite3.Connection, today: date | None = None)
                 "근처 임시 보호 정보 공유합니다",
                 "동네 보호소에서 임시 보호처를 찾는 공지가 올라왔습니다. 관심 있는 분들은 보호소 공지를 먼저 확인해주세요.",
                 "동네보호자",
-                "오늘 06:30",
+                _at(base_date, time(6, 30)),
                 21,
-                "2.4km",
-                json.dumps(["내 주변", "최신글"], ensure_ascii=False),
+                None,
+                "동네 보호소 공지",
+                json.dumps(["최신글"], ensure_ascii=False),
                 json.dumps(["임시보호", "동네"], ensure_ascii=False),
             ),
         ),
@@ -333,21 +338,21 @@ def seed_default_data(connection: sqlite3.Connection, today: date | None = None)
                 "c1",
                 "밤산책",
                 "흥분이 심한 날은 10분씩 두 번 나눠 걷는 게 저희 집에는 더 맞았어요.",
-                "오늘 09:42",
+                _at(base_date, time(9, 42)),
             ),
             (
                 "comment-c1-2",
                 "c1",
                 "두부네",
                 "산책 전후 행동 기록을 같이 남기면 패턴 찾기가 쉬웠습니다.",
-                "오늘 10:05",
+                _at(base_date, time(10, 5)),
             ),
             (
                 "comment-c4-1",
                 "c4",
                 "코코 보호자",
                 "저도 오늘부터 짧은 아침 산책을 추가해보려고요.",
-                "오늘 08:10",
+                _at(base_date, time(8, 10)),
             ),
         ),
     )

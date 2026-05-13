@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field, field_validator
 
 from composition import AppContext
@@ -15,6 +15,7 @@ class _CreateCommunityPostBody(BaseModel):
     body: str = Field(min_length=1)
     authorName: str | None = None
     tags: list[str] | None = None
+    locationLabel: str | None = None
 
     @field_validator("board", "title", "body")
     @classmethod
@@ -43,6 +44,14 @@ class _CreateCommunityPostBody(BaseModel):
             if stripped and stripped not in normalized:
                 normalized.append(stripped)
         return normalized or None
+
+    @field_validator("locationLabel")
+    @classmethod
+    def normalize_location_label(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        stripped = value.strip()
+        return stripped or None
 
 
 class _CreateCommunityCommentBody(BaseModel):
@@ -74,10 +83,22 @@ def build_community_router() -> APIRouter:
         return success_response({"boards": list(COMMUNITY_BOARDS), "feeds": list(COMMUNITY_FEEDS)})
 
     @router.get("/posts")
-    def list_posts(http_request: Request, feed: str | None = None, board: str | None = None) -> dict[str, object]:
+    def list_posts(
+        http_request: Request,
+        feed: str | None = None,
+        board: str | None = None,
+        limit: int | None = Query(default=None, ge=1, le=50),
+        offset: int = Query(default=0, ge=0),
+    ) -> dict[str, object]:
         repository = _community_repository(http_request)
+        requested_limit = limit + 1 if limit is not None else None
+        posts = list(repository.list_posts(feed=feed, board=board, limit=requested_limit, offset=offset))
+        total_count = repository.count_posts(feed=feed, board=board)
+        has_more = limit is not None and len(posts) > limit
+        if limit is not None:
+            posts = posts[:limit]
         return success_response(
-            {"posts": [_post_to_frontend(post) for post in repository.list_posts(feed=feed, board=board)]}
+            {"posts": [_post_to_frontend(post) for post in posts], "hasMore": has_more, "totalCount": total_count}
         )
 
     @router.get("/posts/{post_id}")
@@ -98,6 +119,7 @@ def build_community_router() -> APIRouter:
             body=body.body,
             author_name=body.authorName,
             tags=body.tags,
+            location_label=body.locationLabel,
         )
         return success_response({"post": _post_to_frontend(post)})
 
@@ -149,6 +171,8 @@ def _post_to_frontend(post: CommunityPost | None) -> dict[str, object]:
     }
     if post.distance:
         payload["distance"] = post.distance
+    if post.location_label:
+        payload["locationLabel"] = post.location_label
     if post.tags:
         payload["tags"] = list(post.tags)
     return payload
@@ -156,9 +180,9 @@ def _post_to_frontend(post: CommunityPost | None) -> dict[str, object]:
 
 def _post_detail_to_frontend(post: CommunityPost, comments: tuple[CommunityComment, ...]) -> dict[str, object]:
     payload = _post_to_frontend(post)
-    distance_label = f" · {post.distance}" if post.distance else ""
+    location_label = f" · 위치 {post.location_label}" if post.location_label else ""
     payload["commentItems"] = [_comment_to_frontend(comment) for comment in comments]
-    payload["meta"] = f"{post.board} · 댓글 {post.comments} · 공감 {post.likes}{distance_label}"
+    payload["meta"] = f"{post.board} · 댓글 {post.comments} · 공감 {post.likes}{location_label}"
     return payload
 
 
