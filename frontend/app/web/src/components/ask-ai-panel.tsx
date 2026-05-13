@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { getChatbotThreads, sendChatbotMessage } from "@/lib/api-client";
-import type { ChatbotThread } from "@/lib/types";
+import { askCareAnswer } from "@/lib/api-client";
+import type { ChatbotMessage, ChatbotThread } from "@/lib/types";
 import { usePetLog } from "./pet-log-provider";
 import { PetIcon } from "./pet-icons";
 
@@ -48,18 +48,17 @@ const chatbotQuestions: Array<{ icon: "heart" | "bell" | "syringe"; text: string
 const panelAnimationMs = 180;
 
 export function AskAiPanel({ hasBottomAction = false }: { hasBottomAction?: boolean }) {
-  const { profile, records } = usePetLog();
+  const { profile } = usePetLog();
   const [isOpen, setIsOpen] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   const [question, setQuestion] = useState("");
   const [notice, setNotice] = useState("");
   const [isSending, setIsSending] = useState(false);
-  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const [isVoiceListening, setIsVoiceListening] = useState(false);
   const [thread, setThread] = useState<ChatbotThread | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const latestRecords = records.slice(0, 3);
+  const messageIdRef = useRef(0);
   const messageCount = thread?.messages.length ?? 0;
 
   useEffect(() => {
@@ -75,19 +74,7 @@ export function AskAiPanel({ hasBottomAction = false }: { hasBottomAction?: bool
     });
 
     return () => cancelAnimationFrame(frameId);
-  }, [messageCount, notice, isHistoryLoading, isOpen]);
-
-  async function loadHistory() {
-    setIsHistoryLoading(true);
-    try {
-      const response = await getChatbotThreads();
-      setThread(response.threads[0] ?? null);
-    } catch {
-      setNotice("최근 대화를 불러오지 못했습니다.");
-    } finally {
-      setIsHistoryLoading(false);
-    }
-  }
+  }, [messageCount, notice, isOpen]);
 
   function clearCloseTimer() {
     if (closeTimerRef.current) {
@@ -100,7 +87,6 @@ export function AskAiPanel({ hasBottomAction = false }: { hasBottomAction?: bool
     clearCloseTimer();
     setIsClosing(false);
     setIsOpen(true);
-    void loadHistory();
   }
 
   function closePanel() {
@@ -125,12 +111,8 @@ export function AskAiPanel({ hasBottomAction = false }: { hasBottomAction?: bool
 
     setIsSending(true);
     try {
-      const response = await sendChatbotMessage(
-        trimmedQuestion,
-        latestRecords.map((record) => record.id),
-        thread?.id,
-      );
-      setThread(response.thread ?? thread);
+      const response = await askCareAnswer(trimmedQuestion, profile.id);
+      appendCareAnswerExchange(trimmedQuestion, response.answer, response.referencedRecordIds, response.safetyNotice);
       setNotice("");
       setQuestion((current) => (current.trim() === trimmedQuestion ? "" : current));
     } catch {
@@ -138,6 +120,50 @@ export function AskAiPanel({ hasBottomAction = false }: { hasBottomAction?: bool
     } finally {
       setIsSending(false);
     }
+  }
+
+  function appendCareAnswerExchange(
+    userQuestion: string,
+    answer: string,
+    referencedRecordIds: string[] = [],
+    safetyNotice = "",
+  ) {
+    const now = new Date().toISOString();
+    messageIdRef.current += 1;
+    const exchangeId = messageIdRef.current;
+    const userMessage: ChatbotMessage = {
+      id: `care-user-${exchangeId}`,
+      role: "user",
+      content: userQuestion,
+      createdAt: now,
+      referencedRecordIds: [],
+    };
+    const assistantMessage: ChatbotMessage = {
+      id: `care-assistant-${exchangeId}`,
+      role: "assistant",
+      content: answer,
+      createdAt: now,
+      referencedRecordIds,
+      safetyNotice,
+    };
+
+    setThread((current) => {
+      const nextThread: ChatbotThread =
+        current ??
+        {
+          id: `care-thread-${Date.now()}`,
+          title: userQuestion.slice(0, 24) || "AI 질문",
+          createdAt: now,
+          updatedAt: now,
+          messages: [],
+        };
+
+      return {
+        ...nextThread,
+        updatedAt: now,
+        messages: [...nextThread.messages, userMessage, assistantMessage].slice(-12),
+      };
+    });
   }
 
   function startVoiceInput() {
@@ -248,10 +274,6 @@ export function AskAiPanel({ hasBottomAction = false }: { hasBottomAction?: bool
                 ))}
               </div>
 
-              {isHistoryLoading ? (
-                <p className="mt-4 rounded-2xl bg-[#f4f7f0] px-4 py-3 text-xs font-bold leading-5 text-[#667262]">최근 대화를 불러오는 중입니다.</p>
-              ) : null}
-
               {thread && thread.messages.length > 0 ? (
                 <div className="mt-4 space-y-2" aria-label="최근 대화">
                   {thread.messages.slice(-8).map((message) => (
@@ -263,7 +285,7 @@ export function AskAiPanel({ hasBottomAction = false }: { hasBottomAction?: bool
                       }`}
                       key={message.id}
                     >
-                      <p className="break-words">{message.content}</p>
+                      <p className="whitespace-pre-line break-words">{message.content}</p>
                       {message.role === "assistant" && message.safetyNotice ? (
                         <p className="mt-2 border-t border-[#dfe8d9] pt-2 text-[11px] font-bold leading-5 text-[#667262]">{message.safetyNotice}</p>
                       ) : null}
