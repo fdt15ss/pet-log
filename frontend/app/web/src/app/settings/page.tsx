@@ -86,9 +86,9 @@ export default function SettingsPage() {
 
   function exportData() {
     const exportedAt = new Date().toISOString();
-    const snapshot = createPetLogExport({ profile, records, schedules, settings, exportedAt });
+    const exportedPayload = createPetLogExport({ profile, records, schedules, settings, exportedAt });
     const fileName = getPetLogExportFileName(profile, exportedAt);
-    const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: "application/json" });
+    const blob = new Blob([JSON.stringify(exportedPayload, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
 

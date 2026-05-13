@@ -122,7 +122,7 @@ export type ExpansionState = {
   shopping: Record<string, unknown>;
 };
 
-export type PetLogSnapshot = {
+export type PetLogState = {
   version: 1;
   profile: PetProfile;
   records: RecordEntry[];

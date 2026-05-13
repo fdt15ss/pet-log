@@ -1,7 +1,7 @@
 import axios from "axios";
 import { structureRecord } from "@/lib/ai-insights";
 import type {
-  PetLogSnapshot,
+  PetLogState,
   ExtractedMeasurement,
   PetProfile,
   RecordCategory,
@@ -21,7 +21,7 @@ export type ChatbotMessageResult = {
 type CreateChatbotMessageInput = {
   question: string;
   contextRecordIds?: string[];
-  snapshot: PetLogSnapshot;
+  state: PetLogState;
 };
 
 type CreateStructuredRecordInput = {
@@ -251,14 +251,14 @@ export async function createPetLogStructuredRecord(input: CreateStructuredRecord
 }
 
 export async function createPetLogChatbotMessage(input: CreateChatbotMessageInput): Promise<ChatbotMessageResult> {
-  const referencedRecords = selectReferenceRecords(input.snapshot.records, input.contextRecordIds);
+  const referencedRecords = selectReferenceRecords(input.state.records, input.contextRecordIds);
 
   if (getProviderId() !== "openai") {
     return createMockChatbotMessage(input.question, referencedRecords);
   }
 
   try {
-    return await createOpenAiChatbotMessage(input.question, input.snapshot.profile, referencedRecords);
+    return await createOpenAiChatbotMessage(input.question, input.state.profile, referencedRecords);
   } catch {
     return createMockChatbotMessage(input.question, referencedRecords);
   }

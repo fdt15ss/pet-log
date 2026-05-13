@@ -4,11 +4,11 @@ import {
   appendMockChatbotExchange,
   createMockChatbotThread,
   getMockChatbotThreads,
-  resetMockPetLogSnapshot,
+  resetMockPetLogState,
 } from "./server/mock-pet-log-store";
 
 test("스프린트 17: 챗봇 대화방 API 경계는 지정 thread에 메시지를 누적한다", () => {
-  resetMockPetLogSnapshot();
+  resetMockPetLogState();
   const thread = createMockChatbotThread("주의 기록 상담");
   const exchange = appendMockChatbotExchange(thread.id, "현관 앞 기다림이 늘었어", {
     answer: "반복 여부를 이어서 기록하세요.",
@@ -23,7 +23,7 @@ test("스프린트 17: 챗봇 대화방 API 경계는 지정 thread에 메시지
 });
 
 test("스프린트 17 엣지: 대화방 메시지는 최근 20개까지만 유지된다", () => {
-  resetMockPetLogSnapshot();
+  resetMockPetLogState();
   const thread = createMockChatbotThread("긴 대화");
 
   Array.from({ length: 11 }).forEach((_, index) => {

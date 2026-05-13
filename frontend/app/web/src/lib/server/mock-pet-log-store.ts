@@ -6,7 +6,7 @@ import type {
   CareSchedule,
   ChatbotMessage,
   ChatbotThread,
-  PetLogSnapshot,
+  PetLogState,
   PetProfile,
   RecordCategory,
   RecordCategoryChoice,
@@ -68,7 +68,7 @@ function createTitle(detail: string) {
   return `${firstLine.slice(0, 24)}...`;
 }
 
-function createInitialSnapshot(): PetLogSnapshot {
+function createInitialState(): PetLogState {
   return {
     version: 1,
     profile: clone(initialProfile),
@@ -80,17 +80,17 @@ function createInitialSnapshot(): PetLogSnapshot {
   };
 }
 
-let snapshot = createInitialSnapshot();
+let state = createInitialState();
 let chatbotThreads: ChatbotThread[] = [];
 
-export function getMockPetLogSnapshot() {
-  return clone(snapshot);
+export function getMockPetLogState() {
+  return clone(state);
 }
 
-export function resetMockPetLogSnapshot() {
-  snapshot = createInitialSnapshot();
+export function resetMockPetLogState() {
+  state = createInitialState();
   chatbotThreads = [];
-  return getMockPetLogSnapshot();
+  return getMockPetLogState();
 }
 
 export function getMockChatbotThreads() {
@@ -160,12 +160,12 @@ export function appendMockChatbotExchange(threadId: string | undefined, question
 }
 
 export function updateMockProfile(input: PetProfile) {
-  snapshot.profile = {
+  state.profile = {
     ...input,
     notes: input.notes.map((note) => note.trim()).filter(Boolean),
     photoDataUrl: input.photoDataUrl || undefined,
   };
-  return clone(snapshot.profile);
+  return clone(state.profile);
 }
 
 export function createMockRecord(input: NewRecordInput) {
@@ -183,14 +183,14 @@ export function createMockRecord(input: NewRecordInput) {
     structured: input.structured,
   };
 
-  snapshot.records = [record, ...snapshot.records];
+  state.records = [record, ...state.records];
   return clone(record);
 }
 
 export function updateMockRecord(id: string, input: UpdateRecordInput) {
   const detail = input.detail.trim();
   let updated: RecordEntry | null = null;
-  snapshot.records = snapshot.records.map((record) => {
+  state.records = state.records.map((record) => {
     if (record.id !== id) {
       return record;
     }
@@ -210,9 +210,9 @@ export function updateMockRecord(id: string, input: UpdateRecordInput) {
 }
 
 export function deleteMockRecord(id: string) {
-  const beforeCount = snapshot.records.length;
-  snapshot.records = snapshot.records.filter((record) => record.id !== id);
-  return snapshot.records.length !== beforeCount;
+  const beforeCount = state.records.length;
+  state.records = state.records.filter((record) => record.id !== id);
+  return state.records.length !== beforeCount;
 }
 
 export function createMockSchedule(input: NewScheduleInput) {
@@ -227,13 +227,13 @@ export function createMockSchedule(input: NewScheduleInput) {
     isDone: false,
   };
 
-  snapshot.schedules = [schedule, ...snapshot.schedules];
+  state.schedules = [schedule, ...state.schedules];
   return clone(schedule);
 }
 
 export function updateMockSchedule(id: string, input: UpdateScheduleInput) {
   let updated: CareSchedule | null = null;
-  snapshot.schedules = snapshot.schedules.map((schedule) => {
+  state.schedules = state.schedules.map((schedule) => {
     if (schedule.id !== id) {
       return schedule;
     }
@@ -252,13 +252,13 @@ export function updateMockSchedule(id: string, input: UpdateScheduleInput) {
 }
 
 export function deleteMockSchedule(id: string) {
-  const beforeCount = snapshot.schedules.length;
-  snapshot.schedules = snapshot.schedules.filter((schedule) => schedule.id !== id);
-  return snapshot.schedules.length !== beforeCount;
+  const beforeCount = state.schedules.length;
+  state.schedules = state.schedules.filter((schedule) => schedule.id !== id);
+  return state.schedules.length !== beforeCount;
 }
 
 export function updateMockSettings(input: AppSettings) {
-  snapshot.settings = {
+  state.settings = {
     notificationPreferences: {
       missingRecord: input.notificationPreferences.missingRecord,
       alert: input.notificationPreferences.alert,
@@ -266,28 +266,28 @@ export function updateMockSettings(input: AppSettings) {
     },
     aiInsightEnabled: input.aiInsightEnabled,
   };
-  return clone(snapshot.settings);
+  return clone(state.settings);
 }
 
 export function updateMockReadNotifications(readNotificationIds: string[]) {
-  snapshot.readNotificationIds = Array.from(new Set(readNotificationIds.filter((id) => typeof id === "string")));
-  return [...snapshot.readNotificationIds];
+  state.readNotificationIds = Array.from(new Set(readNotificationIds.filter((id) => typeof id === "string")));
+  return [...state.readNotificationIds];
 }
 
 export function updateMockExpansionState(input: Partial<ExpansionState>) {
-  snapshot.expansionState = normalizeExpansionState({
+  state.expansionState = normalizeExpansionState({
     sharedCare: {
-      ...snapshot.expansionState.sharedCare,
+      ...state.expansionState.sharedCare,
       ...input.sharedCare,
     },
     hospital: {
-      ...snapshot.expansionState.hospital,
+      ...state.expansionState.hospital,
       ...input.hospital,
     },
     shopping: {
-      ...snapshot.expansionState.shopping,
+      ...state.expansionState.shopping,
       ...input.shopping,
     },
   });
-  return clone(snapshot.expansionState);
+  return clone(state.expansionState);
 }

@@ -5,7 +5,7 @@
 - 참고 문서: `_workspace/url-list.md`
 - 현재 구현 기준: `app/web/src/lib/types.ts`, `app/web/src/lib/expansion-state.ts`, `app/web/src/lib/api-client.ts`
 - 현재 API 경계: `app/web/src/app/api/v1/[...path]/route.ts`
-- 목적: mock store와 `localStorage` 스냅샷을 실제 DB/auth 저장소로 전환할 때 필요한 데이터 구조를 정의합니다.
+- 목적: mock store와 `localStorage` 상태를 실제 DB/auth 저장소로 전환할 때 필요한 데이터 구조를 정의합니다.
 
 ## 설계 원칙
 
@@ -70,7 +70,7 @@ pets 1 ── 0..1 expansion_states
 
 ### users
 
-인증 도입 후 보호자 계정의 기준 테이블입니다. 현재 mock API에는 없지만 `/api/v1/me`, `/api/v1/me/pet-log`의 기준이 됩니다.
+인증 도입 후 보호자 계정의 기준 테이블입니다. 현재 mock API에는 없지만 `/api/v1/me`와 `/api/v1/pets`의 기준이 됩니다.
 
 | 컬럼 | 타입 | 필수 | 설명 |
 | --- | --- | --- | --- |
@@ -238,7 +238,7 @@ AI가 추출한 수치 목록입니다.
 
 ### expansion_states
 
-현재 UI 상태 스냅샷 보존용입니다. 제품화 후에는 일부 컬럼을 별도 도메인 테이블로 이동합니다.
+현재 UI 상태 보존용입니다. 제품화 후에는 일부 컬럼을 별도 도메인 테이블로 이동합니다.
 
 | 컬럼 | 타입 | 필수 | 설명 |
 | --- | --- | --- | --- |
@@ -438,7 +438,7 @@ type ApiFailure = {
 
 1. `users`, `pets`, `files`를 먼저 만들고 현재 `PetProfile`을 `pets`로 이관합니다.
 2. `pet_records`, `structured_records`, `structured_record_measurements`를 만들고 기존 `records` 배열을 이관합니다.
-3. `care_schedules`, `app_settings`, `notification_reads`를 만들고 현재 스냅샷 필드를 이관합니다.
+3. `care_schedules`, `app_settings`, `notification_reads`를 만들고 현재 클라이언트 상태 필드를 이관합니다.
 4. `chatbot_threads`, `chatbot_messages`를 만들고 mock 대화방 API를 DB 저장소로 교체합니다.
 5. `expansion_states`를 먼저 붙인 뒤 공동 관리, 병원, 쇼핑 제품화 시 도메인 테이블로 점진 분리합니다.
 
