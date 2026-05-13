@@ -4,6 +4,7 @@ import {
   getNotificationReadSummary,
   getNotificationsWithReadState,
   getUnreadNotificationCount,
+  sortCareNotificationsByLatest,
 } from "./notifications";
 import { defaultNotificationPreferences } from "./settings";
 import type { RecordEntry } from "./types";
@@ -75,3 +76,23 @@ const fullCare = getCareNotifications([
   },
 ]);
 assert.equal(fullCare[0]?.id, "vaccine-due");
+
+const latestSortedCare = sortCareNotificationsByLatest([
+  { ...missingCare[0], id: "older", createdAt: "2026-05-13T09:10:00" },
+  { ...missingCare[0], id: "newer", createdAt: "2026-05-13T09:30:00" },
+  { ...missingCare[0], id: "middle", createdAt: "2026-05-13T09:20:00" },
+]);
+assert.deepEqual(
+  latestSortedCare.map((notification) => notification.id),
+  ["newer", "middle", "older"],
+);
+
+const sqlDateSortedCare = sortCareNotificationsByLatest([
+  { ...missingCare[0], id: "old-sql", createdAt: "2026-05-13 00:59:01" },
+  { ...missingCare[0], id: "new-sql", createdAt: "2026-05-13 09:20:00" },
+  { ...missingCare[0], id: "middle-sql", createdAt: "2026-05-13 09:10:00" },
+]);
+assert.deepEqual(
+  sqlDateSortedCare.map((notification) => notification.id),
+  ["new-sql", "middle-sql", "old-sql"],
+);

@@ -21,6 +21,7 @@ import {
   updateSettings as updateSettingsApi,
 } from "@/lib/api-client";
 import { defaultExpansionState, normalizeExpansionState } from "@/lib/expansion-state";
+import { sortCareNotificationsByLatest } from "@/lib/notifications";
 import { defaultAppSettings } from "@/lib/settings";
 import type { ExpansionState, HospitalState, SharedCareState, ShoppingState } from "@/lib/expansion-state";
 import type {
@@ -212,10 +213,9 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
         setRecords(recordsData.records);
         setSchedules(schedulesData.schedules);
         
-        // 알림 및 설정은 현재 스냅샷 호환성을 위해 기본값 또는 서버 데이터를 적절히 매핑
-        // (필요시 fetchMe에서 설정을 가져오거나 별도 API 추가 가능)
+        // 설정과 확장 UI 상태는 아직 서버 저장 API가 없어 기본값으로 초기화한다.
         setSettings(defaultAppSettings);
-        setNotifications(notificationsData.notifications ?? []);
+        setNotifications(sortCareNotificationsByLatest(notificationsData.notifications ?? []));
         setReadNotificationIds(notificationsData.readNotificationIds ?? []);
         setExpansionState(defaultExpansionState);
 
@@ -425,8 +425,7 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
 
   const resetPetLogData = useCallback(async () => {
     try {
-      // 스냅샷 초기화 대신 loadInitialState와 동일한 로직으로 데이터를 다시 불러옴
-      // (실제 프로덕션에서는 서버 측 초기화 API 호출 후 리로딩)
+      // 실제 프로덕션에서는 서버 측 초기화 API 호출 후 다시 불러온다.
       console.log("[provider] 데이터 리로딩 시작");
       const [, { pets }] = await Promise.all([fetchMe(), fetchPets()]);
       const activePet = pets[0];
@@ -439,7 +438,7 @@ export function PetLogProvider({ children }: { children: ReactNode }) {
         setProfile(activePet);
         setRecords(recordsData.records);
         setSchedules(schedulesData.schedules);
-        setNotifications(notificationsData.notifications ?? []);
+        setNotifications(sortCareNotificationsByLatest(notificationsData.notifications ?? []));
         setReadNotificationIds(notificationsData.readNotificationIds ?? []);
       }
       setError("");

@@ -108,7 +108,7 @@ export type Suggestion = {
 
 export type CareNotificationTone = "green" | "orange" | "red" | "blue";
 
-export type CareNotificationCategory = "기록" | "주의" | "일정";
+export type CareNotificationCategory = "기록" | "주의" | "행동 변화" | "일정";
 
 export type NotificationPreferences = {
   missingRecord: boolean;
@@ -165,6 +165,7 @@ export type CareNotification = {
   actionHref: string;
   dueLabel: string;
   tone: CareNotificationTone;
+  createdAt: string;
   isRead: boolean;
 };
 

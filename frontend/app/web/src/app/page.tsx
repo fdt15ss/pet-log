@@ -9,6 +9,7 @@ import { AiMascot, Card, CategoryBadge, SectionHeader } from "@/components/ui";
 import { getRecentChange, getRecordStatusLabel, getTodaySummary, type HomeSummaryTone } from "@/lib/home-summary";
 import { PetIcon } from "@/components/pet-icons";
 import { sendChatbotMessage } from "@/lib/api-client";
+import { sortCareNotificationsByLatest } from "@/lib/notifications";
 import type { ChatbotThread } from "@/lib/types";
 
 type SpeechRecognitionEventLike = {
@@ -100,7 +101,7 @@ export default function Home() {
   const petChatMessageIdRef = useRef(0);
   const panelCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestRecords = records.slice(0, 3);
-  const homeNotifications = notifications.slice(0, 2);
+  const homeNotifications = useMemo(() => sortCareNotificationsByLatest(notifications).slice(0, 2), [notifications]);
   const todaySummary = getTodaySummary(records);
   
   // AI Insights mapping (Replacing legacy recentChange)

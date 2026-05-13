@@ -6,11 +6,12 @@ import { AppShell } from "@/components/app-shell";
 import { PetIcon } from "@/components/pet-icons";
 import { usePetLog } from "@/components/pet-log-provider";
 import { Card, Pill, SectionHeader } from "@/components/ui";
+import { sortCareNotificationsByLatest } from "@/lib/notifications";
 import type { CareNotificationCategory, CareNotificationTone } from "@/lib/types";
 
 type NotificationFilter = "전체" | CareNotificationCategory;
 
-const filters: NotificationFilter[] = ["전체", "기록", "주의", "일정"];
+const filters: NotificationFilter[] = ["전체", "기록", "주의", "행동 변화", "일정"];
 
 const toneClasses: Record<CareNotificationTone, string> = {
   green: "bg-[#edf8ed] text-[#16804b]",
@@ -19,9 +20,15 @@ const toneClasses: Record<CareNotificationTone, string> = {
   blue: "bg-[#eaf2ff] text-[#2e67a7]",
 };
 
-const notificationCategoryIcons: Record<CareNotificationCategory, "record" | "alert" | "schedule"> = {
+const notificationBorderClasses: Partial<Record<CareNotificationTone, string>> = {
+  orange: "pet-log-notification-alert-border pet-log-notification-alert-border-orange",
+  red: "pet-log-notification-alert-border pet-log-notification-alert-border-red",
+};
+
+const notificationCategoryIcons: Record<CareNotificationCategory, "record" | "alert" | "behavior" | "schedule"> = {
   기록: "record",
   주의: "alert",
+  "행동 변화": "behavior",
   일정: "schedule",
 };
 
@@ -34,10 +41,11 @@ export default function NotificationsPage() {
     return { totalCount: total, readCount: read, unreadCount: total - read, hasUnread: read < total };
   }, [notifications]);
   const filteredNotifications = useMemo(() => {
+    const latestNotifications = sortCareNotificationsByLatest(notifications);
     if (activeFilter === "전체") {
-      return notifications;
+      return latestNotifications;
     }
-    return notifications.filter((notification) => notification.category === activeFilter);
+    return latestNotifications.filter((notification) => notification.category === activeFilter);
   }, [activeFilter, notifications]);
 
   return (
