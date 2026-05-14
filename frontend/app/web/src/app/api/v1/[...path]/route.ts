@@ -818,31 +818,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
   }
 
-  if (path[0] === "ai" && path[1] === "pet-chat" && path.length === 2) {
-    if (!body || typeof body.message !== "string" || !body.message.trim()) {
-      return fail("VALIDATION_ERROR", "메시지를 입력해주세요.");
-    }
-
-    const petId = typeof body.pet_id === "string" && body.pet_id.trim() ? body.pet_id : backendPetId();
-    try {
-      const response = await axios.post<{ success?: boolean; data?: unknown; detail?: unknown }>(
-        backendApiUrl("/api/v1/ai/pet-chat"),
-        {
-          pet_id: petId,
-          message: body.message,
-        },
-        { headers: { "Content-Type": "application/json" }, timeout: backendTimeoutMs(), validateStatus: () => true },
-      );
-      if (response.status < 200 || response.status >= 300 || response.data?.success !== true || !response.data.data) {
-        const message = typeof response.data?.detail === "string" ? response.data.detail : "대화 답변을 불러오지 못했습니다.";
-        return fail("BACKEND_PET_CHAT_FAILED", message, response.status || 502);
-      }
-      return ok(response.data.data);
-    } catch {
-      return fail("BACKEND_PET_CHAT_FAILED", "대화 답변을 불러오지 못했습니다.", 502);
-    }
-  }
-
   if (path[0] === "chatbot" && path[1] === "threads" && path.length === 2) {
     const title = body && typeof body.title === "string" && body.title.trim() ? body.title : "새 질문";
     return ok({ thread: createMockChatbotThread(title) }, 201);
