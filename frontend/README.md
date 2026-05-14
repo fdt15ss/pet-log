@@ -113,6 +113,8 @@ npm run dev
 http://localhost:3000
 ```
 
+`npm run dev`는 `app/web/.env.dev`를 읽어 실행합니다. 다른 환경 파일을 쓰려면 `PET_LOG_FRONTEND_ENV_FILE`을 설정합니다.
+
 기록 기능을 실제 FastAPI 서버와 연결하려면 별도 터미널에서 백엔드를 먼저 실행합니다.
 
 macOS/Linux:
@@ -129,7 +131,7 @@ cd ..\..\backend
 scripts\run-dev.bat
 ```
 
-웹 앱 서버 환경변수는 `frontend/app/web/.env.local`에 설정합니다.
+웹 앱 개발 서버 환경변수는 `frontend/app/web/.env.dev`에 설정합니다.
 
 ```env
 PET_LOG_BACKEND_API_BASE_URL=http://127.0.0.1:27893

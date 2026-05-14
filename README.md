@@ -95,6 +95,8 @@ npm run dev
 http://localhost:3000
 ```
 
+`npm run dev`는 `frontend/app/web/.env.dev`를 읽어 실행합니다. 다른 환경 파일을 쓰려면 `PET_LOG_FRONTEND_ENV_FILE`을 설정합니다.
+
 프론트엔드 검증:
 
 ```bash
