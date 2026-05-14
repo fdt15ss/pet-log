@@ -6,17 +6,20 @@ from dataclasses import dataclass, field
 from application.agents.care_context import CareContextBuilder
 from application.agents.context_analysis import ContextAnalysisAgent
 from application.agents.hospital import HospitalRecommendationAgent
+from application.agents.pet_persona import PetPersonaAgent
 from application.agents.record_structuring import RecordStructuringAgent
 from application.agents.reminder import ReminderAgent
 from application.agents.risk_detection import RiskDetectionAgent
 from application.agents.shopping import ShoppingAgent, ShoppingRecommendationAgent
 from application.agents.suggestion import SuggestionAgent
 from application.pipelines.care_question import CareQuestionPipeline
+from application.pipelines.pet_chat import PetChatPipeline
 from application.pipelines.pet_log_graph import LangGraphPetLogAgentPipeline
 from infrastructure.database import connect
 from infrastructure.knowledge import CareKnowledgeRetriever
 from infrastructure.llm.care_answer import CareAnswerProvider
 from infrastructure.llm.preload import preload_configured_llm_providers
+from infrastructure.llm.pet_persona import PetPersonaResponder
 from infrastructure.llm.record_structuring import RecordStructurer
 from infrastructure.llm.shopping_reason import ShoppingReasonProvider
 from infrastructure.maps import GooglePlacesClient
@@ -44,6 +47,7 @@ class AppContext:
     speech_to_text: SpeechToTextProvider
     text_to_speech: TextToSpeechProvider | None = None
     care_question_pipeline: CareQuestionPipeline | None = None
+    pet_chat_pipeline: PetChatPipeline | None = None
     risk_detection_agent: RiskDetectionAgent | None = None
     context_analysis_agent: ContextAnalysisAgent | None = None
     suggestion_agent: SuggestionAgent | None = None
@@ -84,6 +88,12 @@ def build_app_context(database_path: str | None = None) -> AppContext:
         answer_provider=CareAnswerProvider(knowledge_retriever=CareKnowledgeRetriever()),
         lookback_days=30,
     )
+    pet_chat_pipeline = PetChatPipeline(
+        context_builder=care_context_builder,
+        safety_guard=_NoopSafetyGuard(),
+        pet_persona_agent=PetPersonaAgent(PetPersonaResponder()),
+        lookback_days=30,
+    )
 
     shopping_agent = ShoppingAgent(
         ShoppingFallbackMiddleware(ShoppingRecommendationProvider(NaverShoppingClient())),
@@ -106,6 +116,7 @@ def build_app_context(database_path: str | None = None) -> AppContext:
         speech_to_text=SpeechToTextProvider(),
         text_to_speech=TextToSpeechProvider(),
         care_question_pipeline=care_question_pipeline,
+        pet_chat_pipeline=pet_chat_pipeline,
         risk_detection_agent=risk_detection_agent,
         context_analysis_agent=context_analysis_agent,
         suggestion_agent=suggestion_agent,

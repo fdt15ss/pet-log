@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { PetIcon } from "@/components/pet-icons";
+import { askPetChat } from "@/lib/api-client";
 import type { PetProfile, RecordEntry } from "@/lib/types";
 
 type SpeechRecognitionEventLike = {
@@ -61,12 +62,12 @@ export function PetChatDialog({
   const [input, setInput] = useState("");
   const [notice, setNotice] = useState("");
   const [messages, setMessages] = useState<PetChatMessage[]>([]);
+  const [isSending, setIsSending] = useState(false);
   const [isVoiceListening, setIsVoiceListening] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const messageIdRef = useRef(0);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const latestRecords = records.slice(0, 3);
 
   useEffect(() => {
     if (!isOpen) {
@@ -106,37 +107,7 @@ export function PetChatDialog({
     }, panelAnimationMs);
   }
 
-  function createPetReply(question: string) {
-    const latestRecord = latestRecords[0];
-    const lowerQuestion = question.toLowerCase();
-    const healthConcern = /아파|토|설사|혈변|기침|숨|호흡|통증|병원|약/.test(question);
-
-    if (healthConcern) {
-      return "나를 걱정해줘서 고마워. 아픈지 단정하긴 어려우니까 오늘 상태를 기록하고, 계속 반복되거나 심해지면 병원에 물어봐줘.";
-    }
-
-    if (question.includes("밥") || question.includes("먹")) {
-      return latestRecord?.category === "meal"
-        ? `아까 ${latestRecord.title} 기록 봤지? 나는 규칙적으로 챙겨주면 마음이 편해.`
-        : "밥 얘기하니까 기대된다. 먹은 양도 짧게 기록해주면 내 컨디션을 더 잘 알 수 있어.";
-    }
-
-    if (question.includes("산책") || lowerQuestion.includes("walk")) {
-      return latestRecord?.category === "walk"
-        ? "오늘 산책 기억나. 밖 냄새 맡는 시간이 참 좋아. 다음에도 천천히 같이 걸어줘."
-        : "산책 얘기만 들어도 신나. 짧게라도 같이 나가면 기분이 좋아질 것 같아.";
-    }
-
-    if (question.includes("기분") || question.includes("좋아")) {
-      return "지금은 네가 말을 걸어줘서 좋아. 오늘 있었던 일을 조금씩 남겨주면 내가 어떤 하루를 보냈는지 더 잘 전할 수 있어.";
-    }
-
-    return latestRecord
-      ? `${latestRecord.title} 기록을 보니까 오늘도 네가 나를 잘 챙겨준 것 같아. 또 궁금한 거 있으면 나한테 말 걸어줘.`
-      : "아직 오늘 기록이 많지는 않지만, 네가 말 걸어줘서 좋아. 밥, 산책, 배변 같은 걸 남겨주면 더 내 얘기처럼 답할 수 있어.";
-  }
-
-  function sendMessage(question: string) {
+  async function sendMessage(question: string) {
     const trimmedQuestion = question.trim();
     if (!trimmedQuestion) {
       setNotice(`${profile.name}에게 하고 싶은 말을 입력해주세요.`);
@@ -150,15 +121,26 @@ export function PetChatDialog({
       role: "user",
       content: trimmedQuestion,
     };
-    const petMessage: PetChatMessage = {
-      id: `pet-reply-${messageId}`,
-      role: "pet",
-      content: createPetReply(trimmedQuestion),
-    };
 
-    setMessages((current) => [...current, userMessage, petMessage].slice(-12));
-    setInput("");
-    setNotice("");
+    setMessages((current) => [...current, userMessage].slice(-12));
+    setIsSending(true);
+
+    try {
+      const response = await askPetChat(trimmedQuestion, profile.id);
+      const petMessage: PetChatMessage = {
+        id: `pet-reply-${messageId}`,
+        role: "pet",
+        content: response.answer,
+      };
+
+      setMessages((current) => [...current, petMessage].slice(-12));
+      setInput("");
+      setNotice(response.safetyNotice || "");
+    } catch {
+      setNotice("대화 답변을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.");
+    } finally {
+      setIsSending(false);
+    }
   }
 
   function startVoiceInput() {
@@ -255,8 +237,9 @@ export function PetChatDialog({
             {petChatQuestions.map((question) => (
               <button
                 className="flex h-12 w-full items-center gap-3 rounded-full border border-[#dfe6d9] bg-white px-4 text-left text-sm font-bold text-[#40513f] shadow-[0_4px_14px_rgba(49,65,44,0.04)]"
+                disabled={isSending}
                 key={question}
-                onClick={() => sendMessage(question)}
+                onClick={() => void sendMessage(question)}
                 type="button"
               >
                 <PetIcon className="h-5 w-5 shrink-0 text-[#16804b]" name="heart" />
@@ -276,9 +259,14 @@ export function PetChatDialog({
                 }`}
                 key={message.id}
               >
-                <p className="break-words">{message.content}</p>
+                <p className="whitespace-pre-line break-words">{message.content}</p>
               </div>
             ))}
+            {isSending ? (
+              <div className="mr-auto max-w-[92%] rounded-2xl border border-[#dfe8d9] bg-white px-4 py-3 text-sm font-semibold leading-6 text-[#667262] shadow-sm">
+                <p>답변을 생각하는 중입니다.</p>
+              </div>
+            ) : null}
           </div>
 
           {notice ? (
@@ -309,7 +297,7 @@ export function PetChatDialog({
                 ? "border-[#16804b] bg-[#e7f4eb] text-[#16804b]"
                 : "border-[#d8e2d2] bg-[#f6f8f3] text-[#667262] disabled:text-[#a9b2a5]"
             }`}
-            disabled={isVoiceListening}
+            disabled={isSending || isVoiceListening}
             onClick={startVoiceInput}
             title="음성 입력"
             type="button"
@@ -318,8 +306,9 @@ export function PetChatDialog({
           </button>
           <button
             aria-label="펫 대화 보내기"
-            className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#1f2922] text-white"
-            onClick={() => sendMessage(input)}
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#1f2922] text-white disabled:bg-[#7c847f]"
+            disabled={isSending}
+            onClick={() => void sendMessage(input)}
             type="button"
           >
             <PetIcon className="h-5 w-5" name="send" />
