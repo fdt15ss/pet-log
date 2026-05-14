@@ -73,7 +73,7 @@ export function CategoryBadge({ category }: { category: RecordCategory }) {
   };
 
   return (
-    <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${colors[category]}`}>
+    <span className={`inline-flex max-w-full shrink-0 items-center whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-bold leading-4 ${colors[category]}`}>
       {categoryLabels[category]}
     </span>
   );

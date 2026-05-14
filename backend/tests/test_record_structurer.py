@@ -21,7 +21,7 @@ class FakeStructuredModel:
         self.response = response
         self.calls: list[list[tuple[str, str]]] = []
 
-    def invoke(self, messages: list[tuple[str, str]]) -> dict[str, object]:
+    def invoke(self, messages: list[tuple[str, str]], **_kwargs: object) -> dict[str, object]:
         self.calls.append(messages)
         return self.response
 
@@ -33,7 +33,7 @@ class FakeFallbackCapableStructuredModel(FakeStructuredModel):
         self.fallbacks: tuple[FakeStructuredModel, ...] = ()
         self.exceptions_to_handle: tuple[type[BaseException], ...] = ()
 
-    def invoke(self, messages: list[tuple[str, str]]) -> dict[str, object]:
+    def invoke(self, messages: list[tuple[str, str]], **_kwargs: object) -> dict[str, object]:
         self.calls.append(messages)
         if self.error is not None:
             raise self.error
@@ -61,11 +61,11 @@ class FakeFallbackStructuredModel:
         self.fallbacks = fallbacks
         self.exceptions_to_handle = exceptions_to_handle
 
-    def invoke(self, messages: list[tuple[str, str]]) -> dict[str, object]:
+    def invoke(self, messages: list[tuple[str, str]], **kwargs: object) -> dict[str, object]:
         try:
-            return self.primary.invoke(messages)
+            return self.primary.invoke(messages, **kwargs)
         except self.exceptions_to_handle:
-            return self.fallbacks[0].invoke(messages)
+            return self.fallbacks[0].invoke(messages, **kwargs)
 
 
 class TestRecordStructurer(unittest.TestCase):
@@ -156,6 +156,70 @@ class TestRecordStructurer(unittest.TestCase):
         self.assertIn("meal", messages[1][1])
         self.assertIn("walk", messages[1][1])
         self.assertIn("medical", messages[1][1])
+
+    def test_prompt_delegates_korean_count_measurements_to_agent(self):
+        structured_model = FakeStructuredModel({"candidates": []})
+        structurer = RecordStructurer(
+            api_key="test-key",
+            model="test-model",
+            structured_model=structured_model,
+        )
+
+        structurer.structure(
+            PetLogAgentInput(
+                pet=PetProfile(id="pet-1", name="꾸꾸", species="companion"),
+                text="오늘 꾸꾸가 10분 정도 산책하고, 배변은 세 번 했고, 사료는 10g씩 세 번 먹었어.",
+                source="ai_preview",
+            )
+        )
+
+        user_prompt = structured_model.calls[0][1][1]
+        self.assertIn("한국어 수량 표현", user_prompt)
+        self.assertIn("세 번", user_prompt)
+        self.assertIn("10g씩 3회", user_prompt)
+
+    def test_prompt_requires_exact_behavior_word_in_measurements(self):
+        structured_model = FakeStructuredModel({"candidates": []})
+        structurer = RecordStructurer(
+            api_key="test-key",
+            model="test-model",
+            structured_model=structured_model,
+        )
+
+        structurer.structure(
+            PetLogAgentInput(
+                pet=PetProfile(id="pet-1", name="꾸꾸", species="companion"),
+                text="초인종 소리에 꾸꾸가 계속 짖었어.",
+                source="ai_preview",
+            )
+        )
+
+        user_prompt = structured_model.calls[0][1][1]
+        self.assertIn("행동 카테고리", user_prompt)
+        self.assertIn("정확한 행동 단어", user_prompt)
+        self.assertIn("행동이라고만 쓰지 말고", user_prompt)
+        self.assertIn("짖음", user_prompt)
+
+    def test_prompt_prevents_behavior_context_from_becoming_stool_candidate(self):
+        structured_model = FakeStructuredModel({"candidates": []})
+        structurer = RecordStructurer(
+            api_key="test-key",
+            model="test-model",
+            structured_model=structured_model,
+        )
+
+        structurer.structure(
+            PetLogAgentInput(
+                pet=PetProfile(id="pet-1", name="꾸꾸", species="companion"),
+                text="배변 패드 주변을 맴돌고 낑낑댔어.",
+                source="ai_preview",
+            )
+        )
+
+        user_prompt = structured_model.calls[0][1][1]
+        self.assertIn("배변 단어가 행동의 배경", user_prompt)
+        self.assertIn("별도 stool 후보", user_prompt)
+        self.assertIn("배변 패드 주변을 맴돌고 낑낑댐", user_prompt)
 
     def test_builds_structured_model_with_configured_model(self):
         created: list[dict[str, object]] = []

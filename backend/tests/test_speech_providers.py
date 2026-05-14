@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 
 from infrastructure.speech.speech_to_text import SpeechToTextProvider
+from infrastructure.speech.speech_text_correction import SpeechTextCorrectionProvider
 from infrastructure.speech.text_to_speech import TextToSpeechProvider
 
 
@@ -28,6 +29,19 @@ class FakeEdgeCommunicate:
 
     async def save(self, audio_path: str) -> None:
         Path(audio_path).write_bytes(f"{self.voice}:{self.text}".encode("utf-8"))
+
+
+class FakeCorrectionModel:
+    def __init__(self, content: str) -> None:
+        self.content = content
+        self.messages: list[object] = []
+
+    def invoke(self, messages: list[object], config: object | None = None) -> object:
+        self.messages = messages
+        return type("Message", (), {"content": self.content})()
+
+    def with_fallbacks(self, fallbacks, *, exceptions_to_handle, exception_key=None):
+        return self
 
 
 class TestSpeechProviders(unittest.TestCase):
@@ -86,6 +100,25 @@ class TestSpeechProviders(unittest.TestCase):
 
         self.assertEqual(audio, "ko-KR-InJoonNeural:초코야".encode("utf-8"))
         self.assertEqual(FakeEdgeCommunicate.calls, [("초코야", "ko-KR-InJoonNeural")])
+
+    def test_speech_text_correction_provider_returns_corrected_sentence(self):
+        model = FakeCorrectionModel("오늘 아침 사료를 먹었어요.")
+        provider = SpeechTextCorrectionProvider(api_key="test-key", chat_model=model)
+
+        result = provider.correct("오늘 아침 사료를 먹었어")
+
+        self.assertEqual(result, "오늘 아침 사료를 먹었어요.")
+        self.assertIn("stt_text: 오늘 아침 사료를 먹었어", model.messages[1][1])
+
+    def test_speech_text_correction_provider_uses_profile_names(self):
+        model = FakeCorrectionModel("초코가 아침 사료를 먹었어요.")
+        provider = SpeechTextCorrectionProvider(api_key="test-key", chat_model=model)
+
+        result = provider.correct("쵸코가 아침 사료를 먹었어", pet_names=("초코",))
+
+        self.assertEqual(result, "초코가 아침 사료를 먹었어요.")
+        self.assertIn("registered_pet_names: 초코", model.messages[1][1])
+        self.assertIn("프로필", model.messages[0][1])
 
 
 if __name__ == "__main__":

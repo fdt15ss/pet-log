@@ -1,6 +1,5 @@
 import { strict as assert } from "node:assert";
 import test from "node:test";
-import { records } from "./mock-data";
 import { createPetLogStructuredRecord } from "./server/pet-log-ai-service";
 import { restoreEnvValue } from "./sprint-test-utils";
 
@@ -15,10 +14,7 @@ test("스프린트 18: 기록 구조화는 서버 AI provider 경계를 통해 m
     });
 
     assert.equal(structured.suggestedCategory, "meal");
-    assert.deepEqual(
-      structured.measurements.map((measurement) => measurement.value),
-      ["45g", "20분"],
-    );
+    assert.deepEqual(structured.measurements, []);
   } finally {
     restoreEnvValue("PET_LOG_AI_PROVIDER", previousProvider);
   }
@@ -37,7 +33,7 @@ test("스프린트 18 엣지: OpenAI provider 설정이 불완전하면 mock 구
     });
 
     assert.equal(structured.suggestedCategory, "walk");
-    assert.equal(structured.measurements[0]?.value, "15분");
+    assert.deepEqual(structured.measurements, []);
   } finally {
     restoreEnvValue("PET_LOG_AI_PROVIDER", previousProvider);
     restoreEnvValue("OPENAI_API_KEY", previousApiKey);

@@ -1,3 +1,4 @@
+import { categoryLabels } from "./record-constants";
 import type { RecordCategory, RecordCategoryChoice, StructuredRecord } from "./types";
 
 export type RecordInputMode = "text" | "voice" | "photo";
@@ -8,6 +9,15 @@ export type RecordInputModeFeedback = {
   status: RecordInputModeStatus;
   label: string;
   detail: string;
+};
+
+export type RecordPreviewRequestState = {
+  hasActivePet: boolean;
+  isCorrectingTranscription: boolean;
+  isRecording: boolean;
+  isTranscribing: boolean;
+  isVoiceInputFinalizing: boolean;
+  trimmedDetail: string;
 };
 
 export type BrowserSpeechRecognitionResult = {
@@ -89,6 +99,66 @@ const inputModeFeedback: Record<RecordInputMode, RecordInputModeFeedback> = {
 
 export function getInputModeFeedback(mode: RecordInputMode) {
   return inputModeFeedback[mode];
+}
+
+export function getRecordTextAreaClassName(isCleaningRecordText: boolean) {
+  const baseClassName =
+    "min-h-40 w-full resize-none rounded-2xl border border-[#dde6d6] bg-[#fbfcfa] p-4 text-sm leading-6 outline-none placeholder:text-[#8a9286]";
+  const stateClassName = isCleaningRecordText
+    ? "read-only:cursor-not-allowed read-only:bg-[#f6f8f4]"
+    : "focus:border-[#16804b] focus:ring-2 focus:ring-[#16804b]/15";
+
+  return `${baseClassName} ${stateClassName}`;
+}
+
+export function getVoiceRecordButtonClassName({
+  isCleaningRecordText,
+  isRecording,
+}: {
+  isCleaningRecordText: boolean;
+  isRecording: boolean;
+}) {
+  const stateClassName = isCleaningRecordText
+    ? "pet-log-loading-border pet-log-text-cleaning-button-border border-transparent bg-white text-[#16804b]"
+    : isRecording
+      ? "border-[#be4c3c] bg-[#fff1ee] text-[#be4c3c]"
+      : "border-[#cfe2cd] bg-white text-[#16804b]";
+
+  return `pet-log-pressable mt-3 flex min-h-12 w-full items-center justify-center rounded-xl border px-4 text-sm font-bold ${stateClassName}`;
+}
+
+export function isRecordTextCleaning(
+  state: Pick<RecordPreviewRequestState, "isCorrectingTranscription" | "isTranscribing">,
+) {
+  return state.isTranscribing || state.isCorrectingTranscription;
+}
+
+export function resolveMeasurementCategory(label: string): RecordCategory | null {
+  const found = Object.entries(categoryLabels).find(([, categoryLabel]) => categoryLabel === label.trim());
+  return found ? (found[0] as RecordCategory) : null;
+}
+
+export function getMeasurementPreviewGridClassName() {
+  return "mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2";
+}
+
+export function getMeasurementPreviewTileClassName() {
+  return "min-w-0 rounded-xl bg-[#f4f7f0] px-3 py-2.5";
+}
+
+export function getMeasurementPreviewValueClassName() {
+  return "mt-2 break-words text-sm font-black leading-5 text-[#1f2922] [overflow-wrap:anywhere]";
+}
+
+export function shouldRequestRecordPreview(state: RecordPreviewRequestState) {
+  return (
+    !!state.trimmedDetail &&
+    state.hasActivePet &&
+    !state.isRecording &&
+    !state.isTranscribing &&
+    !state.isCorrectingTranscription &&
+    !state.isVoiceInputFinalizing
+  );
 }
 
 export function getBrowserSpeechRecognitionConstructor(

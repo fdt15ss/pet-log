@@ -69,6 +69,9 @@ class FakePetProfileReader:
     def get_pet(self, pet_id: str) -> PetProfile:
         return self.pets[pet_id]
 
+    def list_pets(self) -> tuple[PetProfile, ...]:
+        return tuple(self.pets.values())
+
 
 class FakeRecordReader:
     def list_recent(self, pet_id: str, lookback_days: int):
@@ -149,6 +152,23 @@ class FakeSpeechToText:
         self.transcribed_audio = audio
         self.transcribed_content_type = content_type
         return "오늘 아침 사료를 조금 남겼어"
+
+
+class FakeSpeechTextCorrector:
+    def __init__(self) -> None:
+        self.corrected_text = "오늘 아침 사료를 조금 남겼어요."
+        self.handled_text = None
+        self.handled_pet_names = None
+
+    def correct(self, text: str, pet_names: tuple[str, ...] = ()) -> str:
+        self.handled_text = text
+        self.handled_pet_names = pet_names
+        return self.corrected_text
+
+
+class FailingSpeechTextCorrector:
+    def correct(self, text: str, pet_names: tuple[str, ...] = ()) -> str:
+        raise RuntimeError("correction failed")
 
 
 class FakeTextToSpeech:
@@ -556,6 +576,7 @@ class TestHttpRoutes(unittest.TestCase):
 
     def test_speech_transcription_route_accepts_audio_file(self):
         context = FakeAppContext()
+        context.speech_text_corrector = FakeSpeechTextCorrector()
 
         with TestClient(create_app(app_context_factory=lambda: context)) as client:
             response = client.post(
@@ -566,9 +587,63 @@ class TestHttpRoutes(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(context.speech_to_text.transcribed_audio, b"audio-bytes")
         self.assertEqual(context.speech_to_text.transcribed_content_type, "audio/webm")
+        self.assertEqual(context.speech_text_corrector.handled_text, "오늘 아침 사료를 조금 남겼어")
+        self.assertEqual(context.speech_text_corrector.handled_pet_names, ("초코",))
         self.assertEqual(
             response.json(),
-            {"success": True, "data": {"text": "오늘 아침 사료를 조금 남겼어"}},
+            {
+                "success": True,
+                "data": {
+                    "text": "오늘 아침 사료를 조금 남겼어",
+                    "corrected_text": "오늘 아침 사료를 조금 남겼어요.",
+                },
+            },
+        )
+
+    def test_speech_transcription_route_falls_back_to_raw_text_when_correction_fails(self):
+        context = FakeAppContext()
+        context.speech_text_corrector = FailingSpeechTextCorrector()
+
+        with TestClient(create_app(app_context_factory=lambda: context)) as client:
+            response = client.post(
+                "/api/v1/speech/transcriptions",
+                files={"audio": ("recording.webm", b"audio-bytes", "audio/webm")},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.json(),
+            {
+                "success": True,
+                "data": {
+                    "text": "오늘 아침 사료를 조금 남겼어",
+                    "corrected_text": "오늘 아침 사료를 조금 남겼어",
+                },
+            },
+        )
+
+    def test_speech_text_correction_route_returns_corrected_text(self):
+        context = FakeAppContext()
+        context.speech_text_corrector = FakeSpeechTextCorrector()
+
+        with TestClient(create_app(app_context_factory=lambda: context)) as client:
+            response = client.post(
+                "/api/v1/speech/text-corrections",
+                json={"text": "오늘 아침 사료를 조금 남겼어"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(context.speech_text_corrector.handled_text, "오늘 아침 사료를 조금 남겼어")
+        self.assertEqual(context.speech_text_corrector.handled_pet_names, ("초코",))
+        self.assertEqual(
+            response.json(),
+            {
+                "success": True,
+                "data": {
+                    "text": "오늘 아침 사료를 조금 남겼어",
+                    "corrected_text": "오늘 아침 사료를 조금 남겼어요.",
+                },
+            },
         )
 
     def test_speech_router_can_be_composed_independently(self):
