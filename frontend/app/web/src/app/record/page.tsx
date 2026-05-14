@@ -6,7 +6,7 @@ import { AppShell } from "@/components/app-shell";
 import { PetIcon } from "@/components/pet-icons";
 import { usePetLog } from "@/components/pet-log-provider";
 import { Card, CategoryBadge, SectionHeader } from "@/components/ui";
-import { correctSpeechText, structureRecordPreview, transcribeSpeechAudio } from "@/lib/api-client";
+import { correctSpeechText, structureRecordPreview, synthesizeSpeech, transcribeSpeechAudio } from "@/lib/api-client";
 import {
   defaultRecordCategoryChoice,
   getBrowserSpeechRecognitionConstructor,
@@ -18,6 +18,8 @@ import {
   getRecordPreviewSummaryText,
   getRecordTextAreaClassName,
   getVoiceRecordButtonClassName,
+  getVoiceRecordCompletePrompt,
+  getVoiceRecordStartPrompt,
   isRecordTextCleaning,
   recordCategoryChoiceOptions,
   resolveMeasurementCategory,
@@ -28,6 +30,7 @@ import {
   type BrowserSpeechRecognitionResultEvent,
   type RecordInputMode,
 } from "@/lib/record-input";
+import { getCachedSpeechAudio, preloadCachedSpeechAudio } from "@/lib/speech-audio-cache";
 import type { RecordCategoryChoice, StructuredRecord } from "@/lib/types";
 
 const inputModes: { label: string; value: RecordInputMode }[] = [
@@ -65,6 +68,29 @@ function createPendingPreview(detail: string, category: RecordCategoryChoice): S
   };
 }
 
+async function playSpeechAudioBlob(audioBlob: Blob) {
+  const audioUrl = URL.createObjectURL(audioBlob);
+  try {
+    const audio = new Audio(audioUrl);
+    await new Promise<void>((resolve, reject) => {
+      audio.addEventListener("ended", () => resolve(), { once: true });
+      audio.addEventListener("error", () => reject(new Error("Voice record prompt playback failed")), { once: true });
+      audio.play().catch(reject);
+    });
+  } finally {
+    URL.revokeObjectURL(audioUrl);
+  }
+}
+
+async function speakVoicePrompt(prompt: string) {
+  try {
+    const audioBlob = await getCachedSpeechAudio(prompt, synthesizeSpeech);
+    await playSpeechAudioBlob(audioBlob);
+  } catch (err) {
+    console.log("[record/page] 녹음 안내 음성 재생 실패:", err instanceof Error ? err.message : err);
+  }
+}
+
 export default function RecordPage() {
   const { addRecord, profile, records } = usePetLog();
   const [detail, setDetail] = useState("");
@@ -80,6 +106,7 @@ export default function RecordPage() {
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [isCorrectingTranscription, setIsCorrectingTranscription] = useState(false);
   const [isVoiceInputFinalizing, setIsVoiceInputFinalizing] = useState(false);
+  const [isVoicePromptPlaying, setIsVoicePromptPlaying] = useState(false);
   const [transcriptionNotice, setTranscriptionNotice] = useState("");
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const speechRecognitionRef = useRef<BrowserSpeechRecognition | null>(null);
@@ -104,6 +131,7 @@ export default function RecordPage() {
   const confidencePercent = Math.round(displayPreview.confidence * 100);
   const modeFeedback = getInputModeFeedback(inputMode);
   const isCleaningRecordText = isRecordTextCleaning({ isCorrectingTranscription, isTranscribing });
+  const isVoiceRecordButtonBusy = isCleaningRecordText || isVoicePromptPlaying;
 
   const previewTitle = useMemo(() => {
     if (!trimmedDetail) {
@@ -172,6 +200,15 @@ export default function RecordPage() {
   useEffect(() => {
     detailRef.current = detail;
   }, [detail]);
+
+  useEffect(() => {
+    if (!hasActivePet) {
+      return;
+    }
+
+    preloadCachedSpeechAudio(getVoiceRecordStartPrompt(profile.name), synthesizeSpeech);
+    preloadCachedSpeechAudio(getVoiceRecordCompletePrompt(profile.name), synthesizeSpeech);
+  }, [hasActivePet, profile.name]);
 
   function stopMediaStream() {
     mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
@@ -376,6 +413,13 @@ export default function RecordPage() {
   }
 
   async function startRecording() {
+    setIsVoicePromptPlaying(true);
+    try {
+      await speakVoicePrompt(getVoiceRecordStartPrompt(profile.name));
+    } finally {
+      setIsVoicePromptPlaying(false);
+    }
+
     const SpeechRecognition = getBrowserSpeechRecognitionConstructor();
     if (SpeechRecognition) {
       setError("");
@@ -399,6 +443,7 @@ export default function RecordPage() {
       setIsRecording(false);
       setIsVoiceInputFinalizing(true);
       recognition.stop();
+      void speakVoicePrompt(getVoiceRecordCompletePrompt(profile.name));
       return;
     }
 
@@ -412,6 +457,7 @@ export default function RecordPage() {
     setIsRecording(false);
     setIsVoiceInputFinalizing(true);
     recorder.stop();
+    void speakVoicePrompt(getVoiceRecordCompletePrompt(profile.name));
   }
 
   function handleRecordingButtonClick() {
@@ -539,12 +585,12 @@ export default function RecordPage() {
           </div>
           {inputMode === "voice" ? (
             <button
-              className={getVoiceRecordButtonClassName({ isCleaningRecordText, isRecording })}
-              disabled={isTranscribing || isCorrectingTranscription}
+              className={getVoiceRecordButtonClassName({ isCleaningRecordText: isVoiceRecordButtonBusy, isRecording })}
+              disabled={isTranscribing || isCorrectingTranscription || isVoicePromptPlaying}
               onClick={handleRecordingButtonClick}
               type="button"
             >
-              {isCleaningRecordText ? "음성 문장 정리 중" : isRecording ? "녹음 종료" : "녹음 시작"}
+              {isVoicePromptPlaying ? "안내 음성 재생 중" : isCleaningRecordText ? "음성 문장 정리 중" : isRecording ? "녹음 종료" : "녹음 시작"}
             </button>
           ) : null}
         </Card>
