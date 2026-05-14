@@ -101,6 +101,39 @@ class TestSpeechProviders(unittest.TestCase):
         self.assertEqual(audio, "ko-KR-InJoonNeural:초코야".encode("utf-8"))
         self.assertEqual(FakeEdgeCommunicate.calls, [("초코야", "ko-KR-InJoonNeural")])
 
+    def test_tts_reuses_cached_audio_for_same_text_and_voice(self):
+        FakeEdgeCommunicate.calls = []
+        provider = TextToSpeechProvider(communicate_factory=FakeEdgeCommunicate)
+
+        first_audio = provider.synthesize(" 안녕 ")
+        second_audio = provider.synthesize("안녕")
+        different_voice_audio = provider.synthesize("안녕", voice="ko-KR-InJoonNeural")
+
+        self.assertEqual(first_audio, second_audio)
+        self.assertEqual(first_audio, "ko-KR-SunHiNeural:안녕".encode("utf-8"))
+        self.assertEqual(different_voice_audio, "ko-KR-InJoonNeural:안녕".encode("utf-8"))
+        self.assertEqual(
+            FakeEdgeCommunicate.calls,
+            [("안녕", "ko-KR-SunHiNeural"), ("안녕", "ko-KR-InJoonNeural")],
+        )
+
+    def test_tts_cache_evicts_oldest_audio_when_full(self):
+        FakeEdgeCommunicate.calls = []
+        provider = TextToSpeechProvider(communicate_factory=FakeEdgeCommunicate, max_cache_entries=1)
+
+        provider.synthesize("첫째")
+        provider.synthesize("둘째")
+        provider.synthesize("첫째")
+
+        self.assertEqual(
+            FakeEdgeCommunicate.calls,
+            [
+                ("첫째", "ko-KR-SunHiNeural"),
+                ("둘째", "ko-KR-SunHiNeural"),
+                ("첫째", "ko-KR-SunHiNeural"),
+            ],
+        )
+
     def test_speech_text_correction_provider_returns_corrected_sentence(self):
         model = FakeCorrectionModel("오늘 아침 사료를 먹었어요.")
         provider = SpeechTextCorrectionProvider(api_key="test-key", chat_model=model)
