@@ -104,6 +104,7 @@ export type PetChatResponse = {
 
 export type SpeechTranscriptionResponse = {
   text: string;
+  correctedText: string;
 };
 
 export type UploadedFile = {
@@ -205,7 +206,22 @@ export function fetchShoppingRecommendations(petId: string) {
 export function transcribeSpeechAudio(audio: File) {
   const formData = new FormData();
   formData.set("audio", audio);
-  return requestData<SpeechTranscriptionResponse>(axios.post("/api/v1/speech/transcriptions", formData));
+  return requestData<SpeechTranscriptionResponse>(axios.post("/api/v1/speech/transcriptions", formData)).then(
+    withCorrectedSpeechTextFallback,
+  );
+}
+
+export function correctSpeechText(text: string) {
+  return requestData<SpeechTranscriptionResponse>(apiClient.post("/speech/text-corrections", { text })).then(
+    withCorrectedSpeechTextFallback,
+  );
+}
+
+function withCorrectedSpeechTextFallback(response: SpeechTranscriptionResponse): SpeechTranscriptionResponse {
+  return {
+    ...response,
+    correctedText: response.correctedText || response.text,
+  };
 }
 
 export async function synthesizeSpeech(text: string, voice?: string) {

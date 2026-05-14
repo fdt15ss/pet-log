@@ -37,6 +37,7 @@ from infrastructure.repositories.record_repository import RecordRepository
 from infrastructure.repositories.schedule_repository import ScheduleRepository
 from infrastructure.shopping import NaverShoppingClient, ShoppingRecommendationProvider
 from infrastructure.speech import SpeechToTextProvider, TextToSpeechProvider
+from infrastructure.speech.speech_text_correction import SpeechTextCorrectionProvider
 from middleware import HospitalFallbackMiddleware, ShoppingFallbackMiddleware
 
 
@@ -45,6 +46,7 @@ class AppContext:
     pet_log_agent_pipeline: LangGraphPetLogAgentPipeline
     pet_profile_reader: PetProfileRepository
     speech_to_text: SpeechToTextProvider
+    speech_text_corrector: SpeechTextCorrectionProvider | None = None
     text_to_speech: TextToSpeechProvider | None = None
     care_question_pipeline: CareQuestionPipeline | None = None
     pet_chat_pipeline: PetChatPipeline | None = None
@@ -114,6 +116,7 @@ def build_app_context(database_path: str | None = None) -> AppContext:
         pet_log_agent_pipeline=pipeline,
         pet_profile_reader=pet_profile_reader,
         speech_to_text=SpeechToTextProvider(),
+        speech_text_corrector=SpeechTextCorrectionProvider(),
         text_to_speech=TextToSpeechProvider(),
         care_question_pipeline=care_question_pipeline,
         pet_chat_pipeline=pet_chat_pipeline,

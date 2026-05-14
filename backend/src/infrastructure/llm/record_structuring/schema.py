@@ -27,7 +27,12 @@ class StructuredRecordCandidateOutput(BaseModel):
         description="내용이 모호하거나 저장 전 보호자 확인이 필요하면 true"
     )
     measurements: list[str] = Field(
-        description="원문에 명시된 시간, 양, 횟수, 무게, 지속 시간 같은 측정값 목록. 없으면 빈 배열"
+        description=(
+            "원문에 명시된 시간, 양, 횟수, 무게, 지속 시간, 반복 급여량 같은 측정값 목록. "
+            "한국어 횟수 표현은 3회처럼 표준화하고, 10g씩 세 번 같은 반복 표현은 10g씩 3회처럼 의미를 보존한다. "
+            "behavior 카테고리는 원문에 명시된 정확한 행동 단어를 짖음, 숨음, 기다림처럼 담는다. "
+            "없으면 빈 배열"
+        )
     )
 
 

@@ -167,6 +167,34 @@ a {
   --pet-log-loading-outer-glow: rgba(245, 158, 11, 0.13);
 }
 
+.pet-log-text-cleaning-button-border {
+  --pet-log-loading-border-muted: rgba(22, 128, 75, 0.16);
+  --pet-log-loading-border-soft: rgba(113, 216, 147, 0.72);
+  --pet-log-loading-border-bright: rgba(74, 222, 128, 0.96);
+  --pet-log-loading-border-strong: rgba(22, 128, 75, 0.9);
+  --pet-log-loading-border-glow: rgba(74, 222, 128, 0.46);
+  --pet-log-loading-border-shadow: rgba(22, 128, 75, 0.12);
+  --pet-log-loading-sheen-strong: rgba(74, 222, 128, 0.18);
+  --pet-log-loading-sheen-soft: rgba(113, 216, 147, 0.08);
+  --pet-log-loading-inner-border: rgba(22, 128, 75, 0.18);
+  --pet-log-loading-inner-glow: rgba(74, 222, 128, 0.08);
+  --pet-log-loading-outer-glow: rgba(74, 222, 128, 0.13);
+  background:
+    linear-gradient(#fff, #fff) padding-box,
+    conic-gradient(
+      from var(--pet-log-border-angle),
+      var(--pet-log-loading-border-muted) 0deg,
+      var(--pet-log-loading-border-muted) 72deg,
+      var(--pet-log-loading-border-soft) 118deg,
+      var(--pet-log-loading-border-bright) 142deg,
+      var(--pet-log-loading-border-strong) 154deg,
+      var(--pet-log-loading-border-glow) 170deg,
+      var(--pet-log-loading-border-muted) 220deg,
+      var(--pet-log-loading-border-muted) 360deg
+    )
+    border-box !important;
+}
+
 .pet-log-notification-alert-border {
   --pet-log-notification-border-muted: rgba(245, 158, 11, 0.18);
   --pet-log-notification-border-soft: rgba(255, 210, 130, 0.72);

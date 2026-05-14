@@ -6,15 +6,23 @@ import { AppShell } from "@/components/app-shell";
 import { PetIcon } from "@/components/pet-icons";
 import { usePetLog } from "@/components/pet-log-provider";
 import { Card, CategoryBadge, SectionHeader } from "@/components/ui";
-import { structureRecordPreview, transcribeSpeechAudio } from "@/lib/api-client";
-import { categoryLabels } from "@/lib/record-constants";
+import { correctSpeechText, structureRecordPreview, transcribeSpeechAudio } from "@/lib/api-client";
 import {
   defaultRecordCategoryChoice,
   getBrowserSpeechRecognitionConstructor,
   getInputModeFeedback,
+  getMeasurementPreviewGridClassName,
+  getMeasurementPreviewTileClassName,
+  getMeasurementPreviewValueClassName,
   getRecordCategoryChoiceLabel,
+  getRecordPreviewSummaryText,
+  getRecordTextAreaClassName,
+  getVoiceRecordButtonClassName,
+  isRecordTextCleaning,
   recordCategoryChoiceOptions,
+  resolveMeasurementCategory,
   resolveRecordCategoryForSave,
+  shouldRequestRecordPreview,
   type BrowserSpeechRecognition,
   type BrowserSpeechRecognitionConstructor,
   type BrowserSpeechRecognitionResultEvent,
@@ -70,10 +78,14 @@ export default function RecordPage() {
   const [previewError, setPreviewError] = useState("");
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
+  const [isCorrectingTranscription, setIsCorrectingTranscription] = useState(false);
+  const [isVoiceInputFinalizing, setIsVoiceInputFinalizing] = useState(false);
+  const [transcriptionNotice, setTranscriptionNotice] = useState("");
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const speechRecognitionRef = useRef<BrowserSpeechRecognition | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const mediaStreamRef = useRef<MediaStream | null>(null);
+  const detailRef = useRef("");
 
   useEffect(() => {
     console.log("[record/page] records 업데이트:", records.length, "건", records.slice(0, 3).map((r) => r.id));
@@ -91,9 +103,7 @@ export default function RecordPage() {
   const visiblePreviewError = trimmedDetail ? previewError : "";
   const confidencePercent = Math.round(displayPreview.confidence * 100);
   const modeFeedback = getInputModeFeedback(inputMode);
-  const detectedCategories = displayPreview.detectedCategories?.length
-    ? displayPreview.detectedCategories
-    : [displayPreview.suggestedCategory];
+  const isCleaningRecordText = isRecordTextCleaning({ isCorrectingTranscription, isTranscribing });
 
   const previewTitle = useMemo(() => {
     if (!trimmedDetail) {
@@ -101,9 +111,23 @@ export default function RecordPage() {
     }
     return trimmedDetail.length > 28 ? `${trimmedDetail.slice(0, 28)}...` : trimmedDetail;
   }, [trimmedDetail]);
+  const previewSummaryText = getRecordPreviewSummaryText(
+    displayPreview.normalizedSummary,
+    previewTitle,
+    displayPreview.suggestedCategory,
+  );
 
   useEffect(() => {
-    if (!trimmedDetail || !hasActivePet) {
+    if (
+      !shouldRequestRecordPreview({
+        hasActivePet,
+        isCorrectingTranscription,
+        isRecording,
+        isTranscribing,
+        isVoiceInputFinalizing,
+        trimmedDetail,
+      })
+    ) {
       return;
     }
 
@@ -136,7 +160,7 @@ export default function RecordPage() {
       cancelled = true;
       window.clearTimeout(timeoutId);
     };
-  }, [category, hasActivePet, trimmedDetail]);
+  }, [category, hasActivePet, isCorrectingTranscription, isRecording, isTranscribing, isVoiceInputFinalizing, trimmedDetail]);
 
   useEffect(() => {
     return () => {
@@ -144,6 +168,10 @@ export default function RecordPage() {
       stopMediaStream();
     };
   }, []);
+
+  useEffect(() => {
+    detailRef.current = detail;
+  }, [detail]);
 
   function stopMediaStream() {
     mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
@@ -218,13 +246,43 @@ export default function RecordPage() {
       const file = new File([audio], "recording.webm", { type: fileType });
       console.log("[record/page] transcribeSpeechAudio 호출:", fileType, audio.size, "bytes");
       const transcription = await transcribeSpeechAudio(file);
-      console.log("[record/page] transcribeSpeechAudio 성공:", transcription.text.slice(0, 50));
-      setDetail(transcription.text);
+      console.log("[record/page] transcribeSpeechAudio 성공:", transcription.correctedText.slice(0, 50));
+      detailRef.current = transcription.correctedText;
+      setDetail(transcription.correctedText);
+      setTranscriptionNotice(
+        transcription.correctedText !== transcription.text
+          ? "AI가 음성 문장을 정리했습니다. 필요하면 저장 전 수정해주세요."
+          : "음성 문장을 입력했습니다. 필요하면 저장 전 수정해주세요.",
+      );
     } catch (err) {
       console.log("[record/page] transcribeSpeechAudio 실패:", err instanceof Error ? err.message : err);
       setError("음성 인식에 실패했습니다. 텍스트로 직접 입력해주세요.");
     } finally {
       setIsTranscribing(false);
+    }
+  }
+
+  async function correctCurrentSpeechText() {
+    const text = detailRef.current.trim();
+    if (!text) {
+      return;
+    }
+
+    setIsCorrectingTranscription(true);
+    try {
+      const correction = await correctSpeechText(text);
+      detailRef.current = correction.correctedText;
+      setDetail(correction.correctedText);
+      setTranscriptionNotice(
+        correction.correctedText !== correction.text
+          ? "AI가 음성 문장을 정리했습니다. 필요하면 저장 전 수정해주세요."
+          : "음성 문장을 입력했습니다. 필요하면 저장 전 수정해주세요.",
+      );
+    } catch (err) {
+      console.log("[record/page] correctSpeechText 실패:", err instanceof Error ? err.message : err);
+      setTranscriptionNotice("음성 문장을 입력했습니다. 필요하면 저장 전 수정해주세요.");
+    } finally {
+      setIsCorrectingTranscription(false);
     }
   }
 
@@ -240,8 +298,11 @@ export default function RecordPage() {
     if (transcript) {
       setDetail((currentDetail) => {
         const current = currentDetail.trim();
-        return current ? `${current} ${transcript}` : transcript;
+        const nextDetail = current ? `${current} ${transcript}` : transcript;
+        detailRef.current = nextDetail;
+        return nextDetail;
       });
+      setTranscriptionNotice("");
     }
   }
 
@@ -254,16 +315,22 @@ export default function RecordPage() {
     recognition.onerror = () => {
       speechRecognitionRef.current = null;
       setIsRecording(false);
+      setIsVoiceInputFinalizing(false);
       setError("브라우저 음성 인식에 실패했습니다. 다시 녹음하거나 텍스트로 입력해주세요.");
     };
     recognition.onend = () => {
       speechRecognitionRef.current = null;
       setIsRecording(false);
+      setIsVoiceInputFinalizing(true);
+      void correctCurrentSpeechText().finally(() => {
+        setIsVoiceInputFinalizing(false);
+      });
     };
 
     speechRecognitionRef.current = recognition;
     recognition.start();
     setIsRecording(true);
+    setIsVoiceInputFinalizing(false);
   }
 
   async function startServerRecordingFallback() {
@@ -291,14 +358,19 @@ export default function RecordPage() {
         mediaRecorderRef.current = null;
         audioChunksRef.current = [];
         stopMediaStream();
-        void transcribeRecordedAudio(audio);
+        setIsVoiceInputFinalizing(true);
+        void transcribeRecordedAudio(audio).finally(() => {
+          setIsVoiceInputFinalizing(false);
+        });
       };
 
       recorder.start();
       setIsRecording(true);
+      setIsVoiceInputFinalizing(false);
     } catch {
       stopMediaStream();
       mediaRecorderRef.current = null;
+      setIsVoiceInputFinalizing(false);
       setError("마이크 권한을 확인한 뒤 다시 녹음해주세요.");
     }
   }
@@ -325,6 +397,7 @@ export default function RecordPage() {
     if (recognition) {
       speechRecognitionRef.current = null;
       setIsRecording(false);
+      setIsVoiceInputFinalizing(true);
       recognition.stop();
       return;
     }
@@ -337,6 +410,7 @@ export default function RecordPage() {
     }
 
     setIsRecording(false);
+    setIsVoiceInputFinalizing(true);
     recorder.stop();
   }
 
@@ -465,14 +539,12 @@ export default function RecordPage() {
           </div>
           {inputMode === "voice" ? (
             <button
-              className={`pet-log-pressable mt-3 flex min-h-12 w-full items-center justify-center rounded-xl border px-4 text-sm font-bold ${
-                isRecording ? "border-[#be4c3c] bg-[#fff1ee] text-[#be4c3c]" : "border-[#cfe2cd] bg-white text-[#16804b]"
-              }`}
-              disabled={isTranscribing}
+              className={getVoiceRecordButtonClassName({ isCleaningRecordText, isRecording })}
+              disabled={isTranscribing || isCorrectingTranscription}
               onClick={handleRecordingButtonClick}
               type="button"
             >
-              {isTranscribing ? "음성 변환 중" : isRecording ? "녹음 종료" : "녹음 시작"}
+              {isCleaningRecordText ? "음성 문장 정리 중" : isRecording ? "녹음 종료" : "녹음 시작"}
             </button>
           ) : null}
         </Card>
@@ -485,9 +557,10 @@ export default function RecordPage() {
             </span>
           </div>
           <textarea
-            className="min-h-40 w-full resize-none rounded-2xl border border-[#dde6d6] bg-[#fbfcfa] p-4 text-sm leading-6 outline-none placeholder:text-[#8a9286] focus:border-[#16804b] focus:ring-2 focus:ring-[#16804b]/15"
+            className={getRecordTextAreaClassName(isCleaningRecordText)}
             maxLength={maxLength + 40}
             onChange={(event) => {
+              detailRef.current = event.target.value;
               setDetail(event.target.value);
               if (error) {
                 setError("");
@@ -495,10 +568,15 @@ export default function RecordPage() {
               if (savedId) {
                 setSavedId(null);
               }
+              if (transcriptionNotice) {
+                setTranscriptionNotice("");
+              }
             }}
             placeholder={inputPlaceholders[inputMode]}
+            readOnly={isCleaningRecordText}
             value={detail}
           />
+          {transcriptionNotice ? <p className="mt-3 text-xs font-semibold text-[#16804b]">{transcriptionNotice}</p> : null}
           {error ? <p className="mt-3 text-sm font-semibold text-[#be4c3c]">{error}</p> : null}
           {savedId ? (
             <div className="mt-3 flex items-center justify-between rounded-2xl bg-[#edf8ed] px-4 py-3 text-sm">
@@ -523,12 +601,13 @@ export default function RecordPage() {
                     <span className={`grid h-8 w-8 place-items-center rounded-full ${showPreviewLoading ? "pet-log-pulse-dot bg-[#edf8ed] text-[#16804b]" : "bg-[#edf8ed] text-[#16804b]"}`}>
                       <PetIcon className="h-4 w-4" name="sparkle" />
                     </span>
-                    <CategoryBadge category={displayPreview.suggestedCategory} />
                     <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${displayPreview.needsConfirmation ? "bg-[#fff2df] text-[#a4651a]" : "bg-[#e8f5df] text-[#32783c]"}`}>
                       {showPreviewLoading ? "AI 확인 중" : `신뢰도 ${confidencePercent}%`}
                     </span>
                   </div>
-                  <h3 className="mt-2 text-sm font-bold text-[#1f2922]">{displayPreview.normalizedSummary || previewTitle}</h3>
+                  {previewSummaryText ? (
+                    <h3 className="mt-2 text-sm font-bold text-[#1f2922]">{previewSummaryText}</h3>
+                  ) : null}
                   <p className="mt-1 text-xs leading-5 text-[#6c7667]">
                     {visiblePreviewError ||
                     (displayPreview.needsConfirmation
@@ -546,29 +625,29 @@ export default function RecordPage() {
                   AI 추천 분류 적용
                 </button>
               ) : null}
-              {detectedCategories.filter((cat) => cat !== displayPreview.suggestedCategory).length > 0 && (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {detectedCategories
-                    .filter((cat) => cat !== displayPreview.suggestedCategory)
-                    .map((detectedCategory) => (
-                      <CategoryBadge category={detectedCategory} key={detectedCategory} />
-                    ))}
-                </div>
-              )}
-              <div className="mt-3 grid grid-cols-2 gap-2">
+              <dl className={getMeasurementPreviewGridClassName()}>
                 {displayPreview.measurements.length > 0 ? (
-                  displayPreview.measurements.map((measurement) => (
-                    <div className="rounded-xl bg-[#f4f7f0] px-3 py-2" key={`${measurement.label}-${measurement.value}`}>
-                      <p className="text-[11px] font-bold text-[#7b8576]">{measurement.label}</p>
-                      <p className="mt-1 text-sm font-black text-[#1f2922]">{measurement.value}</p>
-                    </div>
-                  ))
+                  displayPreview.measurements.map((measurement) => {
+                    const measurementCategory = resolveMeasurementCategory(measurement.label);
+                    return (
+                      <div className={getMeasurementPreviewTileClassName()} key={measurement.label}>
+                        {measurementCategory ? (
+                          <dt className="min-w-0">
+                            <CategoryBadge category={measurementCategory} />
+                          </dt>
+                        ) : (
+                          <dt className="min-w-0 truncate text-xs font-bold text-[#667262]">{measurement.label}</dt>
+                        )}
+                        <dd className={getMeasurementPreviewValueClassName()}>{measurement.value}</dd>
+                      </div>
+                    );
+                  })
                 ) : (
-                  <div className="col-span-2 rounded-xl bg-[#f4f7f0] px-3 py-2">
+                  <div className="rounded-xl bg-[#f4f7f0] px-3 py-2 sm:col-span-2">
                     <p className="text-xs font-semibold leading-5 text-[#667262]">추출된 수치가 없습니다. 필요하면 g, kg, 분, 회 같은 단위를 함께 적어주세요.</p>
                   </div>
                 )}
-              </div>
+              </dl>
             </Card>
           </div>
         </section>

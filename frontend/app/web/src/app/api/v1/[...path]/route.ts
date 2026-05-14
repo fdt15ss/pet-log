@@ -17,6 +17,8 @@ import {
   RecordStatus,
   StructuredRecord,
 } from "@/lib/types";
+import { structureRecord } from "@/lib/ai-insights";
+import { categoryLabels } from "@/lib/record-constants";
 
 type RouteContext = {
   params: Promise<{
@@ -86,6 +88,50 @@ function fail(code: string, message: string, status = 400) {
   return NextResponse.json({ ok: false, error: { code, message } }, { status });
 }
 
+function hasNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function mockCurrentUser() {
+  return {
+    id: "local-user",
+    email: "local@example.com",
+    name: "로컬 사용자",
+  };
+}
+
+function mockPets() {
+  const { profile } = getMockPetLogState();
+  return {
+    pets: [
+      {
+        ...profile,
+        id: profile.id ?? backendPetId(),
+      },
+    ],
+  };
+}
+
+function currentMockProfile() {
+  return getMockPetLogState().profile;
+}
+
+function profileNameFallback() {
+  return currentMockProfile().name.trim() || "반려동물";
+}
+
+function profileBreedFallback() {
+  return currentMockProfile().breed.trim() || "미등록";
+}
+
+function resolveProfileName(value: unknown) {
+  return hasNonEmptyString(value) ? value.trim() : profileNameFallback();
+}
+
+function resolveProfileBreed(value: unknown) {
+  return hasNonEmptyString(value) ? value.trim() : profileBreedFallback();
+}
+
 function isRecordCategory(value: unknown): value is RecordCategory {
   return recordCategories.includes(value as RecordCategory);
 }
@@ -117,6 +163,10 @@ function isSpeechTranscriptionPath(path: string[]) {
 
 function isSpeechSynthesisPath(path: string[]) {
   return path[0] === "speech" && path[1] === "synthesis" && path.length === 2;
+}
+
+function isSpeechTextCorrectionPath(path: string[]) {
+  return path[0] === "speech" && path[1] === "text-corrections" && path.length === 2;
 }
 
 function backendApiUrl(path: string) {
@@ -188,6 +238,46 @@ function mapBackendMeasurements(measurements: unknown): ExtractedMeasurement[] {
     .slice(0, 4);
 }
 
+function withMeasurementCategoryLabel(measurement: ExtractedMeasurement, category: RecordCategory): ExtractedMeasurement {
+  return {
+    label: categoryLabels[category],
+    value: measurement.value,
+  };
+}
+
+function behaviorMeasurementFallback(candidate: BackendPetLogCandidate): ExtractedMeasurement[] {
+  const detail = typeof candidate.detail === "string" ? candidate.detail.trim() : "";
+  const title = typeof candidate.title === "string" ? candidate.title.trim() : "";
+  const value = detail && detail !== categoryLabels.behavior ? detail : title;
+
+  return value && value !== categoryLabels.behavior ? [{ label: categoryLabels.behavior, value }] : [];
+}
+
+function groupMeasurementsByLabel(measurements: ExtractedMeasurement[]): ExtractedMeasurement[] {
+  return measurements
+    .reduce<Array<{ label: string; values: string[] }>>((groups, measurement) => {
+      const label = measurement.label.trim();
+      const value = measurement.value.trim();
+      if (!label || !value) {
+        return groups;
+      }
+
+      const groupIndex = groups.findIndex((group) => group.label === label);
+      if (groupIndex < 0) {
+        return [...groups, { label, values: [value] }];
+      }
+
+      const group = groups[groupIndex];
+      if (group.values.includes(value)) {
+        return groups;
+      }
+
+      return groups.map((item, index) => (index === groupIndex ? { ...item, values: [...item.values, value] } : item));
+    }, [])
+    .map((group) => ({ label: group.label, value: group.values.join(" · ") }))
+    .slice(0, 4);
+}
+
 function firstBackendCandidate(result: BackendPetLogResult): BackendPetLogCandidate | null {
   if (!Array.isArray(result.candidates)) {
     return null;
@@ -230,6 +320,22 @@ function backendCandidates(result: BackendPetLogResult): BackendPetLogCandidate[
   return result.candidates.filter(
     (candidate): candidate is BackendPetLogCandidate => !!candidate && typeof candidate === "object",
   );
+}
+
+function backendCandidateMeasurements(result: BackendPetLogResult): ExtractedMeasurement[] {
+  const measurements = backendCandidates(result)
+    .flatMap((candidate) => {
+      const category = candidate.category;
+      const measurements = mapBackendMeasurements(candidate.measurements);
+      if (category === "behavior" && measurements.length === 0) {
+        return behaviorMeasurementFallback(candidate);
+      }
+      return isRecordCategory(category)
+        ? measurements.map((measurement) => withMeasurementCategoryLabel(measurement, category))
+        : measurements;
+    });
+
+  return groupMeasurementsByLabel(measurements);
 }
 
 function uniqueValues(values: string[]) {
@@ -277,6 +383,41 @@ function mapBackendSavedRecordsToEntries(
     const entry = mapBackendRecordToEntry(record, structured, fallback, categoryChoice);
     return entry ? [entry] : [];
   });
+}
+
+function combineSavedRecordEntries(records: RecordEntry[], detail: string, categoryChoice: RecordCategoryChoice): RecordEntry[] {
+  if (categoryChoice !== "all" || records.length <= 1) {
+    return records;
+  }
+
+  const firstRecord = records[0];
+  if (!firstRecord) {
+    return [];
+  }
+
+  const categories = uniqueValues(records.map((record) => record.category)).filter(isRecordCategory);
+  const title = uniqueValues(records.map((record) => record.title)).join(" · ");
+  const measurements = records.flatMap((record) => record.structured?.measurements ?? []);
+  const groupedMeasurements = groupMeasurementsByLabel(measurements);
+
+  return [
+    {
+      ...firstRecord,
+      categoryChoice: "all",
+      title: title || firstRecord.title,
+      detail,
+      status: strongestRecordStatus(records),
+      structured: {
+        sourceText: detail,
+        normalizedSummary: title || firstRecord.title,
+        suggestedCategory: firstRecord.category,
+        detectedCategories: categories,
+        confidence: firstRecord.structured?.confidence ?? 0.9,
+        measurements: groupedMeasurements,
+        needsConfirmation: records.some((record) => record.structured?.needsConfirmation === true),
+      },
+    },
+  ];
 }
 
 type BackendFetchedRecord = RecordEntry & {
@@ -367,8 +508,14 @@ function mapBackendCandidateToStructured(
   fallbackCategory: RecordCategoryChoice,
   resultNeedsConfirmation: unknown,
   detectedCategories: RecordCategory[] = [],
+  measurements?: ExtractedMeasurement[],
 ): StructuredRecord {
   const category = isRecordCategory(candidate.category) ? candidate.category : fallbackCategory === "all" ? "meal" : fallbackCategory;
+  const resolvedMeasurements =
+    measurements ??
+    groupMeasurementsByLabel(
+      mapBackendMeasurements(candidate.measurements).map((measurement) => withMeasurementCategoryLabel(measurement, category)),
+    );
   const confidence =
     typeof candidate.confidence === "number" ? Math.min(0.99, Math.max(0.1, candidate.confidence)) : 0.45;
   const candidateTitle = typeof candidate.title === "string" && candidate.title.trim() ? candidate.title.trim() : "";
@@ -380,7 +527,7 @@ function mapBackendCandidateToStructured(
     suggestedCategory: category,
     detectedCategories: detectedCategories.length > 1 ? detectedCategories : undefined,
     confidence,
-    measurements: mapBackendMeasurements(candidate.measurements),
+    measurements: resolvedMeasurements,
     needsConfirmation:
       typeof candidate.needs_confirmation === "boolean"
         ? candidate.needs_confirmation
@@ -460,6 +607,7 @@ async function requestBackendPetLogRecord(detail: string, fallbackCategory: Reco
     fallbackCategory,
     payload.data.needs_confirmation,
     backendCandidateCategories(payload.data),
+    backendCandidateMeasurements(payload.data),
   );
   return { result: payload.data, structured };
 }
@@ -474,21 +622,46 @@ async function proxySpeechTranscription(request: NextRequest) {
   const backendFormData = new FormData();
   backendFormData.set("audio", audio);
 
-  const response = await fetch(backendApiUrl("/api/v1/speech/transcriptions"), {
-    body: backendFormData,
-    method: "POST",
-  });
+  const response = await axios.post<{ success?: boolean; data?: { text?: unknown; corrected_text?: unknown }; detail?: unknown }>(
+    backendApiUrl("/api/v1/speech/transcriptions"),
+    backendFormData,
+    { timeout: backendTimeoutMs(), validateStatus: () => true },
+  );
+  const payload = response.data;
 
-  const payload = (await response.json().catch(() => null)) as
-    | { success?: boolean; data?: { text?: unknown }; detail?: unknown }
-    | null;
-
-  if (!response.ok || payload?.success !== true || typeof payload.data?.text !== "string") {
+  if (response.status < 200 || response.status >= 300 || payload?.success !== true || typeof payload.data?.text !== "string") {
     const message = typeof payload?.detail === "string" ? payload.detail : "음성 인식을 처리하지 못했습니다.";
     return fail("SPEECH_TRANSCRIPTION_FAILED", message, response.status || 502);
   }
 
-  return ok({ text: payload.data.text });
+  const correctedText = typeof payload.data.corrected_text === "string" ? payload.data.corrected_text : payload.data.text;
+  return ok({ text: payload.data.text, correctedText });
+}
+
+async function proxySpeechTextCorrection(body: unknown) {
+  const text = body && typeof body === "object" && "text" in body ? (body as { text?: unknown }).text : null;
+  if (typeof text !== "string") {
+    return fail("VALIDATION_ERROR", "교정할 텍스트가 필요합니다.", 400);
+  }
+
+  let response;
+  try {
+    response = await axios.post<{ success?: boolean; data?: { text?: unknown; corrected_text?: unknown }; detail?: unknown }>(
+      backendApiUrl("/api/v1/speech/text-corrections"),
+      { text },
+      { headers: { "Content-Type": "application/json" }, timeout: backendAiTimeoutMs(), validateStatus: () => true },
+    );
+  } catch {
+    return ok({ text, correctedText: text });
+  }
+
+  const payload = response.data;
+  if (response.status < 200 || response.status >= 300 || payload?.success !== true || typeof payload.data?.text !== "string") {
+    return ok({ text, correctedText: text });
+  }
+
+  const correctedText = typeof payload.data.corrected_text === "string" ? payload.data.corrected_text : payload.data.text;
+  return ok({ text: payload.data.text, correctedText });
 }
 
 async function proxySpeechSynthesis(body: unknown) {
@@ -501,22 +674,25 @@ async function proxySpeechSynthesis(body: unknown) {
     return fail("VALIDATION_ERROR", "음성 이름 형식이 올바르지 않습니다.", 400);
   }
 
-  const response = await fetch(backendApiUrl("/api/v1/speech/synthesis"), {
-    body: JSON.stringify({ text, voice }),
+  const response = await axios.post(backendApiUrl("/api/v1/speech/synthesis"), { text, voice }, {
     headers: { "Content-Type": "application/json" },
-    method: "POST",
+    responseType: "arraybuffer",
+    timeout: backendTimeoutMs(),
+    validateStatus: () => true,
   });
 
-  if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as { detail?: unknown } | null;
+  if (response.status < 200 || response.status >= 300) {
+    const payload = response.data && typeof response.data === "object" && !ArrayBuffer.isView(response.data)
+      ? (response.data as { detail?: unknown })
+      : null;
     const message = typeof payload?.detail === "string" ? payload.detail : "음성 합성을 처리하지 못했습니다.";
     return fail("SPEECH_SYNTHESIS_FAILED", message, response.status || 502);
   }
 
   const headers = new Headers();
-  headers.set("content-type", response.headers.get("content-type") ?? "audio/mpeg");
+  headers.set("content-type", String(response.headers["content-type"] ?? "audio/mpeg"));
   headers.set("cache-control", "no-store");
-  return new NextResponse(await response.arrayBuffer(), { headers, status: response.status });
+  return new NextResponse(response.data, { headers, status: response.status });
 }
 
 async function proxyFileUpload(request: NextRequest) {
@@ -531,15 +707,14 @@ async function proxyFileUpload(request: NextRequest) {
   backendFormData.set("pet_id", backendPetId());
   backendFormData.set("purpose", "profile_photo");
 
-  const response = await fetch(backendApiUrl("/api/v1/files"), {
-    body: backendFormData,
-    method: "POST",
-  });
-  const payload = (await response.json().catch(() => null)) as
-    | { success?: boolean; data?: unknown; detail?: unknown }
-    | null;
+  const response = await axios.post<{ success?: boolean; data?: unknown; detail?: unknown }>(
+    backendApiUrl("/api/v1/files"),
+    backendFormData,
+    { timeout: backendTimeoutMs(), validateStatus: () => true },
+  );
+  const payload = response.data;
 
-  if (!response.ok || payload?.success !== true || !payload.data) {
+  if (response.status < 200 || response.status >= 300 || payload?.success !== true || !payload.data) {
     const message = typeof payload?.detail === "string" ? payload.detail : "이미지를 저장하지 못했습니다.";
     return fail("FILE_UPLOAD_FAILED", message, response.status || 502);
   }
@@ -548,18 +723,22 @@ async function proxyFileUpload(request: NextRequest) {
 }
 
 async function proxyFileDownload(fileId: string) {
-  const response = await fetch(backendApiUrl(`/api/v1/files/${encodeURIComponent(fileId)}`));
-  if (!response.ok) {
+  const response = await axios.get(backendApiUrl(`/api/v1/files/${encodeURIComponent(fileId)}`), {
+    responseType: "arraybuffer",
+    timeout: backendTimeoutMs(),
+    validateStatus: () => true,
+  });
+  if (response.status < 200 || response.status >= 300) {
     return fail("FILE_NOT_FOUND", "이미지를 찾지 못했습니다.", response.status || 404);
   }
 
   const headers = new Headers();
-  const contentType = response.headers.get("content-type");
+  const contentType = response.headers["content-type"];
   if (contentType) {
-    headers.set("content-type", contentType);
+    headers.set("content-type", String(contentType));
   }
   headers.set("cache-control", "public, max-age=31536000, immutable");
-  return new NextResponse(await response.arrayBuffer(), { status: response.status, headers });
+  return new NextResponse(response.data, { status: response.status, headers });
 }
 
 async function proxyCommunityGet(request: NextRequest, path: string[]) {
@@ -608,9 +787,12 @@ export async function GET(_request: NextRequest, context: RouteContext) {
   if (path[0] === "me" && path.length === 1) {
     try {
       const response = await axios.get(backendApiUrl("/api/v1/me"), { timeout: backendTimeoutMs(), validateStatus: () => true });
+      if (response.status < 200 || response.status >= 300 || response.data?.success !== true || !response.data.data) {
+        return ok(mockCurrentUser());
+      }
       return ok(response.data.data);
     } catch {
-      return fail("BACKEND_ME_FAILED", "내 정보를 불러오지 못했습니다.", 502);
+      return ok(mockCurrentUser());
     }
   }
 
@@ -621,9 +803,9 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       if (data && Array.isArray(data.pets)) {
         return ok(data);
       }
-      return fail("BACKEND_PETS_FAILED", "반려동물 목록 응답 형식이 올바르지 않습니다.", 502);
+      return ok(mockPets());
     } catch {
-      return fail("BACKEND_PETS_FAILED", "반려동물 목록을 불러오지 못했습니다.", 502);
+      return ok(mockPets());
     }
   }
 
@@ -730,6 +912,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
   if (isSpeechSynthesisPath(path)) {
     return proxySpeechSynthesis(body);
   }
+  if (isSpeechTextCorrectionPath(path)) {
+    return proxySpeechTextCorrection(body);
+  }
 
   if (path[0] === "community" && path.length >= 2) {
     return proxyCommunityPost(path, body);
@@ -741,7 +926,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
     try {
       const { result } = await requestBackendPetLogRecord(body.detail, body.category, true);
-      const records = mapBackendSavedRecordsToEntries(result, body.detail, body.category);
+      const records = combineSavedRecordEntries(
+        mapBackendSavedRecordsToEntries(result, body.detail, body.category),
+        body.detail,
+        body.category,
+      );
       if (records.length > 0) {
         return ok({ records }, 201);
       }
@@ -759,11 +948,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
       const { structured } = await requestBackendPetLogRecord(body.detail, body.fallbackCategory, false, backendAiTimeoutMs());
       return ok({ structured });
     } catch (error) {
-      console.error("[api/ai/records/structure] Error:", error);
-      const status = error instanceof BackendRouteError ? error.status : 502;
-      const code = error instanceof BackendRouteError ? error.code : "BACKEND_RECORD_FAILED";
-      const message = error instanceof BackendRouteError ? error.message : "기록 서버 요청을 처리하지 못했습니다.";
-      return fail(code, message, status);
+      console.warn("[api/ai/records/structure] backend fallback:", error instanceof Error ? error.message : error);
+      return ok({ structured: structureRecord(body.detail, body.fallbackCategory) });
     }
   }
 
@@ -892,11 +1078,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 
   if (path[0] === "pets" && path.length === 1) {
-    if (!body || typeof body.name !== "string") {
-      return fail("VALIDATION_ERROR", "이름은 필수입니다.");
-    }
+    const petBody = body && typeof body === "object" ? { ...body, name: resolveProfileName(body.name) } : { name: profileNameFallback() };
     try {
-      const response = await axios.post(backendApiUrl("/api/v1/pets"), body, { timeout: backendTimeoutMs(), validateStatus: () => true });
+      const response = await axios.post(backendApiUrl("/api/v1/pets"), petBody, { timeout: backendTimeoutMs(), validateStatus: () => true });
       return ok(response.data.data, 201);
     } catch {
       return fail("BACKEND_PET_CREATE_FAILED", "반려동물을 추가하지 못했습니다.", 502);
@@ -931,15 +1115,20 @@ export async function PUT(request: NextRequest, context: RouteContext) {
   const body = await readJson(request);
 
   if (path[0] === "profile" && path.length === 1) {
-    if (!body || typeof body.name !== "string" || typeof body.breed !== "string") {
-      return fail("VALIDATION_ERROR", "이름과 품종은 필수입니다.");
+    if (!body || typeof body !== "object") {
+      return fail("VALIDATION_ERROR", "프로필 형식이 올바르지 않습니다.");
     }
+    const profileBody = {
+      ...body,
+      name: resolveProfileName(body.name),
+      breed: resolveProfileBreed(body.breed),
+    };
     try {
       const response = await axios.put<{ success?: boolean; data?: unknown; detail?: unknown }>(
         backendApiUrl("/api/v1/pet-log/profile"),
         {
           pet_id: backendPetId(),
-          ...body,
+          ...profileBody,
         },
         { headers: { "Content-Type": "application/json" }, timeout: backendTimeoutMs(), validateStatus: () => true },
       );

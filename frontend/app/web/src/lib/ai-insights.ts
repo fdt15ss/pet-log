@@ -1,5 +1,4 @@
 import type {
-  ExtractedMeasurement,
   RecordCategory,
   RecordCategoryChoice,
   StructuredRecord,
@@ -11,14 +10,6 @@ const categoryKeywords: Record<RecordCategory, string[]> = {
   stool: ["배변", "소변", "대변", "변", "설사", "토"],
   medical: ["병원", "약", "접종", "백신", "진료", "복용"],
   behavior: ["불안", "짖", "낑낑", "기다림", "흥분", "행동", "조용"],
-};
-
-const measurementLabels: Record<string, string> = {
-  g: "급여량",
-  kg: "체중",
-  분: "시간",
-  회: "횟수",
-  "%": "비율",
 };
 
 /**
@@ -46,7 +37,7 @@ export function structureRecord(detail: string, fallbackCategory: RecordCategory
     suggestedCategory,
     detectedCategories: detectedCategories.length > 0 ? detectedCategories : [suggestedCategory],
     confidence,
-    measurements: extractMeasurements(sourceText),
+    measurements: [],
     needsConfirmation: confidence < 0.7 || (fallbackCategory !== "all" && suggestedCategory !== fallbackCategory),
   };
 }
@@ -67,17 +58,6 @@ function getCategoryMatches(sourceText: string) {
       category: category as RecordCategory,
       score: indexes.length,
       firstIndex: indexes.length > 0 ? Math.min(...indexes) : Number.MAX_SAFE_INTEGER,
-    };
-  });
-}
-
-function extractMeasurements(text: string): ExtractedMeasurement[] {
-  const matches = text.match(/\d+(?:\.\d+)?\s?(?:g|kg|분|회|%)/g) ?? [];
-  return matches.slice(0, 4).map((value) => {
-    const unit = value.replace(/[\d.\s]/g, "");
-    return {
-      label: measurementLabels[unit] ?? "수치",
-      value,
     };
   });
 }
