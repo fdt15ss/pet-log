@@ -25,6 +25,8 @@ node_modules/
 .next/
 out/
 *.tsbuildinfo
+playwright-report/
+test-results/
 
 # Production builds
 dist/
@@ -36,17 +38,25 @@ build/
 .env.*
 !.env.example
 
-# Logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-dev-server.*.log
+# Logs and Diagnostics
+*.log
+logs_*.zip
+*.zip
 
-# Local databases
-*.sqlite
-*.sqlite3
-*.db
+# Docker and Builds
+dist/
+build/
+.azure-deploy/
+*.egg-info/
+
+# Backend Specific Caches
+backend/.uv-cache/
+backend/.venv/
+backend/.pytest_cache/
+backend/.ruff_cache/
+backend/.python-version
+backend/.chroma_db/
+backend/__pycache__/
 
 # Editors
 .idea/
