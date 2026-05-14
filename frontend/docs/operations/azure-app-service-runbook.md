@@ -94,6 +94,40 @@ frontend/app/web/.azure-deploy/pet-log-web.zip
 npm run azure:deploy -- pet-log-rg pet-log-kp-20260504 "Azure for Students"
 ```
 
+### 백엔드 (FastAPI)
+
+배포 전 로컬 검증을 실행합니다.
+
+```bash
+cd backend
+uv run python -m unittest discover -s tests
+```
+
+Azure 배포용 ZIP을 생성합니다. (로컬 `.env`와 `.chroma_db`가 포함됩니다.)
+
+```bash
+bash scripts/azure-package.sh
+```
+
+생성 위치:
+
+```text
+backend/.azure-deploy/pet-log-backend.zip
+```
+
+패키징 및 배포를 실행합니다.
+
+```bash
+# 사용법: bash scripts/azure-deploy.sh <리소스그룹> <앱이름> [구독명]
+bash scripts/azure-deploy.sh pet-log-rg pet-log-backend-kp "Azure for Students"
+```
+
+배포 후 다음 명령으로 헬스체크를 수행합니다.
+
+```bash
+curl -I https://pet-log-backend-kp.azurewebsites.net/health
+```
+
 배포 후 다음 명령으로 앱과 API를 확인합니다.
 
 ```bash
