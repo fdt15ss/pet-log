@@ -181,7 +181,7 @@ export function updateProfile(input: PetProfile) {
 }
 
 export function createRecord(input: NewRecordInput) {
-  return requestData<{ record: RecordEntry }>(apiClient.post("/records", input));
+  return requestData<{ records: RecordEntry[] }>(apiClient.post("/records", input));
 }
 
 export function structureRecordPreview(input: StructureRecordInput) {
@@ -206,6 +206,15 @@ export function transcribeSpeechAudio(audio: File) {
   const formData = new FormData();
   formData.set("audio", audio);
   return requestData<SpeechTranscriptionResponse>(axios.post("/api/v1/speech/transcriptions", formData));
+}
+
+export async function synthesizeSpeech(text: string, voice?: string) {
+  console.info("[api-client] POST /api/v1/speech/synthesis", {
+    textLength: text.trim().length,
+    voice: voice ?? null,
+  });
+  const response = await axios.post("/api/v1/speech/synthesis", { text, voice }, { responseType: "blob" });
+  return response.data as Blob;
 }
 
 export function uploadProfilePhoto(photo: File) {

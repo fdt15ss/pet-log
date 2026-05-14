@@ -18,7 +18,7 @@ class ImageRecordUnderstandingProvider(BaseLLMProvider[LLMModel]):
         *,
         api_key: str | None = None,
         model: str | None = None,
-        timeout: float = 60.0,
+        timeout: float = 35.0,
         model_factory: ModelFactory[LLMModel] = build_image_record_understanding_model,
         structured_model: LLMModel | None = None,
     ) -> None:

@@ -1,6 +1,7 @@
-import unittest
+import asyncio
 import tempfile
-from datetime import datetime
+import unittest
+from datetime import date, datetime
 from pathlib import Path
 from unittest.mock import patch
 
@@ -130,6 +131,7 @@ class FakeAppContext:
         self.context_analysis_agent = FakeContextAnalysisAgent()
         self.suggestion_agent = FakeSuggestionAgent()
         self.speech_to_text = FakeSpeechToText()
+        self.text_to_speech = FakeTextToSpeech()
         self.shopping_agent = FakeShoppingAgent()
         self.hospital_recommendation_agent = FakeHospitalRecommendationAgent()
         self.closed = False
@@ -147,6 +149,26 @@ class FakeSpeechToText:
         self.transcribed_audio = audio
         self.transcribed_content_type = content_type
         return "오늘 아침 사료를 조금 남겼어"
+
+
+class FakeTextToSpeech:
+    def __init__(self) -> None:
+        self.synthesized_text = None
+        self.synthesized_voice = None
+
+    def synthesize(self, text: str, voice: str | None = None) -> bytes:
+        self.synthesized_text = text
+        self.synthesized_voice = voice
+        return f"{voice or 'default'}:{text}".encode("utf-8")
+
+
+class AsyncioRunTextToSpeech(FakeTextToSpeech):
+    def synthesize(self, text: str, voice: str | None = None) -> bytes:
+        asyncio.run(self._save_audio())
+        return super().synthesize(text, voice)
+
+    async def _save_audio(self) -> None:
+        await asyncio.sleep(0)
 
 
 class FakeHospitalRecommendationAgent:
@@ -232,7 +254,7 @@ class TestHttpRoutes(unittest.TestCase):
 
     def test_community_routes_list_posts_and_detail(self):
         connection = connect(":memory:")
-        seed_default_data(connection)
+        seed_default_data(connection, today=date(2026, 5, 7))
         context = AppContext(
             pet_log_agent_pipeline=FakePetLogAgentPipeline(),
             pet_profile_reader=FakePetProfileReader(),
@@ -257,7 +279,7 @@ class TestHttpRoutes(unittest.TestCase):
                 "title": "말티즈 산책 줄면 쉽게 흥분하나요?",
                 "body": "산책 시간이 줄어든 뒤 현관 앞에서 기다리거나 소리에 예민하게 반응하는 날이 늘었어요. 짧게라도 산책을 나누는 게 도움이 될까요?",
                 "authorName": "코코 보호자",
-                "createdAt": "오늘 09:20",
+                "createdAt": "2026-05-07T09:20:00",
                 "comments": 2,
                 "likes": 26,
                 "feeds": ["인기글", "최신글"],
@@ -266,7 +288,65 @@ class TestHttpRoutes(unittest.TestCase):
         )
         detail = detail_response.json()["data"]["post"]
         self.assertEqual(detail["meta"], "행동 고민 · 댓글 2 · 공감 26")
-        self.assertEqual([comment["id"] for comment in detail["commentItems"]], ["comment-c1-2", "comment-c1-1"])
+        self.assertEqual([comment["id"] for comment in detail["commentItems"]], ["comment-c1-1", "comment-c1-2"])
+
+    def test_community_routes_do_not_expose_nearby_feed(self):
+        client = TestClient(create_app(app_context_factory=FakeAppContext))
+
+        response = client.get("/api/v1/community/boards")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["data"]["feeds"], ["인기글", "최신글"])
+
+    def test_community_routes_paginates_posts_by_ten(self):
+        connection = connect(":memory:")
+        repository = CommunityRepository(connection=connection)
+        connection.executemany(
+            """
+            INSERT INTO community_posts (id, board, title, body, author_name, created_at, likes, feeds, tags)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                (
+                    f"page-post-{index:02d}",
+                    "자유게시판",
+                    f"글 {index}",
+                    "본문입니다.",
+                    "나",
+                    f"2026-05-13T00:{index:02d}:00Z",
+                    0,
+                    '["최신글"]',
+                    '["새 글"]',
+                )
+                for index in range(12)
+            ),
+        )
+        connection.commit()
+        context = AppContext(
+            pet_log_agent_pipeline=FakePetLogAgentPipeline(),
+            pet_profile_reader=FakePetProfileReader(),
+            speech_to_text=FakeSpeechToText(),
+            community_repository=repository,
+            close=connection.close,
+        )
+
+        with TestClient(create_app(app_context=context)) as client:
+            first_response = client.get(
+                "/api/v1/community/posts",
+                params={"feed": "최신글", "board": "자유게시판", "limit": 10, "offset": 0},
+            )
+            second_response = client.get(
+                "/api/v1/community/posts",
+                params={"feed": "최신글", "board": "자유게시판", "limit": 10, "offset": 10},
+            )
+
+        self.assertEqual(first_response.status_code, 200)
+        self.assertEqual(len(first_response.json()["data"]["posts"]), 10)
+        self.assertEqual(first_response.json()["data"]["totalCount"], 12)
+        self.assertTrue(first_response.json()["data"]["hasMore"])
+        self.assertEqual([post["id"] for post in second_response.json()["data"]["posts"]], ["page-post-01", "page-post-00"])
+        self.assertEqual(second_response.json()["data"]["totalCount"], 12)
+        self.assertFalse(second_response.json()["data"]["hasMore"])
 
     def test_community_routes_create_post_comment_and_reaction(self):
         connection = connect(":memory:")
@@ -281,7 +361,13 @@ class TestHttpRoutes(unittest.TestCase):
         with TestClient(create_app(app_context=context)) as client:
             post_response = client.post(
                 "/api/v1/community/posts",
-                json={"board": "자유게시판", "title": "새 글", "body": "본문입니다."},
+                json={
+                    "board": "유기동물",
+                    "title": "새 글",
+                    "body": "본문입니다.",
+                    "tags": ["입양", "#임시보호"],
+                    "locationLabel": "마포구 보호소 근처",
+                },
             )
             post_id = post_response.json()["data"]["post"]["id"]
             comment_response = client.post(
@@ -291,9 +377,12 @@ class TestHttpRoutes(unittest.TestCase):
             reaction_response = client.post(f"/api/v1/community/posts/{post_id}/reactions")
 
         self.assertEqual(post_response.status_code, 201)
-        self.assertEqual(post_response.json()["data"]["post"]["authorName"], "나")
+        self.assertRegex(post_response.json()["data"]["post"]["authorName"], r"^[가-힣]+ [가-힣]+$")
         self.assertEqual(post_response.json()["data"]["post"]["feeds"], ["최신글"])
+        self.assertEqual(post_response.json()["data"]["post"]["tags"], ["입양", "임시보호"])
+        self.assertEqual(post_response.json()["data"]["post"]["locationLabel"], "마포구 보호소 근처")
         self.assertEqual(comment_response.status_code, 201)
+        self.assertRegex(comment_response.json()["data"]["comment"]["authorName"], r"^[가-힣]+ [가-힣]+$")
         self.assertEqual(comment_response.json()["data"]["comment"]["body"], "첫 댓글입니다.")
         self.assertEqual(comment_response.json()["data"]["post"]["comments"], 1)
         self.assertEqual(reaction_response.status_code, 200)
@@ -365,69 +454,6 @@ class TestHttpRoutes(unittest.TestCase):
         self.assertEqual(context.shopping_agent.handled_text, "사료를 조금 남겼어요")
         self.assertEqual(context.shopping_agent.handled_records[0].id, "record-1")
         self.assertEqual(context.shopping_agent.handled_suggestions[0].title, "식사 관리")
-
-    def test_snapshot_route_returns_db_backed_frontend_snapshot(self):
-        context = FakeAppContext()
-
-        with TestClient(create_app(app_context_factory=lambda: context)) as client:
-            response = client.get("/api/v1/pet-log/snapshot?pet_id=pet_01JCM7V8H9Q2K4N6R8T0A1B2C3")
-
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(
-            response.json(),
-            {
-                "success": True,
-                "data": {
-                    "version": 1,
-                    "profile": {
-                        "name": "초코",
-                        "breed": "말티푸",
-                        "age": "3살",
-                        "sex": "암컷",
-                        "weight": "3.4kg",
-                        "birthday": "2018.5.11",
-                        "personality": "저녁 산책을 좋아해요",
-                        "notes": ["아침 식사는 천천히 먹는 편"],
-                    },
-                    "records": [
-                        {
-                            "id": "record-1",
-                            "date": "5월 9일",
-                            "time": "08:10",
-                            "category": "meal",
-                            "title": "아침 식사",
-                            "detail": "사료를 조금 남겼어요.",
-                            "status": "notice",
-                        }
-                    ],
-                    "schedules": [
-                        {
-                            "id": "schedule-1",
-                            "category": "checkup",
-                            "title": "정기 검진",
-                            "dueDate": "2026-05-16",
-                            "repeatLabel": "6개월마다",
-                            "note": "식사량 같이 상담",
-                            "isDone": False,
-                        }
-                    ],
-                    "settings": {
-                        "notificationPreferences": {
-                            "missingRecord": True,
-                            "alert": True,
-                            "schedule": True,
-                        },
-                        "aiInsightEnabled": True,
-                    },
-                    "readNotificationIds": [],
-                    "expansionState": {
-                        "sharedCare": {},
-                        "hospital": {},
-                        "shopping": {},
-                    },
-                },
-            },
-        )
 
     def test_record_route_logs_pipeline_result_summary(self):
         context = FakeAppContext()
@@ -581,6 +607,40 @@ class TestHttpRoutes(unittest.TestCase):
             )
 
         self.assertEqual(response.status_code, 415)
+
+    def test_speech_synthesis_route_returns_mpeg_audio(self):
+        context = FakeAppContext()
+
+        with TestClient(create_app(app_context_factory=lambda: context)) as client:
+            response = client.post(
+                "/api/v1/speech/synthesis",
+                json={"text": "주의 기록 후속 확인이 필요합니다.", "voice": "ko-KR-InJoonNeural"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers["content-type"], "audio/mpeg")
+        self.assertEqual(response.content, "ko-KR-InJoonNeural:주의 기록 후속 확인이 필요합니다.".encode("utf-8"))
+        self.assertEqual(context.text_to_speech.synthesized_text, "주의 기록 후속 확인이 필요합니다.")
+        self.assertEqual(context.text_to_speech.synthesized_voice, "ko-KR-InJoonNeural")
+
+    def test_speech_synthesis_route_runs_provider_outside_event_loop(self):
+        context = FakeAppContext()
+        context.text_to_speech = AsyncioRunTextToSpeech()
+
+        with TestClient(create_app(app_context_factory=lambda: context)) as client:
+            response = client.post(
+                "/api/v1/speech/synthesis",
+                json={"text": "알림을 읽어주세요."},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.content, "default:알림을 읽어주세요.".encode("utf-8"))
+
+    def test_speech_synthesis_route_rejects_empty_text(self):
+        with TestClient(create_app(app_context_factory=FakeAppContext)) as client:
+            response = client.post("/api/v1/speech/synthesis", json={"text": "   "})
+
+        self.assertEqual(response.status_code, 422)
 
     def test_file_upload_route_saves_profile_photo_and_serves_it(self):
         with tempfile.TemporaryDirectory() as directory:

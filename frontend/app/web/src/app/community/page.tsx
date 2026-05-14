@@ -1,14 +1,35 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import { PetIcon } from "@/components/pet-icons";
 import { Card, Pill, SectionHeader } from "@/components/ui";
-import { createCommunityComment, createCommunityPost, getCommunityPostDetail, getCommunityPosts } from "@/lib/community";
+import {
+  DEFAULT_COMMUNITY_BOARD,
+  DEFAULT_COMMUNITY_FEED,
+  COMMUNITY_POST_PAGE_SIZE,
+  fetchCommunityBoards,
+  fetchCommunityPostDetail,
+  fetchCommunityPosts,
+  formatCommunityCreatedAt,
+  getCommunityBoardCounts,
+  getCommunityDefaultPosts,
+  getCommunityPostDetail,
+  getCommunityPosts,
+  getCommunitySummaryPostCount,
+  parseCommunityTags,
+  resolveCommunityDraftBoard,
+  resolveCommunityFetchQuery,
+  resolveCommunitySelectedPostId,
+  submitCommunityComment,
+  submitCommunityPost,
+  submitCommunityReaction,
+  type CommunityPostDetail,
+} from "@/lib/community";
 import { communityBoards, communityComments, communityPosts } from "@/lib/mock-data";
-import type { CommunityBoard, CommunityFeed } from "@/lib/types";
+import type { CommunityBoard, CommunityFeed, CommunityPost } from "@/lib/types";
 
-const feedFilters: CommunityFeed[] = ["인기글", "최신글", "내 주변"];
+const feedFilters: CommunityFeed[] = ["인기글", "최신글"];
 
 const boardStyles: Record<CommunityBoard, { marker: string; text: string; bg: string }> = {
   유기동물: { marker: "bg-[#be4c3c]", text: "text-[#be4c3c]", bg: "bg-[#fff7f5]" },
@@ -26,84 +47,280 @@ const boardIcons: Record<CommunityBoard, "heart" | "shopping" | "community" | "b
   후기: "check",
 };
 
-const feedIcons: Record<CommunityFeed, "sparkle" | "timeline" | "home"> = {
+const feedIcons: Record<CommunityFeed, "sparkle" | "timeline"> = {
   인기글: "sparkle",
   최신글: "timeline",
-  "내 주변": "home",
 };
 
 export default function CommunityPage() {
-  const [posts, setPosts] = useState(communityPosts);
-  const [comments, setComments] = useState(communityComments);
-  const [activeBoard, setActiveBoard] = useState<CommunityBoard | null>(null);
-  const [activeFeed, setActiveFeed] = useState<CommunityFeed>("인기글");
-  const [selectedPostId, setSelectedPostId] = useState(communityPosts[0]?.id ?? "");
+  const initialPosts = getCommunityDefaultPosts(communityPosts);
+  const [boards, setBoards] = useState<CommunityBoard[]>(communityBoards);
+  const [allPosts, setAllPosts] = useState<CommunityPost[]>(communityPosts);
+  const [posts, setPosts] = useState<CommunityPost[]>(initialPosts);
+  const [activeBoard, setActiveBoard] = useState<CommunityBoard | null>(DEFAULT_COMMUNITY_BOARD);
+  const [activeFeed, setActiveFeed] = useState<CommunityFeed | null>(DEFAULT_COMMUNITY_FEED);
+  const [selectedPostId, setSelectedPostId] = useState(initialPosts[0]?.id ?? "");
+  const [selectedDetail, setSelectedDetail] = useState<CommunityPostDetail | null>(() =>
+    initialPosts[0] ? getCommunityPostDetail(initialPosts[0], communityComments) : null,
+  );
   const [savedPostIds, setSavedPostIds] = useState<string[]>([]);
   const [commentDraft, setCommentDraft] = useState("");
   const [isComposerOpen, setIsComposerOpen] = useState(false);
   const [draftBoard, setDraftBoard] = useState<CommunityBoard>("자유게시판");
   const [draftTitle, setDraftTitle] = useState("");
   const [draftBody, setDraftBody] = useState("");
+  const [draftAuthorName, setDraftAuthorName] = useState("");
+  const [draftTags, setDraftTags] = useState("");
+  const [draftLocationLabel, setDraftLocationLabel] = useState("");
+  const [isLoadingPosts, setIsLoadingPosts] = useState(false);
+  const [isLoadingMorePosts, setIsLoadingMorePosts] = useState(false);
+  const [hasMorePosts, setHasMorePosts] = useState(false);
+  const [isSubmittingPost, setIsSubmittingPost] = useState(false);
+  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+  const [isReactingPost, setIsReactingPost] = useState(false);
+  const [communityError, setCommunityError] = useState("");
 
   const visiblePosts = useMemo(() => getCommunityPosts(posts, { feed: activeFeed, board: activeBoard }), [activeBoard, activeFeed, posts]);
-  const selectedPost = useMemo(() => posts.find((post) => post.id === selectedPostId) ?? visiblePosts[0], [posts, selectedPostId, visiblePosts]);
-  const selectedDetail = useMemo(
-    () => (selectedPost ? getCommunityPostDetail(selectedPost, comments) : null),
-    [comments, selectedPost],
-  );
+  const boardCounts = useMemo(() => getCommunityBoardCounts(allPosts), [allPosts]);
+  const summaryPostCount = useMemo(() => getCommunitySummaryPostCount(allPosts, activeBoard), [activeBoard, allPosts]);
 
-  function addComment() {
-    if (!selectedPost || !commentDraft.trim()) {
+  useEffect(() => {
+    let ignore = false;
+
+    fetchCommunityBoards()
+      .then(({ boards }) => {
+        if (!ignore) {
+          setBoards(boards);
+        }
+      })
+      .catch(() => {
+        if (!ignore) {
+          setCommunityError("게시판 목록을 불러오지 못했습니다.");
+        }
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let ignore = false;
+
+    fetchCommunityPosts()
+      .then(({ posts }) => {
+        if (!ignore) {
+          setAllPosts(posts);
+        }
+      })
+      .catch(() => {
+        if (!ignore) {
+          setCommunityError("커뮤니티 글 수를 불러오지 못했습니다.");
+        }
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let ignore = false;
+
+    setIsLoadingPosts(true);
+    fetchCommunityPosts(resolveCommunityFetchQuery({ feed: activeFeed, board: activeBoard, limit: COMMUNITY_POST_PAGE_SIZE, offset: 0 }))
+      .then(({ posts, hasMore }) => {
+        if (ignore) {
+          return;
+        }
+        setPosts(posts);
+        setHasMorePosts(Boolean(hasMore));
+        setSelectedPostId((current) => resolveCommunitySelectedPostId(posts, current));
+        setCommunityError("");
+      })
+      .catch(() => {
+        if (!ignore) {
+          setCommunityError("커뮤니티 글을 불러오지 못했습니다.");
+        }
+      })
+      .finally(() => {
+        if (!ignore) {
+          setIsLoadingPosts(false);
+        }
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [activeBoard, activeFeed]);
+
+  useEffect(() => {
+    let ignore = false;
+
+    if (!selectedPostId || !posts.some((post) => post.id === selectedPostId)) {
+      setSelectedDetail(null);
+      return () => {
+        ignore = true;
+      };
+    }
+
+    fetchCommunityPostDetail(selectedPostId)
+      .then(({ post }) => {
+        if (!ignore) {
+          setSelectedDetail(post);
+        }
+      })
+      .catch(() => {
+        if (!ignore) {
+          const fallbackPost = posts.find((post) => post.id === selectedPostId);
+          setSelectedDetail(fallbackPost ? getCommunityPostDetail(fallbackPost, []) : null);
+          setCommunityError("글 상세를 불러오지 못했습니다.");
+        }
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [posts, selectedPostId]);
+
+  async function addComment() {
+    if (!selectedDetail || !commentDraft.trim() || isSubmittingComment) {
       return;
     }
 
-    const comment = createCommunityComment({ postId: selectedPost.id, body: commentDraft });
-    setComments((current) => [comment, ...current]);
-    setPosts((current) =>
-      current.map((post) => (post.id === selectedPost.id ? { ...post, comments: post.comments + 1 } : post)),
-    );
-    setCommentDraft("");
+    setIsSubmittingComment(true);
+    try {
+      const { comment, post } = await submitCommunityComment({ postId: selectedDetail.id, body: commentDraft });
+      setPosts((current) => current.map((item) => (item.id === post.id ? post : item)));
+      setAllPosts((current) => current.map((item) => (item.id === post.id ? post : item)));
+      setSelectedDetail((current) =>
+        current && current.id === post.id ? getCommunityPostDetail(post, [...current.commentItems, comment]) : current,
+      );
+      setCommentDraft("");
+      setCommunityError("");
+    } catch {
+      setCommunityError("댓글을 등록하지 못했습니다.");
+    } finally {
+      setIsSubmittingComment(false);
+    }
   }
 
-  function submitPost() {
-    if (!draftTitle.trim() || !draftBody.trim()) {
+  async function submitPost() {
+    if (!draftTitle.trim() || !draftBody.trim() || isSubmittingPost) {
       return;
     }
 
-    const post = createCommunityPost({ board: draftBoard, title: draftTitle, body: draftBody });
-    setPosts((current) => [post, ...current]);
-    setSelectedPostId(post.id);
-    setActiveBoard(draftBoard);
-    setActiveFeed("최신글");
-    setDraftTitle("");
-    setDraftBody("");
-    setIsComposerOpen(false);
+    setIsSubmittingPost(true);
+    try {
+      const { post } = await submitCommunityPost({
+        board: draftBoard,
+        title: draftTitle,
+        body: draftBody,
+        authorName: draftAuthorName,
+        tags: parseCommunityTags(draftTags),
+        locationLabel: draftLocationLabel,
+      });
+      setPosts((current) => [post, ...current.filter((item) => item.id !== post.id)]);
+      setAllPosts((current) => [post, ...current.filter((item) => item.id !== post.id)]);
+      setSelectedPostId(post.id);
+      setSelectedDetail(getCommunityPostDetail(post, []));
+      setActiveBoard(draftBoard);
+      setActiveFeed("최신글");
+      setDraftTitle("");
+      setDraftBody("");
+      setDraftAuthorName("");
+      setDraftTags("");
+      setDraftLocationLabel("");
+      setIsComposerOpen(false);
+      setCommunityError("");
+    } catch {
+      setCommunityError("글을 등록하지 못했습니다.");
+    } finally {
+      setIsSubmittingPost(false);
+    }
+  }
+
+  async function reactToPost() {
+    if (!selectedDetail || isReactingPost) {
+      return;
+    }
+
+    setIsReactingPost(true);
+    try {
+      const { post } = await submitCommunityReaction(selectedDetail.id);
+      setPosts((current) => current.map((item) => (item.id === post.id ? post : item)));
+      setAllPosts((current) => current.map((item) => (item.id === post.id ? post : item)));
+      setSelectedDetail((current) => (current && current.id === post.id ? getCommunityPostDetail(post, current.commentItems) : current));
+      setCommunityError("");
+    } catch {
+      setCommunityError("공감을 반영하지 못했습니다.");
+    } finally {
+      setIsReactingPost(false);
+    }
   }
 
   function toggleSavedPost(postId: string) {
     setSavedPostIds((current) => (current.includes(postId) ? current.filter((id) => id !== postId) : [...current, postId]));
   }
 
+  async function loadMorePosts() {
+    if (isLoadingMorePosts || !hasMorePosts) {
+      return;
+    }
+
+    setIsLoadingMorePosts(true);
+    try {
+      const { posts: nextPosts, hasMore } = await fetchCommunityPosts(
+        resolveCommunityFetchQuery({
+          feed: activeFeed,
+          board: activeBoard,
+          limit: COMMUNITY_POST_PAGE_SIZE,
+          offset: posts.length,
+        }),
+      );
+      setPosts((current) => {
+        const existingIds = new Set(current.map((post) => post.id));
+        return [...current, ...nextPosts.filter((post) => !existingIds.has(post.id))];
+      });
+      setHasMorePosts(Boolean(hasMore));
+      setCommunityError("");
+    } catch {
+      setCommunityError("추가 글을 불러오지 못했습니다.");
+    } finally {
+      setIsLoadingMorePosts(false);
+    }
+  }
+
+  function toggleComposer() {
+    setIsComposerOpen((current) => {
+      const next = !current;
+      if (next) {
+        setDraftBoard(resolveCommunityDraftBoard(activeBoard));
+      }
+      return next;
+    });
+  }
+
   return (
     <AppShell subtitle="커뮤니티" title="커뮤니티">
       <div className="space-y-5">
         <Card className="bg-gradient-to-br from-white to-[#f6f9ff]">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="inline-flex items-center gap-1.5 text-sm font-bold text-[#356aa8]">
-                <PetIcon className="h-4 w-4" name="community" />
-                동네 보호자 피드
-              </p>
-              <h2 className="mt-1 text-lg font-black text-[#1f2922]">
-                {activeBoard ? `${activeBoard} 중심으로 보기` : "필요한 게시판을 빠르게 찾기"}
-              </h2>
-              <p className="mt-2 text-sm leading-6 text-[#667262]">
-                {visiblePosts.length}개 글 · 저장 {savedPostIds.length}개 · {activeFeed}
-              </p>
-            </div>
+          <div className="min-w-0">
+            <p className="inline-flex items-center gap-1.5 text-sm font-bold text-[#356aa8]">
+              <PetIcon className="h-4 w-4" name="community" />
+              동네 보호자 피드
+            </p>
+            <h2 className="mt-1 text-lg font-black text-[#1f2922]">
+              {activeBoard ? `${activeBoard} 중심으로 보기` : "필요한 게시판을 빠르게 찾기"}
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-[#667262]">
+              {summaryPostCount}개 글 · 저장 {savedPostIds.length}개 · {activeFeed ?? "전체글"}
+            </p>
+          </div>
+          <div className="mt-4 flex justify-end border-t border-[#e0e6da] pt-3">
             <button
-              className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-xl bg-[#16804b] px-3 text-sm font-black text-white"
-              onClick={() => setIsComposerOpen((current) => !current)}
+              className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-xl bg-[#16804b] px-3 text-sm font-black text-white"
+              onClick={toggleComposer}
               type="button"
             >
               <PetIcon className="h-4 w-4" name={isComposerOpen ? "close" : "plus"} />
@@ -112,18 +329,30 @@ export default function CommunityPage() {
           </div>
         </Card>
 
+        {communityError ? (
+          <p className="rounded-xl bg-[#fff7f5] px-3 py-2 text-sm font-bold text-[#be4c3c]" role="status">
+            {communityError}
+          </p>
+        ) : null}
+
         {isComposerOpen ? (
           <Card>
             <div className="grid grid-cols-2 gap-2">
-              {communityBoards.map((board) => (
+              {boards.map((board) => (
                 <Pill active={draftBoard === board} className="w-full px-2 text-xs" key={board} onClick={() => setDraftBoard(board)}>
                   <span className="inline-flex items-center gap-1.5">
                     <PetIcon className="h-3.5 w-3.5" name={boardIcons[board]} />
-                  {board}
+                    {board}
                   </span>
                 </Pill>
               ))}
             </div>
+            <input
+              className="mt-3 h-11 w-full rounded-xl border border-[#dce7d7] bg-[#fbfdf8] px-3 text-sm font-bold text-[#1f2922] outline-none focus:border-[#16804b]"
+              onChange={(event) => setDraftAuthorName(event.target.value)}
+              placeholder="닉네임 (비우면 랜덤)"
+              value={draftAuthorName}
+            />
             <input
               className="mt-3 h-11 w-full rounded-xl border border-[#dce7d7] bg-[#fbfdf8] px-3 text-sm font-bold text-[#1f2922] outline-none focus:border-[#16804b]"
               onChange={(event) => setDraftTitle(event.target.value)}
@@ -136,22 +365,34 @@ export default function CommunityPage() {
               placeholder="내용을 입력하세요"
               value={draftBody}
             />
+            <input
+              className="mt-3 h-11 w-full rounded-xl border border-[#dce7d7] bg-[#fbfdf8] px-3 text-sm font-bold text-[#1f2922] outline-none focus:border-[#16804b]"
+              onChange={(event) => setDraftTags(event.target.value)}
+              placeholder="#입양 #임시보호"
+              value={draftTags}
+            />
+            <input
+              className="mt-3 h-11 w-full rounded-xl border border-[#dce7d7] bg-[#fbfdf8] px-3 text-sm font-bold text-[#1f2922] outline-none focus:border-[#16804b]"
+              onChange={(event) => setDraftLocationLabel(event.target.value)}
+              placeholder="위치 라벨 (예: 마포구 보호소 근처)"
+              value={draftLocationLabel}
+            />
             <button
               className="mt-3 h-11 w-full rounded-xl bg-[#16804b] text-sm font-black text-white disabled:bg-[#cfd8ca]"
-              disabled={!draftTitle.trim() || !draftBody.trim()}
+              disabled={!draftTitle.trim() || !draftBody.trim() || isSubmittingPost}
               onClick={submitPost}
               type="button"
             >
               <PetIcon className="mr-1 inline h-4 w-4" name="send" />
-              게시하기
+              {isSubmittingPost ? "게시 중" : "게시하기"}
             </button>
           </Card>
         ) : null}
 
         <div className="grid grid-cols-2 gap-2">
-          {communityBoards.map((item) => {
+          {boards.map((item) => {
             const active = activeBoard === item;
-            const postCount = posts.filter((post) => post.board === item).length;
+            const postCount = boardCounts[item] ?? 0;
             const style = boardStyles[item];
             return (
               <button
@@ -180,7 +421,7 @@ export default function CommunityPage() {
             <Pill active={activeFeed === filter} className="w-full px-2 text-xs" key={filter} onClick={() => setActiveFeed(filter)}>
               <span className="inline-flex items-center gap-1.5">
                 <PetIcon className="h-3.5 w-3.5" name={feedIcons[filter]} />
-              {filter}
+                {filter}
               </span>
             </Pill>
           ))}
@@ -189,12 +430,11 @@ export default function CommunityPage() {
         <section>
           <SectionHeader
             action={
-              activeBoard ? (
+              activeFeed ? (
                 <button
                   className="text-xs font-bold text-[#16804b]"
                   onClick={() => {
-                    setActiveBoard(null);
-                    setSelectedPostId("");
+                    setActiveFeed(null);
                   }}
                   type="button"
                 >
@@ -202,13 +442,14 @@ export default function CommunityPage() {
                 </button>
               ) : null
             }
-            title={activeBoard ? `${activeBoard} ${activeFeed}` : activeFeed}
+            title={activeBoard ? `${activeBoard} ${activeFeed ?? "전체글"}` : activeFeed ?? "전체글"}
           />
           <div className="space-y-3">
+            {isLoadingPosts ? <p className="px-1 text-sm font-bold text-[#667262]">커뮤니티 글을 불러오는 중입니다.</p> : null}
             {visiblePosts.map((post) => (
               <button
                 className={`w-full rounded-2xl border bg-white p-4 text-left shadow-[0_10px_28px_rgba(49,65,44,0.1)] transition ${
-                  selectedPost?.id === post.id ? "border-[#16804b]" : "border-[#cdd8c6]"
+                  selectedPostId === post.id ? "border-[#16804b]" : "border-[#cdd8c6]"
                 }`}
                 key={post.id}
                 onClick={() => setSelectedPostId(post.id)}
@@ -229,7 +470,7 @@ export default function CommunityPage() {
                 <p className="mt-2 line-clamp-2 text-xs font-semibold leading-5 text-[#667262]">{post.body}</p>
                 <p className="mt-2 text-xs font-semibold text-[#7c8777]">
                   {post.authorName} · 댓글 {post.comments} · 공감 {post.likes}
-                  {post.distance ? ` · ${post.distance}` : ""}
+                  {post.locationLabel ? ` · 위치 ${post.locationLabel}` : ""}
                 </p>
               </button>
             ))}
@@ -239,6 +480,16 @@ export default function CommunityPage() {
                 <p className="mt-2 text-sm leading-6 text-[#667262]">게시판이나 글 필터를 바꿔보세요.</p>
               </Card>
             ) : null}
+            {hasMorePosts ? (
+              <button
+                className="h-11 w-full rounded-xl border border-[#cdd8c6] bg-white text-sm font-black text-[#16804b] disabled:text-[#9aa393]"
+                disabled={isLoadingMorePosts}
+                onClick={loadMorePosts}
+                type="button"
+              >
+                {isLoadingMorePosts ? "불러오는 중" : "더 보기"}
+              </button>
+            ) : null}
           </div>
         </section>
 
@@ -246,25 +497,39 @@ export default function CommunityPage() {
           <section>
             <SectionHeader title="상세" />
             <Card>
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-xs font-bold text-[#16804b]">{selectedDetail.meta}</p>
-                  <h2 className="mt-2 text-lg font-black leading-6 text-[#1f2922]">{selectedDetail.title}</h2>
-                  <p className="mt-1 text-xs font-semibold text-[#7c8777]">
-                    {selectedDetail.authorName} · {selectedDetail.createdAt}
+              <p className="text-xs font-bold text-[#16804b]">{selectedDetail.meta}</p>
+              <div className="mt-3 flex items-center justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-2">
+                  <p className="truncate text-xs font-semibold text-[#7c8777]">
+                    {selectedDetail.authorName} · {formatCommunityCreatedAt(selectedDetail.createdAt)}
                   </p>
                 </div>
-                <button
-                  aria-pressed={savedPostIds.includes(selectedDetail.id)}
-                  className={`inline-flex h-10 shrink-0 items-center gap-1.5 rounded-xl px-3 text-sm font-black ${
-                    savedPostIds.includes(selectedDetail.id) ? "bg-[#fff2dd] text-[#a4651a]" : "bg-[#edf8ed] text-[#16804b]"
-                  }`}
-                  onClick={() => toggleSavedPost(selectedDetail.id)}
-                  type="button"
-                >
-                  <PetIcon className="h-4 w-4" name={savedPostIds.includes(selectedDetail.id) ? "check" : "heart"} />
-                  {savedPostIds.includes(selectedDetail.id) ? "저장됨" : "저장"}
-                </button>
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <button
+                    aria-label={`공감 ${selectedDetail.likes}`}
+                    className="inline-flex h-7 items-center gap-1 rounded-md bg-[#fff2dd] px-2 text-[11px] font-black text-[#a4651a] disabled:opacity-60"
+                    disabled={isReactingPost}
+                    onClick={reactToPost}
+                    type="button"
+                  >
+                    <PetIcon className="h-3 w-3" name="heart" />
+                    <span>{selectedDetail.likes}</span>
+                  </button>
+                  <button
+                    aria-label={savedPostIds.includes(selectedDetail.id) ? "저장됨" : "저장"}
+                    aria-pressed={savedPostIds.includes(selectedDetail.id)}
+                    className={`inline-flex h-7 w-7 items-center justify-center rounded-md text-[11px] font-black ${
+                      savedPostIds.includes(selectedDetail.id) ? "bg-[#fff2dd] text-[#a4651a]" : "bg-[#edf8ed] text-[#16804b]"
+                    }`}
+                    onClick={() => toggleSavedPost(selectedDetail.id)}
+                    type="button"
+                  >
+                    <PetIcon className="h-3 w-3" name={savedPostIds.includes(selectedDetail.id) ? "check" : "bookmark"} />
+                  </button>
+                </div>
+              </div>
+              <div className="mt-3 border-b border-[#e0e6da] pb-3">
+                <h2 className="text-lg font-black leading-6 text-[#1f2922]">{selectedDetail.title}</h2>
               </div>
               <p className="mt-4 text-sm font-semibold leading-7 text-[#4d594b]">{selectedDetail.body}</p>
               {selectedDetail.tags?.length ? (
@@ -294,12 +559,12 @@ export default function CommunityPage() {
                 <div className="mt-2 flex justify-end">
                   <button
                     className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-[#16804b] px-4 text-sm font-black text-white disabled:bg-[#cfd8ca]"
-                    disabled={!commentDraft.trim()}
+                    disabled={!commentDraft.trim() || isSubmittingComment}
                     onClick={addComment}
                     type="button"
                   >
                     <PetIcon className="h-4 w-4" name="send" />
-                    댓글 등록
+                    {isSubmittingComment ? "등록 중" : "댓글 등록"}
                   </button>
                 </div>
               </div>
@@ -311,7 +576,7 @@ export default function CommunityPage() {
                       <PetIcon className="h-4 w-4 text-[#16804b]" name="profile" />
                       {comment.authorName}
                     </p>
-                    <p className="text-xs font-semibold text-[#9aa393]">{comment.createdAt}</p>
+                    <p className="text-xs font-semibold text-[#9aa393]">{formatCommunityCreatedAt(comment.createdAt)}</p>
                   </div>
                   <p className="mt-2 text-sm font-semibold leading-6 text-[#5c6758]">{comment.body}</p>
                 </Card>

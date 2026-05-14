@@ -551,12 +551,7 @@ export default function RecordPage() {
                   {detectedCategories
                     .filter((cat) => cat !== displayPreview.suggestedCategory)
                     .map((detectedCategory) => (
-                      <span
-                        className="rounded-full bg-[#f4f7f0] px-2.5 py-1 text-xs font-bold text-[#53604f]"
-                        key={detectedCategory}
-                      >
-                        {categoryLabels[detectedCategory]}
-                      </span>
+                      <CategoryBadge category={detectedCategory} key={detectedCategory} />
                     ))}
                 </div>
               )}
@@ -585,7 +580,15 @@ export default function RecordPage() {
               <Card className="p-3" key={record.id} motion="rise">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <CategoryBadge category={record.category} />
+                    {record.categoryChoice === "all" && (record.structured?.detectedCategories?.length ?? 0) > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {record.structured!.detectedCategories!.map((cat) => (
+                          <CategoryBadge category={cat} key={cat} />
+                        ))}
+                      </div>
+                    ) : (
+                      <CategoryBadge category={record.category} />
+                    )}
                     <h3 className="mt-2 truncate text-sm font-bold text-[#1f2922]">{record.title}</h3>
                     <p className="mt-1 line-clamp-2 text-xs leading-5 text-[#6c7667]">{record.detail}</p>
                   </div>

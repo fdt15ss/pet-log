@@ -20,7 +20,18 @@ class PetProfileRepository:
         if self._connection is not None:
             row = self._connection.execute(
                 """
-                SELECT id, name, breed, species, age_label, sex_label, weight_label, birthday, personality, notes, photo_file_id
+                SELECT
+                    id AS id,
+                    name AS name,
+                    breed AS breed,
+                    species AS species,
+                    age_label AS age_label,
+                    sex_label AS sex_label,
+                    weight_label AS weight_label,
+                    birthday AS birthday,
+                    personality AS personality,
+                    notes AS notes,
+                    photo_file_id AS photo_file_id
                 FROM pets
                 WHERE id = ? AND deleted_at IS NULL
                 """,
@@ -36,7 +47,18 @@ class PetProfileRepository:
         if self._connection is not None:
             rows = self._connection.execute(
                 """
-                SELECT id, name, breed, species, age_label, sex_label, weight_label, birthday, personality, notes, photo_file_id
+                SELECT
+                    id AS id,
+                    name AS name,
+                    breed AS breed,
+                    species AS species,
+                    age_label AS age_label,
+                    sex_label AS sex_label,
+                    weight_label AS weight_label,
+                    birthday AS birthday,
+                    personality AS personality,
+                    notes AS notes,
+                    photo_file_id AS photo_file_id
                 FROM pets
                 WHERE owner_user_id = ? AND deleted_at IS NULL
                 ORDER BY created_at

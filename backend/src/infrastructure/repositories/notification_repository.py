@@ -17,7 +17,19 @@ class NotificationRepository:
     def list_for_pet(self, pet_id: str, limit: int = 50) -> tuple[Notification, ...]:
         rows = self._connection.execute(
             """
-            SELECT id, pet_id, category, title, detail, action, action_href, due_label, tone, read_at, created_at
+            SELECT
+                id AS id,
+                pet_id AS pet_id,
+                category AS category,
+                title AS title,
+                detail AS detail,
+                action AS action,
+                action_href AS action_href,
+                due_label AS due_label,
+                tone AS tone,
+                read_at AS read_at,
+                created_at AS created_at,
+                dedupe_key AS dedupe_key
             FROM notifications
             WHERE pet_id = ? AND deleted_at IS NULL
             ORDER BY created_at DESC
@@ -94,6 +106,7 @@ class NotificationRepository:
             due_label=due_label,
             tone=tone,
             created_at=created_at,
+            dedupe_key=None,
         )
 
 
@@ -138,12 +151,25 @@ class NotificationRepository:
             due_label=candidate.due_date or "",
             tone=tone,
             created_at=created_at,
+            dedupe_key=candidate.dedupe_key,
         )
 
     def find_by_dedupe_key(self, dedupe_key: str) -> Notification | None:
         row = self._connection.execute(
             """
-            SELECT id, pet_id, category, title, detail, action, action_href, due_label, tone, read_at, created_at
+            SELECT
+                id AS id,
+                pet_id AS pet_id,
+                category AS category,
+                title AS title,
+                detail AS detail,
+                action AS action,
+                action_href AS action_href,
+                due_label AS due_label,
+                tone AS tone,
+                read_at AS read_at,
+                created_at AS created_at,
+                dedupe_key AS dedupe_key
             FROM notifications
             WHERE dedupe_key = ? AND deleted_at IS NULL
             """,
@@ -167,4 +193,5 @@ def _notification_from_row(row: sqlite3.Row) -> Notification:
         tone=row["tone"],
         read_at=row["read_at"],
         created_at=row["created_at"],
+        dedupe_key=row["dedupe_key"],
     )

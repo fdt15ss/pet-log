@@ -60,6 +60,50 @@ a {
   transform: scale(0.98);
 }
 
+.pet-log-chat-sparkle-border {
+  --pet-log-border-angle: 0deg;
+  position: relative;
+  isolation: isolate;
+  border: 1px solid transparent !important;
+  background:
+    linear-gradient(#1f2922, #1f2922) padding-box,
+    conic-gradient(
+      from var(--pet-log-border-angle),
+      rgba(255, 255, 255, 0.36) 0deg,
+      rgba(255, 255, 255, 0.36) 72deg,
+      rgba(203, 213, 225, 0.92) 106deg,
+      rgba(255, 255, 255, 1) 134deg,
+      rgba(148, 163, 184, 0.86) 168deg,
+      rgba(226, 232, 240, 0.42) 222deg,
+      rgba(255, 255, 255, 0.36) 360deg
+    )
+    border-box !important;
+  box-shadow:
+    0 6px 14px rgba(31, 41, 34, 0.14),
+    0 0 6px rgba(255, 255, 255, 0.16);
+  animation:
+    pet-log-border-glide 2.4s linear infinite,
+    pet-log-float-soft 3.2s ease-in-out infinite;
+}
+
+.pet-log-chat-sparkle-border::after {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  border-radius: inherit;
+  box-shadow:
+    inset 0 0 8px rgba(255, 255, 255, 0.12),
+    0 0 5px rgba(226, 232, 240, 0.16);
+  opacity: 0.78;
+  pointer-events: none;
+  animation: pet-log-chat-sparkle 1.8s ease-in-out infinite;
+}
+
+.pet-log-chat-sparkle-border > * {
+  position: relative;
+  z-index: 1;
+}
+
 .pet-log-chart-draw {
   animation: pet-log-chart-draw 680ms ease-out both;
   stroke-dasharray: 420;
@@ -121,6 +165,77 @@ a {
   --pet-log-loading-inner-border: rgba(245, 158, 11, 0.2);
   --pet-log-loading-inner-glow: rgba(245, 158, 11, 0.08);
   --pet-log-loading-outer-glow: rgba(245, 158, 11, 0.13);
+}
+
+.pet-log-notification-alert-border {
+  --pet-log-notification-border-muted: rgba(245, 158, 11, 0.18);
+  --pet-log-notification-border-soft: rgba(255, 210, 130, 0.72);
+  --pet-log-notification-border-bright: rgba(245, 158, 11, 0.95);
+  --pet-log-notification-border-strong: rgba(187, 114, 30, 0.9);
+  --pet-log-notification-border-glow: rgba(245, 158, 11, 0.42);
+  --pet-log-notification-border-shadow: rgba(245, 158, 11, 0.1);
+  --pet-log-notification-inner-border: rgba(245, 158, 11, 0.2);
+  --pet-log-notification-outer-glow: rgba(245, 158, 11, 0.13);
+  position: relative;
+  isolation: isolate;
+  overflow: hidden !important;
+  border: 1px solid transparent !important;
+  background:
+    linear-gradient(#fff, #fff) padding-box,
+    conic-gradient(
+      from var(--pet-log-border-angle),
+      var(--pet-log-notification-border-muted) 0deg,
+      var(--pet-log-notification-border-muted) 72deg,
+      var(--pet-log-notification-border-soft) 118deg,
+      var(--pet-log-notification-border-bright) 142deg,
+      var(--pet-log-notification-border-strong) 154deg,
+      var(--pet-log-notification-border-glow) 170deg,
+      var(--pet-log-notification-border-muted) 220deg,
+      var(--pet-log-notification-border-muted) 360deg
+    )
+    border-box !important;
+  box-shadow:
+    0 12px 34px rgba(49, 65, 44, 0.11),
+    0 0 18px var(--pet-log-notification-outer-glow),
+    0 0 0 1px var(--pet-log-notification-border-shadow);
+  animation: pet-log-border-glide 2.7s linear infinite;
+}
+
+.pet-log-notification-alert-border::after {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  border: 1px solid var(--pet-log-notification-inner-border);
+  border-radius: 15px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.pet-log-notification-alert-border > * {
+  position: relative;
+  z-index: 2;
+}
+
+.pet-log-notification-alert-border-orange {
+  --pet-log-notification-border-muted: rgba(245, 158, 11, 0.18);
+  --pet-log-notification-border-soft: rgba(245, 158, 11, 0.72);
+  --pet-log-notification-border-bright: rgba(245, 158, 11, 0.95);
+  --pet-log-notification-border-strong: rgba(187, 114, 30, 0.9);
+  --pet-log-notification-border-glow: rgba(245, 158, 11, 0.42);
+  --pet-log-notification-border-shadow: rgba(245, 158, 11, 0.1);
+  --pet-log-notification-inner-border: rgba(245, 158, 11, 0.2);
+  --pet-log-notification-outer-glow: rgba(245, 158, 11, 0.13);
+}
+
+.pet-log-notification-alert-border-red {
+  --pet-log-notification-border-muted: rgba(190, 76, 60, 0.18);
+  --pet-log-notification-border-soft: rgba(255, 157, 140, 0.72);
+  --pet-log-notification-border-bright: rgba(239, 68, 68, 0.95);
+  --pet-log-notification-border-strong: rgba(190, 76, 60, 0.9);
+  --pet-log-notification-border-glow: rgba(239, 68, 68, 0.42);
+  --pet-log-notification-border-shadow: rgba(190, 76, 60, 0.1);
+  --pet-log-notification-inner-border: rgba(190, 76, 60, 0.22);
+  --pet-log-notification-outer-glow: rgba(239, 68, 68, 0.13);
 }
 
 .pet-log-loading-border::before {
@@ -242,6 +357,16 @@ a {
 @keyframes pet-log-chart-draw {
   to {
     stroke-dashoffset: 0;
+  }
+}
+
+@keyframes pet-log-chat-sparkle {
+  0%,
+  100% {
+    opacity: 0.46;
+  }
+  50% {
+    opacity: 1;
   }
 }
 

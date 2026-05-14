@@ -4,7 +4,7 @@ import {
   appendMockChatbotExchange,
   createMockChatbotThread,
   getMockChatbotThreads,
-  getMockPetLogSnapshot,
+  getMockPetLogState,
   updateMockExpansionState,
   updateMockSettings,
 } from "@/lib/server/mock-pet-log-store";
@@ -47,6 +47,7 @@ type BackendPetLogRecord = {
   detail?: unknown;
   status?: unknown;
   recorded_at?: unknown;
+  batch_id?: unknown;
 };
 
 type BackendRecordEntry = {
@@ -114,6 +115,10 @@ function isSpeechTranscriptionPath(path: string[]) {
   return path[0] === "speech" && path[1] === "transcriptions" && path.length === 2;
 }
 
+function isSpeechSynthesisPath(path: string[]) {
+  return path[0] === "speech" && path[1] === "synthesis" && path.length === 2;
+}
+
 function backendApiUrl(path: string) {
   const baseUrl = process.env.PET_LOG_BACKEND_API_BASE_URL ?? defaultBackendApiBaseUrl;
   return `${baseUrl.replace(/\/$/, "")}${path}`;
@@ -131,6 +136,11 @@ function backendTimeoutMs() {
 function backendShoppingTimeoutMs() {
   const configured = Number(process.env.PET_LOG_SHOPPING_TIMEOUT_MS);
   return Number.isFinite(configured) && configured > 0 ? configured : 180000;
+}
+
+function backendAiTimeoutMs() {
+  const configured = Number(process.env.PET_LOG_AI_TIMEOUT_MS);
+  return Number.isFinite(configured) && configured > 0 ? configured : 120000;
 }
 
 function formatBackendDateLabel(recordedAt: string) {
@@ -202,13 +212,153 @@ function backendCandidateCategories(result: BackendPetLogResult): RecordCategory
   }, []);
 }
 
-function firstBackendSavedRecord(result: BackendPetLogResult): BackendPetLogRecord | null {
+function backendSavedRecords(result: BackendPetLogResult): BackendPetLogRecord[] {
   if (!Array.isArray(result.saved_records)) {
-    return null;
+    return [];
   }
 
-  const record = result.saved_records[0];
-  return record && typeof record === "object" ? (record as BackendPetLogRecord) : null;
+  return result.saved_records.filter(
+    (record): record is BackendPetLogRecord => !!record && typeof record === "object",
+  );
+}
+
+function backendCandidates(result: BackendPetLogResult): BackendPetLogCandidate[] {
+  if (!Array.isArray(result.candidates)) {
+    return [];
+  }
+
+  return result.candidates.filter(
+    (candidate): candidate is BackendPetLogCandidate => !!candidate && typeof candidate === "object",
+  );
+}
+
+function uniqueValues(values: string[]) {
+  return values.reduce<string[]>((unique, value) => {
+    const trimmed = value.trim();
+    if (!trimmed || unique.includes(trimmed)) {
+      return unique;
+    }
+    return [...unique, trimmed];
+  }, []);
+}
+
+function strongestRecordStatus(records: Array<{ status?: unknown }>): RecordStatus {
+  const statuses = records.map((record) => record.status).filter(isRecordStatus);
+  if (statuses.includes("alert")) {
+    return "alert";
+  }
+  if (statuses.includes("notice")) {
+    return "notice";
+  }
+  return "normal";
+}
+
+function mapBackendSavedRecordsToEntries(
+  result: BackendPetLogResult,
+  detail: string,
+  categoryChoice: RecordCategoryChoice,
+): RecordEntry[] {
+  const savedRecords = backendSavedRecords(result);
+  const candidates = backendCandidates(result);
+  const fallback: RecordCategory = categoryChoice === "all" ? "meal" : categoryChoice;
+
+  return savedRecords.flatMap((record, index): RecordEntry[] => {
+    const candidate = candidates[index] ?? null;
+    const structured: StructuredRecord = candidate
+      ? mapBackendCandidateToStructured(candidate, detail, categoryChoice, false)
+      : {
+          sourceText: typeof record.detail === "string" ? record.detail : detail,
+          normalizedSummary: typeof record.title === "string" ? record.title : detail.slice(0, 80),
+          suggestedCategory: isRecordCategory(record.category) ? record.category : fallback,
+          confidence: 0.85,
+          measurements: [],
+          needsConfirmation: false,
+        };
+    const entry = mapBackendRecordToEntry(record, structured, fallback, categoryChoice);
+    return entry ? [entry] : [];
+  });
+}
+
+type BackendFetchedRecord = RecordEntry & {
+  batchId?: unknown;
+  recordedAt?: unknown;
+};
+
+function isBackendFetchedRecord(record: unknown): record is BackendFetchedRecord {
+  if (!record || typeof record !== "object") {
+    return false;
+  }
+
+  const candidate = record as Partial<BackendFetchedRecord>;
+  return (
+    typeof candidate.id === "string" &&
+    typeof candidate.date === "string" &&
+    typeof candidate.time === "string" &&
+    isRecordCategory(candidate.category) &&
+    typeof candidate.title === "string" &&
+    typeof candidate.detail === "string" &&
+    isRecordStatus(candidate.status)
+  );
+}
+
+function combineFetchedRecords(records: BackendFetchedRecord[]): RecordEntry[] {
+  const groups = records.reduce<Map<string, BackendFetchedRecord[]>>((grouped, record) => {
+    const key = typeof record.batchId === "string" && record.batchId.trim() ? record.batchId : record.id;
+    return new Map(grouped).set(key, [...(grouped.get(key) ?? []), record]);
+  }, new Map());
+  const consumed = new Set<string>();
+
+  return records.reduce<RecordEntry[]>((combined, record) => {
+    const key = typeof record.batchId === "string" && record.batchId.trim() ? record.batchId : record.id;
+    if (consumed.has(key)) {
+      return combined;
+    }
+
+    consumed.add(key);
+    const group = groups.get(key) ?? [record];
+    const categories = uniqueValues(group.map((item) => item.category)).filter(isRecordCategory);
+    if (group.length <= 1 || categories.length <= 1) {
+      return [...combined, record];
+    }
+
+    const title = uniqueValues(group.map((item) => item.title)).join(" · ");
+    const detail = uniqueValues(group.map((item) => item.detail)).join("\n");
+    return [
+      ...combined,
+      {
+        ...record,
+        categoryChoice: "all",
+        title: title || record.title,
+        detail: detail || record.detail,
+        status: strongestRecordStatus(group),
+        structured: {
+          sourceText: detail || record.detail,
+          normalizedSummary: title || record.title,
+          suggestedCategory: record.category,
+          detectedCategories: categories,
+          confidence: 0.9,
+          measurements: [],
+          needsConfirmation: false,
+        },
+      },
+    ];
+  }, []);
+}
+
+function combineFetchedRecordResponse(data: unknown) {
+  if (!data || typeof data !== "object" || !Array.isArray((data as { records?: unknown }).records)) {
+    return data;
+  }
+
+  const records = (data as { records: unknown[] }).records;
+  if (!records.every(isBackendFetchedRecord)) {
+    return data;
+  }
+
+  return {
+    ...data,
+    records: combineFetchedRecords(records),
+  };
 }
 
 function mapBackendCandidateToStructured(
@@ -265,6 +415,7 @@ function mapBackendRecordToEntry(
     id: record.id,
     date,
     time,
+    batchId: typeof record.batch_id === "string" && record.batch_id.trim() ? record.batch_id : undefined,
     category: isRecordCategory(record.category) ? record.category : fallbackCategory,
     categoryChoice,
     title: record.title,
@@ -274,7 +425,7 @@ function mapBackendRecordToEntry(
   };
 }
 
-async function requestBackendPetLogRecord(detail: string, fallbackCategory: RecordCategoryChoice, confirm: boolean) {
+async function requestBackendPetLogRecord(detail: string, fallbackCategory: RecordCategoryChoice, confirm: boolean, timeoutMs?: number) {
   const response = await axios.post<{ success?: boolean; data?: BackendPetLogResult; detail?: unknown }>(
     backendApiUrl("/api/v1/pet-log/records"),
     {
@@ -287,7 +438,7 @@ async function requestBackendPetLogRecord(detail: string, fallbackCategory: Reco
       headers: {
         "Content-Type": "application/json",
       },
-      timeout: backendTimeoutMs(),
+      timeout: timeoutMs ?? backendTimeoutMs(),
       validateStatus: () => true,
     },
   );
@@ -340,6 +491,34 @@ async function proxySpeechTranscription(request: NextRequest) {
   return ok({ text: payload.data.text });
 }
 
+async function proxySpeechSynthesis(body: unknown) {
+  const text = body && typeof body === "object" && "text" in body ? (body as { text?: unknown }).text : null;
+  const voice = body && typeof body === "object" && "voice" in body ? (body as { voice?: unknown }).voice : undefined;
+  if (typeof text !== "string") {
+    return fail("VALIDATION_ERROR", "합성할 텍스트가 필요합니다.", 400);
+  }
+  if (voice !== undefined && typeof voice !== "string") {
+    return fail("VALIDATION_ERROR", "음성 이름 형식이 올바르지 않습니다.", 400);
+  }
+
+  const response = await fetch(backendApiUrl("/api/v1/speech/synthesis"), {
+    body: JSON.stringify({ text, voice }),
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as { detail?: unknown } | null;
+    const message = typeof payload?.detail === "string" ? payload.detail : "음성 합성을 처리하지 못했습니다.";
+    return fail("SPEECH_SYNTHESIS_FAILED", message, response.status || 502);
+  }
+
+  const headers = new Headers();
+  headers.set("content-type", response.headers.get("content-type") ?? "audio/mpeg");
+  headers.set("cache-control", "no-store");
+  return new NextResponse(await response.arrayBuffer(), { headers, status: response.status });
+}
+
 async function proxyFileUpload(request: NextRequest) {
   const incomingFormData = await request.formData();
   const file = incomingFormData.get("file");
@@ -383,8 +562,44 @@ async function proxyFileDownload(fileId: string) {
   return new NextResponse(await response.arrayBuffer(), { status: response.status, headers });
 }
 
+async function proxyCommunityGet(request: NextRequest, path: string[]) {
+  const communityPath = path.slice(1).map(encodeURIComponent).join("/");
+  const query = request.nextUrl.searchParams.toString();
+  const response = await axios.get<{ success?: boolean; data?: unknown; detail?: unknown }>(
+    backendApiUrl(`/api/v1/community/${communityPath}${query ? `?${query}` : ""}`),
+    { timeout: backendTimeoutMs(), validateStatus: () => true },
+  );
+
+  if (response.status < 200 || response.status >= 300 || response.data?.success !== true) {
+    const message = typeof response.data?.detail === "string" ? response.data.detail : "커뮤니티 데이터를 불러오지 못했습니다.";
+    return fail("BACKEND_COMMUNITY_FAILED", message, response.status || 502);
+  }
+
+  return ok(response.data.data, response.status);
+}
+
+async function proxyCommunityPost(path: string[], body: unknown) {
+  const communityPath = path.slice(1).map(encodeURIComponent).join("/");
+  const response = await axios.post<{ success?: boolean; data?: unknown; detail?: unknown }>(
+    backendApiUrl(`/api/v1/community/${communityPath}`),
+    body ?? {},
+    { headers: { "Content-Type": "application/json" }, timeout: backendTimeoutMs(), validateStatus: () => true },
+  );
+
+  if (response.status < 200 || response.status >= 300 || response.data?.success !== true) {
+    const message = typeof response.data?.detail === "string" ? response.data.detail : "커뮤니티 요청을 처리하지 못했습니다.";
+    return fail("BACKEND_COMMUNITY_FAILED", message, response.status || 502);
+  }
+
+  return ok(response.data.data, response.status);
+}
+
 export async function GET(_request: NextRequest, context: RouteContext) {
   const path = await getPath(context);
+
+  if (path[0] === "community" && path.length >= 2) {
+    return proxyCommunityGet(_request, path);
+  }
 
   if (path[0] === "files" && path[1] && path.length === 2) {
     return proxyFileDownload(path[1]);
@@ -432,7 +647,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
         timeout: backendTimeoutMs(),
         validateStatus: () => true,
       });
-      return ok(response.data.data);
+      return ok(combineFetchedRecordResponse(response.data.data));
     } catch {
       return fail("BACKEND_RECORDS_FAILED", "기록 목록을 불러오지 못했습니다.", 502);
     }
@@ -455,7 +670,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     const petId = _request.nextUrl.searchParams.get("pet_id") || backendPetId();
     try {
       const response = await axios.get(backendApiUrl(`/api/v1/ai/insights?pet_id=${encodeURIComponent(petId)}`), {
-        timeout: backendTimeoutMs(),
+        timeout: backendAiTimeoutMs(),
         validateStatus: () => true,
       });
       return ok(response.data.data);
@@ -468,7 +683,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     const petId = _request.nextUrl.searchParams.get("pet_id") || backendPetId();
     try {
       const response = await axios.get(backendApiUrl(`/api/v1/ai/suggestions?pet_id=${encodeURIComponent(petId)}`), {
-        timeout: backendTimeoutMs(),
+        timeout: backendAiTimeoutMs(),
         validateStatus: () => true,
       });
       return ok(response.data.data);
@@ -512,18 +727,23 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   const body = await readJson(request);
 
+  if (isSpeechSynthesisPath(path)) {
+    return proxySpeechSynthesis(body);
+  }
+
+  if (path[0] === "community" && path.length >= 2) {
+    return proxyCommunityPost(path, body);
+  }
+
   if (path[0] === "records" && path.length === 1) {
     if (!body || typeof body.detail !== "string" || !isRecordCategoryChoice(body.category)) {
       return fail("VALIDATION_ERROR", "기록 카테고리와 내용을 입력해주세요.");
     }
     try {
-      const { result, structured } = await requestBackendPetLogRecord(body.detail, body.category, true);
-      const savedRecord = firstBackendSavedRecord(result);
-      const record = savedRecord
-        ? mapBackendRecordToEntry(savedRecord, structured, structured.suggestedCategory, body.category)
-        : null;
-      if (record) {
-        return ok({ record }, 201);
+      const { result } = await requestBackendPetLogRecord(body.detail, body.category, true);
+      const records = mapBackendSavedRecordsToEntries(result, body.detail, body.category);
+      if (records.length > 0) {
+        return ok({ records }, 201);
       }
       return fail("BACKEND_RECORD_FAILED", "기록 서버 응답에 저장된 기록이 없습니다.", 502);
     } catch {
@@ -536,13 +756,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return fail("VALIDATION_ERROR", "구조화할 기록 내용과 기본 카테고리를 입력해주세요.");
     }
     try {
-      const { structured } = await requestBackendPetLogRecord(body.detail, body.fallbackCategory, false);
+      const { structured } = await requestBackendPetLogRecord(body.detail, body.fallbackCategory, false, backendAiTimeoutMs());
       return ok({ structured });
     } catch (error) {
       console.error("[api/ai/records/structure] Error:", error);
       const status = error instanceof BackendRouteError ? error.status : 502;
       const code = error instanceof BackendRouteError ? error.code : "BACKEND_RECORD_FAILED";
-      const message = error instanceof Error ? error.message : "기록 서버 요청을 처리하지 못했습니다.";
+      const message = error instanceof BackendRouteError ? error.message : "기록 서버 요청을 처리하지 못했습니다.";
       return fail(code, message, status);
     }
   }
@@ -635,7 +855,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const message = await createPetLogChatbotMessage({
       question: body.question,
       contextRecordIds: Array.isArray(body.contextRecordIds) ? body.contextRecordIds : [],
-      snapshot: getMockPetLogSnapshot(),
+      state: getMockPetLogState(),
     });
     const exchange = appendMockChatbotExchange(path[2], body.question, message);
     if (!exchange) {
@@ -656,7 +876,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const message = await createPetLogChatbotMessage({
       question: body.question,
       contextRecordIds: Array.isArray(body.contextRecordIds) ? body.contextRecordIds : [],
-      snapshot: getMockPetLogSnapshot(),
+      state: getMockPetLogState(),
     });
     const exchange = appendMockChatbotExchange(typeof body.threadId === "string" ? body.threadId : undefined, body.question, message);
     if (!exchange) {

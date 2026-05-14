@@ -339,6 +339,8 @@ def _record_to_frontend_entry(record: PetRecord) -> dict[str, object]:
         "id": record.id,
         "date": _date_label(record.recorded_at),
         "time": _time_label(record.recorded_at),
+        "recordedAt": record.recorded_at,
+        "batchId": record.batch_id,
         "category": record.category,
         "title": record.title,
         "detail": record.detail,

@@ -1,7 +1,8 @@
 import axios from "axios";
 import { structureRecord } from "@/lib/ai-insights";
+import { categoryLabels } from "@/lib/record-constants";
 import type {
-  PetLogSnapshot,
+  PetLogState,
   ExtractedMeasurement,
   PetProfile,
   RecordCategory,
@@ -21,7 +22,7 @@ export type ChatbotMessageResult = {
 type CreateChatbotMessageInput = {
   question: string;
   contextRecordIds?: string[];
-  snapshot: PetLogSnapshot;
+  state: PetLogState;
 };
 
 type CreateStructuredRecordInput = {
@@ -41,6 +42,11 @@ type OpenAiResponsesResult = {
 const safetyNotice =
   "이 답변은 저장된 기록 기반 참고 안내이며 진단이 아닙니다. 증상이 지속되거나 심해지면 병원 상담을 권장합니다.";
 const recordCategories: RecordCategory[] = ["meal", "walk", "stool", "medical", "behavior"];
+const recordStatusLabels = {
+  normal: "안정",
+  notice: "확인 필요",
+  alert: "주의",
+} as const;
 
 function getProviderId(): PetLogAiProviderId {
   return process.env.PET_LOG_AI_PROVIDER === "openai" ? "openai" : "mock";
@@ -74,9 +80,11 @@ function createOpenAiPrompt(profile: PetProfile, question: string, referencedRec
     date: record.date,
     time: record.time,
     category: record.category,
+    categoryLabel: categoryLabels[record.category],
     title: record.title,
     detail: record.detail,
     status: record.status,
+    statusLabel: recordStatusLabels[record.status],
     structured: record.structured,
   }));
 
@@ -251,14 +259,14 @@ export async function createPetLogStructuredRecord(input: CreateStructuredRecord
 }
 
 export async function createPetLogChatbotMessage(input: CreateChatbotMessageInput): Promise<ChatbotMessageResult> {
-  const referencedRecords = selectReferenceRecords(input.snapshot.records, input.contextRecordIds);
+  const referencedRecords = selectReferenceRecords(input.state.records, input.contextRecordIds);
 
   if (getProviderId() !== "openai") {
     return createMockChatbotMessage(input.question, referencedRecords);
   }
 
   try {
-    return await createOpenAiChatbotMessage(input.question, input.snapshot.profile, referencedRecords);
+    return await createOpenAiChatbotMessage(input.question, input.state.profile, referencedRecords);
   } catch {
     return createMockChatbotMessage(input.question, referencedRecords);
   }

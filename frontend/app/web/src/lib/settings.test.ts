@@ -24,7 +24,7 @@ const summary = getSettingsSummary({
 assert.equal(summary.enabledNotificationCount, 2);
 assert.equal(summary.aiInsightLabel, "AI 요약 꺼짐");
 
-const exportSnapshot = createPetLogExport({
+const exportData = createPetLogExport({
   profile: petProfile,
   records,
   schedules,
@@ -32,13 +32,13 @@ const exportSnapshot = createPetLogExport({
   exportedAt: "2026-04-29T09:00:00.000Z",
 });
 
-assert.equal(exportSnapshot.appName, "Pet Log");
-assert.equal(exportSnapshot.version, 1);
-assert.equal(exportSnapshot.exportedAt, "2026-04-29T09:00:00.000Z");
-assert.equal(exportSnapshot.summary.profileName, "코코");
-assert.equal(exportSnapshot.summary.recordCount, records.length);
-assert.equal(exportSnapshot.summary.scheduleCount, schedules.length);
-assert.deepEqual(exportSnapshot.records, records);
+assert.equal(exportData.appName, "Pet Log");
+assert.equal(exportData.version, 1);
+assert.equal(exportData.exportedAt, "2026-04-29T09:00:00.000Z");
+assert.equal(exportData.summary.profileName, "코코");
+assert.equal(exportData.summary.recordCount, records.length);
+assert.equal(exportData.summary.scheduleCount, schedules.length);
+assert.deepEqual(exportData.records, records);
 
 const resetSummary = getResetDataSummary(records, schedules);
 

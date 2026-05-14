@@ -126,8 +126,8 @@ export const communityPosts: CommunityPost[] = [
     createdAt: "어제 18:10",
     comments: 3,
     likes: 15,
-    distance: "1.2km",
-    feeds: ["인기글", "내 주변"],
+    locationLabel: "동네 직거래 가능",
+    feeds: ["인기글"],
     tags: ["나눔", "하네스"],
   },
   {
@@ -163,8 +163,8 @@ export const communityPosts: CommunityPost[] = [
     createdAt: "오늘 06:30",
     comments: 4,
     likes: 21,
-    distance: "2.4km",
-    feeds: ["내 주변", "최신글"],
+    locationLabel: "동네 보호소 공지",
+    feeds: ["최신글"],
     tags: ["임시보호", "동네"],
   },
 ];

@@ -86,7 +86,7 @@ src/composition.py
 
 - `GET /api/v1/notifications?pet_id=...`: 실시간 알림 후보 생성 + DB 조회 (missing_record 타입만 upsert, dedupe_key 기반 중복 제거)
 - `PATCH /api/v1/notifications/{id}/read`: 특정 알림을 읽음 처리 (DB에 반영)
-- `PUT /api/v1/notifications/read?pet_id=...`: 특정 반려동물의 모든 알림을 일괄 읽음 처리 (DB에 반영)
+- `PUT /api/v1/notifications/read?pet_id=...`: 요청 본문의 `readNotificationIds`로 특정 반려동물의 읽음 알림 목록을 저장한다.
 
 **동작 방식**: 
 1. 프론트에서 `GET /api/v1/notifications?pet_id=xxx` 호출
@@ -94,6 +94,8 @@ src/composition.py
 3. 4가지 kind(missing_record, risk, behavior_change, schedule) 중 missing_record만 `NotificationRepository.upsert_from_candidate()`로 DB에 저장 (dedupe_key로 중복 제거)
 4. 저장된 알림 + 실시간 생성 알림을 merge 후 프론트에 반환
 5. 프론트 읽음 처리 시 `mark_as_read()` 또는 `set_read_ids()` 호출하여 DB 업데이트
+
+샘플 데이터에는 `기록 누락 알림`, `주의 기록 확인`, `행동 변화 관찰` 알림이 포함되어 초기 알림 화면과 DB 조회 흐름을 바로 확인할 수 있다.
 
 ### 쇼핑 추천 (완전 구현)
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 from contextlib import asynccontextmanager
 
@@ -15,6 +16,10 @@ def create_app(
     app_context_factory: Callable[[], AppContext] = build_app_context,
 ) -> FastAPI:
     load_dotenv(override=False)
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(levelname)-8s %(name)s  %(message)s",
+    )
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):

@@ -30,6 +30,7 @@ class PetRecord:
     status: RecordStatus
     recorded_at: str
     source: RecordInputSource
+    batch_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -155,6 +156,7 @@ class Notification:
     tone: str  # "green", "orange", "red", "blue"
     created_at: str
     read_at: str | None = None
+    dedupe_key: str | None = None
 
 
 @dataclass(frozen=True)
@@ -169,6 +171,7 @@ class CommunityPost:
     likes: int
     feeds: tuple[str, ...]
     distance: str | None = None
+    location_label: str | None = None
     tags: tuple[str, ...] = ()
 
 

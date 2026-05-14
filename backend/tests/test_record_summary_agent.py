@@ -5,6 +5,7 @@ import unittest
 from application.dto import RecordSummaryResult
 from application.agents.record_summary import RecordSummaryAgent
 from domain.models import ContextAnalysisResult, PetProfile, PetRecord, PlannedReminder
+from infrastructure.llm.record_summary.mapper import record_payload
 
 
 class FakeRecordSummaryProvider:
@@ -31,6 +32,23 @@ class FakeRecordSummaryProvider:
 
 
 class TestRecordSummaryAgent(unittest.TestCase):
+    def test_record_summary_payload_includes_korean_record_labels(self):
+        record = PetRecord(
+            id="record-1",
+            pet_id="pet-1",
+            category="stool",
+            title="묽은 변",
+            detail="묽은 변을 봤습니다.",
+            status="alert",
+            recorded_at="2026-05-07T01:10:00+09:00",
+            source="manual",
+        )
+
+        payload = record_payload(record)
+
+        self.assertEqual(payload["category_label"], "배변")
+        self.assertEqual(payload["status_label"], "주의")
+
     def test_summarize_delegates_to_provider(self):
         pet = PetProfile(id="pet-1", name="초코")
         records = (

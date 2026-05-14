@@ -63,7 +63,15 @@ class FileRepository:
     def get_file(self, file_id: str) -> StoredFile:
         row = self._connection.execute(
             """
-            SELECT id, owner_user_id, pet_id, purpose, storage_key, mime_type, byte_size, created_at
+            SELECT
+                id AS id,
+                owner_user_id AS owner_user_id,
+                pet_id AS pet_id,
+                purpose AS purpose,
+                storage_key AS storage_key,
+                mime_type AS mime_type,
+                byte_size AS byte_size,
+                created_at AS created_at
             FROM files
             WHERE id = ? AND deleted_at IS NULL
             """,

@@ -3,7 +3,7 @@ from __future__ import annotations
 from domain.models import CareContext
 from infrastructure.llm.base_provider import BaseLLMProvider
 from infrastructure.llm.constants import DEFAULT_PET_PERSONA_MODEL
-from infrastructure.llm.model_factory import LLMModel, ModelFactory, build_chat_openai_model
+from infrastructure.llm.model_factory import LLMModel, ModelFactory, build_chat_model
 from infrastructure.llm.pet_persona.mapper import message_content_to_text
 from infrastructure.llm.pet_persona.prompt import build_pet_persona_messages
 from infrastructure.llm.provider_config import LLMProviderConfig
@@ -15,8 +15,8 @@ class PetPersonaResponder(BaseLLMProvider[LLMModel]):
         *,
         api_key: str | None = None,
         model: str | None = None,
-        timeout: float = 60.0,
-        model_factory: ModelFactory[LLMModel] = build_chat_openai_model,
+        timeout: float = 35.0,
+        model_factory: ModelFactory[LLMModel] = build_chat_model,
         chat_model: LLMModel | None = None,
     ) -> None:
         super().__init__(

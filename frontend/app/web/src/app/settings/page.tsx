@@ -21,12 +21,14 @@ type MenuIconName = ComponentProps<typeof PetIcon>["name"];
 const categoryClasses = {
   기록: "bg-[#edf8ed] text-[#16804b]",
   주의: "bg-[#ffe9e6] text-[#be4c3c]",
+  "행동 변화": "bg-[#fff2df] text-[#bb721e]",
   일정: "bg-[#eaf2ff] text-[#2e67a7]",
 };
 
 const categoryIcons = {
   기록: "record",
   주의: "alert",
+  "행동 변화": "behavior",
   일정: "schedule",
 } as const satisfies Record<keyof typeof categoryClasses, MenuIconName>;
 
@@ -86,9 +88,9 @@ export default function SettingsPage() {
 
   function exportData() {
     const exportedAt = new Date().toISOString();
-    const snapshot = createPetLogExport({ profile, records, schedules, settings, exportedAt });
+    const exportedPayload = createPetLogExport({ profile, records, schedules, settings, exportedAt });
     const fileName = getPetLogExportFileName(profile, exportedAt);
-    const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: "application/json" });
+    const blob = new Blob([JSON.stringify(exportedPayload, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
 

@@ -4,11 +4,14 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AppShell } from "@/components/app-shell";
+import { PetChatDialog } from "@/components/pet-chat-dialog";
 import { usePetLog } from "@/components/pet-log-provider";
 import { AiMascot, Card, CategoryBadge, SectionHeader } from "@/components/ui";
 import { getRecentChange, getRecordStatusLabel, getTodaySummary, type HomeSummaryTone } from "@/lib/home-summary";
 import { PetIcon } from "@/components/pet-icons";
 import { askPetChat, sendChatbotMessage } from "@/lib/api-client";
+import { sendChatbotMessage } from "@/lib/api-client";
+import { sortCareNotificationsByLatest } from "@/lib/notifications";
 import type { ChatbotThread } from "@/lib/types";
 
 type SpeechRecognitionEventLike = {
@@ -65,20 +68,18 @@ const toneCard: Record<HomeSummaryTone, string> = {
   blue: "border-[#d4e0f5] bg-[#f6f9ff]",
 };
 
+const homeNotificationBorderClasses: Partial<Record<HomeSummaryTone, string>> = {
+  orange: "pet-log-notification-alert-border pet-log-notification-alert-border-orange",
+  red: "pet-log-notification-alert-border pet-log-notification-alert-border-red",
+};
+
 const chatbotQuestions: Array<{ icon: "heart" | "bell" | "syringe"; text: string }> = [
   { icon: "heart", text: "오늘 상태 괜찮아?" },
   { icon: "bell", text: "주의 알림은 왜 떴어?" },
   { icon: "syringe", text: "백신 전에 확인할 게 있어?" },
 ];
 
-const petChatQuestions = ["오늘 기분 어때?", "밥은 맛있었어?", "산책 또 가고 싶어?"];
 const panelAnimationMs = 180;
-
-type PetChatMessage = {
-  id: string;
-  role: "user" | "pet";
-  content: string;
-};
 
 export default function Home() {
   const { profile, records, schedules, settings, insights, suggestions, isAnalysisLoading, notifications } = usePetLog();
@@ -86,22 +87,16 @@ export default function Home() {
   const [isPetChatOpen, setIsPetChatOpen] = useState(false);
   const [chatbotQuestion, setChatbotQuestion] = useState("");
   const [chatbotNotice, setChatbotNotice] = useState("");
-  const [petChatInput, setPetChatInput] = useState("");
-  const [petChatNotice, setPetChatNotice] = useState("");
-  const [petChatMessages, setPetChatMessages] = useState<PetChatMessage[]>([]);
   const [isChatbotSending, setIsChatbotSending] = useState(false);
   const [isPetChatSending, setIsPetChatSending] = useState(false);
   const [isChatbotHistoryLoading] = useState(false);
   const [isVoiceListening, setIsVoiceListening] = useState(false);
-  const [isPetVoiceListening, setIsPetVoiceListening] = useState(false);
-  const [closingPanel, setClosingPanel] = useState<"chatbot" | "pet" | null>(null);
+  const [closingPanel, setClosingPanel] = useState<"chatbot" | null>(null);
   const [chatbotThread, setChatbotThread] = useState<ChatbotThread | null>(null);
   const chatbotScrollRef = useRef<HTMLDivElement | null>(null);
-  const petChatScrollRef = useRef<HTMLDivElement | null>(null);
-  const petChatMessageIdRef = useRef(0);
   const panelCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestRecords = records.slice(0, 3);
-  const homeNotifications = notifications.slice(0, 2);
+  const homeNotifications = useMemo(() => sortCareNotificationsByLatest(notifications).slice(0, 2), [notifications]);
   const todaySummary = getTodaySummary(records);
   
   // AI Insights mapping (Replacing legacy recentChange)
@@ -140,7 +135,25 @@ export default function Home() {
 
   const pendingSchedules = schedules.filter((schedule) => !schedule.isDone).length;
   const chatbotMessageCount = chatbotThread?.messages.length ?? 0;
-  const petChatMessageCount = petChatMessages.length;
+
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    if (searchParams.get("petChat") === "1") {
+      searchParams.delete("petChat");
+      const nextSearch = searchParams.toString();
+      const nextUrl = `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ""}${window.location.hash}`;
+      window.history.replaceState(null, "", nextUrl);
+      const frameId = requestAnimationFrame(() => {
+        setClosingPanel(null);
+        setIsChatbotOpen(false);
+        setIsPetChatOpen(true);
+      });
+
+      return () => cancelAnimationFrame(frameId);
+    }
+
+    return undefined;
+  }, []);
 
   useEffect(() => {
     if (!isChatbotOpen) {
@@ -156,21 +169,6 @@ export default function Home() {
 
     return () => cancelAnimationFrame(frameId);
   }, [chatbotMessageCount, chatbotNotice, isChatbotHistoryLoading, isChatbotOpen]);
-
-  useEffect(() => {
-    if (!isPetChatOpen) {
-      return;
-    }
-
-    const frameId = requestAnimationFrame(() => {
-      const scrollContainer = petChatScrollRef.current;
-      if (scrollContainer) {
-        scrollContainer.scrollTop = scrollContainer.scrollHeight;
-      }
-    });
-
-    return () => cancelAnimationFrame(frameId);
-  }, [isPetChatOpen, petChatMessageCount, petChatNotice]);
 
   function clearPanelCloseTimer() {
     if (panelCloseTimerRef.current) {
@@ -188,26 +186,6 @@ export default function Home() {
     panelCloseTimerRef.current = setTimeout(() => {
       setIsChatbotOpen(false);
       setClosingPanel((current) => (current === "chatbot" ? null : current));
-      panelCloseTimerRef.current = null;
-    }, panelAnimationMs);
-  }
-
-  function openPetChat() {
-    clearPanelCloseTimer();
-    setClosingPanel(null);
-    setIsChatbotOpen(false);
-    setIsPetChatOpen(true);
-  }
-
-  function closePetChat() {
-    if (closingPanel === "pet") {
-      return;
-    }
-    clearPanelCloseTimer();
-    setClosingPanel("pet");
-    panelCloseTimerRef.current = setTimeout(() => {
-      setIsPetChatOpen(false);
-      setClosingPanel((current) => (current === "pet" ? null : current));
       panelCloseTimerRef.current = null;
     }, panelAnimationMs);
   }
@@ -357,44 +335,6 @@ export default function Home() {
     }
   }
 
-  function startPetChatVoiceInput() {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      setPetChatNotice("이 브라우저에서는 음성 입력을 지원하지 않습니다.");
-      return;
-    }
-
-    try {
-      const recognition = new SpeechRecognition();
-      recognition.lang = "ko-KR";
-      recognition.interimResults = false;
-      recognition.maxAlternatives = 1;
-      recognition.onresult = (event) => {
-        const transcript = event.results[0]?.[0]?.transcript.trim();
-        if (!transcript) {
-          return;
-        }
-        setPetChatInput((current) => {
-          const trimmedCurrent = current.trim();
-          return trimmedCurrent ? `${trimmedCurrent} ${transcript}` : transcript;
-        });
-        setPetChatNotice("");
-      };
-      recognition.onerror = (event) => {
-        const message = event.error === "not-allowed" ? "마이크 권한을 허용해야 음성 입력을 사용할 수 있습니다." : "음성을 인식하지 못했습니다. 다시 시도해주세요.";
-        setPetChatNotice(message);
-      };
-      recognition.onend = () => {
-        setIsPetVoiceListening(false);
-      };
-      setIsPetVoiceListening(true);
-      recognition.start();
-    } catch {
-      setIsPetVoiceListening(false);
-      setPetChatNotice("음성 입력을 시작하지 못했습니다. 다시 시도해주세요.");
-    }
-  }
-
   return (
     <AppShell
       action={
@@ -464,57 +404,6 @@ export default function Home() {
           </div>
         </Card>
 
-        <Card className="overflow-hidden border-[#d8e8d1] bg-[#fffdf7] p-0" motion="rise">
-          <div className="bg-[linear-gradient(135deg,#fffdf7_0%,#eef8ec_58%,#f6fbff_100%)] p-4">
-            <div className="flex items-start gap-3">
-              <div className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-2xl bg-white text-lg font-black text-[#16804b] shadow-inner">
-                {profile.photoDataUrl ? (
-                  <Image
-                    alt={`${profile.name} 프로필 사진`}
-                    className="h-full w-full object-cover"
-                    height={48}
-                    src={profile.photoDataUrl}
-                    unoptimized
-                    width={48}
-                  />
-                ) : (
-                  profile.name.slice(0, 1)
-                )}
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-black text-[#16804b]">{profile.name}와 대화</p>
-                <h2 className="mt-1 text-lg font-black leading-7 text-[#1f2922]">오늘은 나한테 직접 물어봐</h2>
-                <p className="mt-2 text-sm font-semibold leading-6 text-[#667262]">
-                  최근 기록과 성격을 바탕으로 {profile.name}가 말하는 듯 답해요.
-                </p>
-              </div>
-            </div>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {petChatQuestions.slice(0, 2).map((question) => (
-                <button
-                  className="pet-log-pressable h-9 rounded-full border border-[#d8e6d2] bg-white px-3 text-xs font-bold text-[#40513f]"
-                  key={question}
-                  onClick={() => {
-                    openPetChat();
-                    selectPetChatQuestion(question);
-                  }}
-                  type="button"
-                >
-                  {question}
-                </button>
-              ))}
-            </div>
-            <button
-              className="pet-log-pressable mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-[#1f2922] px-4 text-sm font-black text-white shadow-[0_10px_24px_rgba(31,41,34,0.18)]"
-              onClick={openPetChat}
-              type="button"
-            >
-              <PetIcon className="h-5 w-5" name="heart" />
-              {profile.name}와 대화하기
-            </button>
-          </div>
-        </Card>
-
         {settings.aiInsightEnabled ? (
           <Card className="bg-gradient-to-br from-white to-[#edf8ed]" motion="rise">
             <div className="flex gap-3">
@@ -548,7 +437,11 @@ export default function Home() {
           />
           <div className="space-y-3">
             {homeNotifications.map((notification) => (
-              <Card className={`border-l-4 p-4 ${toneCard[notification.tone]}`} key={notification.id} motion="rise">
+              <Card
+                className={`p-4 ${homeNotificationBorderClasses[notification.tone] ?? `border-l-4 ${toneCard[notification.tone]}`}`}
+                key={notification.id}
+                motion="rise"
+              >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className={`text-xs font-bold ${toneText[notification.tone]}`}>

@@ -64,6 +64,8 @@ export type RecordEntry = {
   id: string;
   time: string;
   date: string;
+  batchId?: string;
+  recordedAt?: string;
   category: RecordCategory;
   categoryChoice?: RecordCategoryChoice;
   title: string;
@@ -108,7 +110,7 @@ export type Suggestion = {
 
 export type CareNotificationTone = "green" | "orange" | "red" | "blue";
 
-export type CareNotificationCategory = "기록" | "주의" | "일정";
+export type CareNotificationCategory = "기록" | "주의" | "행동 변화" | "일정";
 
 export type NotificationPreferences = {
   missingRecord: boolean;
@@ -122,7 +124,7 @@ export type ExpansionState = {
   shopping: Record<string, unknown>;
 };
 
-export type PetLogSnapshot = {
+export type PetLogState = {
   version: 1;
   profile: PetProfile;
   records: RecordEntry[];
@@ -165,6 +167,7 @@ export type CareNotification = {
   actionHref: string;
   dueLabel: string;
   tone: CareNotificationTone;
+  createdAt: string;
   isRead: boolean;
 };
 
@@ -178,7 +181,7 @@ export type MetricSeries = {
 
 export type CommunityBoard = "유기동물" | "용품 나눔" | "자유게시판" | "행동 고민" | "후기";
 
-export type CommunityFeed = "인기글" | "최신글" | "내 주변";
+export type CommunityFeed = "인기글" | "최신글";
 
 export type CommunityPost = {
   id: string;
@@ -190,6 +193,7 @@ export type CommunityPost = {
   comments: number;
   likes: number;
   distance?: string;
+  locationLabel?: string;
   feeds: CommunityFeed[];
   tags?: string[];
 };

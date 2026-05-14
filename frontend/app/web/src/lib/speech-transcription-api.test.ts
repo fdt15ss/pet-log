@@ -86,12 +86,158 @@ test("초기 기록 API는 FastAPI DB records endpoint를 호출한다", async (
   }
 });
 
+test("초기 기록 API는 같은 batchId의 복합 카테고리 기록을 단일 카드로 조립한다", async () => {
+  const previousBaseUrl = process.env.PET_LOG_BACKEND_API_BASE_URL;
+  const previousPetId = process.env.PET_LOG_BACKEND_PET_ID;
+  const previousAdapter = axios.defaults.adapter;
+  process.env.PET_LOG_BACKEND_API_BASE_URL = "http://127.0.0.1:27893";
+  process.env.PET_LOG_BACKEND_PET_ID = "pet_01JCM7V8H9Q2K4N6R8T0A1B2C3";
+
+  axios.defaults.adapter = (async (config) => {
+    assert.equal(
+      config.url,
+      "http://127.0.0.1:27893/api/v1/pet-log/records?pet_id=pet_01JCM7V8H9Q2K4N6R8T0A1B2C3",
+    );
+
+    return {
+      config,
+      data: {
+        success: true,
+        data: {
+          records: [
+            {
+              id: "record-meal-1",
+              date: "5월 9일",
+              time: "08:15",
+              recordedAt: "2026-05-09T08:15:23Z",
+              batchId: "batch-1",
+              category: "meal",
+              title: "식사",
+              detail: "아침 사료 45g 먹음.",
+              status: "normal",
+            },
+            {
+              id: "record-walk-1",
+              date: "5월 9일",
+              time: "08:15",
+              recordedAt: "2026-05-09T08:15:23Z",
+              batchId: "batch-1",
+              category: "walk",
+              title: "산책",
+              detail: "산책 20분 함.",
+              status: "normal",
+            },
+            {
+              id: "record-stool-1",
+              date: "5월 9일",
+              time: "20:10",
+              recordedAt: "2026-05-09T20:10:00Z",
+              batchId: "batch-2",
+              category: "stool",
+              title: "배변",
+              detail: "저녁 배변 1회.",
+              status: "normal",
+            },
+          ],
+        },
+      },
+      headers: {},
+      request: {},
+      status: 200,
+      statusText: "OK",
+    };
+  }) as AxiosAdapter;
+
+  try {
+    const { NextRequest } = await import("next/server");
+    const response = await GET(new NextRequest("http://localhost/api/v1/pet-log/records") as never, {
+      params: Promise.resolve({ path: ["pet-log", "records"] }),
+    });
+    const json = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.equal(json.data.records.length, 2);
+    assert.equal(json.data.records[0].id, "record-meal-1");
+    assert.equal(json.data.records[0].categoryChoice, "all");
+    assert.equal(json.data.records[0].title, "식사 · 산책");
+    assert.equal(json.data.records[0].detail, "아침 사료 45g 먹음.\n산책 20분 함.");
+    assert.deepEqual(json.data.records[0].structured.detectedCategories, ["meal", "walk"]);
+    assert.equal(json.data.records[1].id, "record-stool-1");
+  } finally {
+    axios.defaults.adapter = previousAdapter;
+    restoreEnvValue("PET_LOG_BACKEND_API_BASE_URL", previousBaseUrl);
+    restoreEnvValue("PET_LOG_BACKEND_PET_ID", previousPetId);
+  }
+});
+
+test("초기 기록 API는 같은 저장 시각이어도 batchId가 다르면 조립하지 않는다", async () => {
+  const previousBaseUrl = process.env.PET_LOG_BACKEND_API_BASE_URL;
+  const previousPetId = process.env.PET_LOG_BACKEND_PET_ID;
+  const previousAdapter = axios.defaults.adapter;
+  process.env.PET_LOG_BACKEND_API_BASE_URL = "http://127.0.0.1:27893";
+  process.env.PET_LOG_BACKEND_PET_ID = "pet_01JCM7V8H9Q2K4N6R8T0A1B2C3";
+
+  axios.defaults.adapter = (async (config) => ({
+    config,
+    data: {
+      success: true,
+      data: {
+        records: [
+          {
+            id: "record-meal-1",
+            date: "5월 9일",
+            time: "08:15",
+            recordedAt: "2026-05-09T08:15:23Z",
+            batchId: "batch-meal",
+            category: "meal",
+            title: "식사",
+            detail: "아침 사료 45g 먹음.",
+            status: "normal",
+          },
+          {
+            id: "record-walk-1",
+            date: "5월 9일",
+            time: "08:15",
+            recordedAt: "2026-05-09T08:15:23Z",
+            batchId: "batch-walk",
+            category: "walk",
+            title: "산책",
+            detail: "산책 20분 함.",
+            status: "normal",
+          },
+        ],
+      },
+    },
+    headers: {},
+    request: {},
+    status: 200,
+    statusText: "OK",
+  })) as AxiosAdapter;
+
+  try {
+    const { NextRequest } = await import("next/server");
+    const response = await GET(new NextRequest("http://localhost/api/v1/pet-log/records") as never, {
+      params: Promise.resolve({ path: ["pet-log", "records"] }),
+    });
+    const json = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.equal(json.data.records.length, 2);
+    assert.equal(json.data.records[0].id, "record-meal-1");
+    assert.equal(json.data.records[1].id, "record-walk-1");
+  } finally {
+    axios.defaults.adapter = previousAdapter;
+    restoreEnvValue("PET_LOG_BACKEND_API_BASE_URL", previousBaseUrl);
+    restoreEnvValue("PET_LOG_BACKEND_PET_ID", previousPetId);
+  }
+});
+
 test("기록 API는 백엔드 실패 시 공통 실패 응답을 반환한다", async () => {
   const previousBaseUrl = process.env.PET_LOG_BACKEND_API_BASE_URL;
   const previousAdapter = axios.defaults.adapter;
   process.env.PET_LOG_BACKEND_API_BASE_URL = "http://127.0.0.1:27893";
 
-  axios.defaults.adapter = (async (config) => {
+  axios.defaults.adapter = (async () => {
     throw new Error("Network error");
   }) as AxiosAdapter;
 
@@ -535,6 +681,110 @@ test("기록 생성 API는 FastAPI 기록 파이프라인을 확정 저장으로
         },
       },
     });
+  } finally {
+    axios.defaults.adapter = previousAdapter;
+    restoreEnvValue("PET_LOG_BACKEND_API_BASE_URL", previousBaseUrl);
+    restoreEnvValue("PET_LOG_BACKEND_PET_ID", previousPetId);
+  }
+});
+
+test("기록 생성 API는 복합 문장 저장 결과를 프런트용 단일 기록 카드로 합친다", async () => {
+  const previousBaseUrl = process.env.PET_LOG_BACKEND_API_BASE_URL;
+  const previousPetId = process.env.PET_LOG_BACKEND_PET_ID;
+  const previousAdapter = axios.defaults.adapter;
+  process.env.PET_LOG_BACKEND_API_BASE_URL = "http://127.0.0.1:27893";
+  process.env.PET_LOG_BACKEND_PET_ID = "pet_01JCM7V8H9Q2K4N6R8T0A1B2C3";
+
+  axios.defaults.adapter = (async (config) => {
+    assert.equal(config.url, "http://127.0.0.1:27893/api/v1/pet-log/records");
+    assert.deepEqual(
+      JSON.parse(String(config.data)),
+      {
+        pet_id: "pet_01JCM7V8H9Q2K4N6R8T0A1B2C3",
+        text: "아침 사료 45g 먹고 산책 20분 했어요.",
+        source: "manual",
+        confirm: true,
+      },
+    );
+
+    return {
+      config,
+      data: {
+        success: true,
+        data: {
+          candidates: [
+            {
+              title: "식사",
+              detail: "아침 사료 45g 먹음.",
+              category: "meal",
+              status: "normal",
+              confidence: 0.92,
+              needs_confirmation: false,
+              measurements: ["45g"],
+            },
+            {
+              title: "산책",
+              detail: "산책 20분 함.",
+              category: "walk",
+              status: "normal",
+              confidence: 0.9,
+              needs_confirmation: false,
+              measurements: ["20분"],
+            },
+          ],
+          saved_records: [
+            {
+              id: "record-meal-1",
+              pet_id: "pet_01JCM7V8H9Q2K4N6R8T0A1B2C3",
+              category: "meal",
+              title: "식사",
+              detail: "아침 사료 45g 먹음.",
+              status: "normal",
+              recorded_at: "2026-05-09T08:15:00",
+              source: "manual",
+            },
+            {
+              id: "record-walk-1",
+              pet_id: "pet_01JCM7V8H9Q2K4N6R8T0A1B2C3",
+              category: "walk",
+              title: "산책",
+              detail: "산책 20분 함.",
+              status: "normal",
+              recorded_at: "2026-05-09T08:15:00",
+              source: "manual",
+            },
+          ],
+          needs_confirmation: false,
+        },
+      },
+      headers: {},
+      request: {},
+      status: 200,
+      statusText: "OK",
+    };
+  }) as AxiosAdapter;
+
+  try {
+    const response = await POST(
+      new Request("http://localhost/api/v1/records", {
+        body: JSON.stringify({ category: "all", detail: "아침 사료 45g 먹고 산책 20분 했어요." }),
+        method: "POST",
+      }) as never,
+      { params: Promise.resolve({ path: ["records"] }) },
+    );
+    const json = await response.json();
+
+    assert.equal(response.status, 201);
+    assert.equal(json.data.record.id, "record-meal-1");
+    assert.equal(json.data.record.category, "meal");
+    assert.equal(json.data.record.categoryChoice, "all");
+    assert.equal(json.data.record.title, "식사 · 산책");
+    assert.equal(json.data.record.detail, "아침 사료 45g 먹고 산책 20분 했어요.");
+    assert.deepEqual(json.data.record.structured.detectedCategories, ["meal", "walk"]);
+    assert.deepEqual(
+      json.data.record.structured.measurements.map((measurement: { value: string }) => measurement.value),
+      ["45g", "20분"],
+    );
   } finally {
     axios.defaults.adapter = previousAdapter;
     restoreEnvValue("PET_LOG_BACKEND_API_BASE_URL", previousBaseUrl);
