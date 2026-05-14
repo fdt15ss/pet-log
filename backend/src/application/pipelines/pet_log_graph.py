@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import warnings
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator, Mapping
 from typing import Literal, TypedDict
 from uuid import uuid4
 
@@ -12,6 +12,7 @@ warnings.simplefilter("ignore", LangChainPendingDeprecationWarning)
 
 from langgraph.graph import END, START, StateGraph  # noqa: E402
 
+from agent_runtime.tool_registry import PetLogNodeRuntime  # noqa: E402
 from application.dto import PetLogAgentInput, PetLogAgentResult  # noqa: E402
 from domain.models import (  # noqa: E402
     CareSuggestion,
@@ -68,6 +69,7 @@ class LangGraphPetLogAgentPipeline:
         shopping_agent=None,
         lookback_days: int = 30,
         days_ahead: int = 14,
+        node_wiring: Mapping[str, PetLogNodeRuntime] | None = None,
     ) -> None:
         self._record_structuring_agent = record_structuring_agent
         self._record_history_reader = record_history_reader
@@ -80,7 +82,12 @@ class LangGraphPetLogAgentPipeline:
         self._shopping_agent = shopping_agent or _NoopShoppingAgent()
         self._lookback_days = lookback_days
         self._days_ahead = days_ahead
+        self._node_wiring = dict(node_wiring or {})
         self._graph = self._build_graph()
+
+    @property
+    def node_wiring(self) -> Mapping[str, PetLogNodeRuntime]:
+        return dict(self._node_wiring)
 
     def handle(self, input: PetLogAgentInput) -> PetLogAgentResult:
         result: PetLogAgentResult | None = None
@@ -107,12 +114,12 @@ class LangGraphPetLogAgentPipeline:
 
     def _build_graph(self):
         graph = StateGraph(PetLogAgentState)
-        graph.add_node("structure_record", self._structure_record)
-        graph.add_node("load_context", self._load_context)
+        graph.add_node("structure_record", self._with_node_runtime("structure_record", self._structure_record))
+        graph.add_node("load_context", self._with_node_runtime("load_context", self._load_context))
         graph.add_node("analyze_context", self._analyze_context)
         graph.add_node("detect_risk", self._detect_risk)
         graph.add_node("build_confirmation_result", self._build_confirmation_result)
-        graph.add_node("save_records", self._save_records)
+        graph.add_node("save_records", self._with_node_runtime("save_records", self._save_records))
         graph.add_node("recommend_shopping", self._recommend_shopping)
         graph.add_node("suggest_care", self._suggest_care)
         graph.add_node("plan_reminders", self._plan_reminders)
@@ -137,6 +144,25 @@ class LangGraphPetLogAgentPipeline:
         graph.add_edge("plan_reminders", "build_saved_result")
         graph.add_edge("build_saved_result", END)
         return graph.compile()
+
+    def _with_node_runtime(
+        self,
+        node_name: str,
+        handler: Callable[[PetLogAgentState], PetLogAgentState],
+    ) -> Callable[[PetLogAgentState], PetLogAgentState]:
+        runtime = self._node_wiring.get(node_name)
+
+        def run(state: PetLogAgentState) -> PetLogAgentState:
+            if runtime is not None:
+                logger.debug(
+                    "pet_log_agent_node_runtime_attached node=%s tools=%d middleware=%d",
+                    node_name,
+                    len(runtime.tools),
+                    len(runtime.middleware),
+                )
+            return handler(state)
+
+        return run
 
     def _structure_record(self, state: PetLogAgentState) -> PetLogAgentState:
         return {"record_batch": self._record_structuring_agent.structure(state["input"])}

@@ -15,6 +15,7 @@ from application.agents.suggestion import SuggestionAgent
 from application.pipelines.care_question import CareQuestionPipeline
 from application.pipelines.pet_chat import PetChatPipeline
 from application.pipelines.pet_log_graph import LangGraphPetLogAgentPipeline
+from agent_runtime.tool_registry import PetLogToolDependencies, build_pet_log_node_wiring
 from infrastructure.database import connect
 from infrastructure.knowledge import CareKnowledgeRetriever
 from infrastructure.llm.care_answer import CareAnswerProvider
@@ -111,6 +112,12 @@ def build_app_context(database_path: str | None = None) -> AppContext:
         suggestion_agent=suggestion_agent,
         reminder_agent=ReminderAgent(ReminderPlanner()),
         shopping_agent=shopping_agent,
+        node_wiring=build_pet_log_node_wiring(
+            PetLogToolDependencies(
+                profile_repository=pet_profile_reader,
+                record_repository=record_repository,
+            )
+        ),
     )
     return AppContext(
         pet_log_agent_pipeline=pipeline,
@@ -143,6 +150,7 @@ def build_pet_log_agent_pipeline(database_path: str | None = None) -> LangGraphP
     database = connect(database_path)
     record_repository = RecordRepository(connection=database)
     schedule_repository = ScheduleRepository(connection=database)
+    pet_profile_reader = PetProfileRepository(connection=database)
     return LangGraphPetLogAgentPipeline(
         record_structuring_agent=RecordStructuringAgent(_record_structurer()),
         record_history_reader=record_repository,
@@ -155,6 +163,12 @@ def build_pet_log_agent_pipeline(database_path: str | None = None) -> LangGraphP
         shopping_agent=ShoppingAgent(
             ShoppingFallbackMiddleware(ShoppingRecommendationProvider(NaverShoppingClient())),
             recommendation_agent=ShoppingRecommendationAgent(ShoppingReasonProvider()),
+        ),
+        node_wiring=build_pet_log_node_wiring(
+            PetLogToolDependencies(
+                profile_repository=pet_profile_reader,
+                record_repository=record_repository,
+            )
         ),
     )
 

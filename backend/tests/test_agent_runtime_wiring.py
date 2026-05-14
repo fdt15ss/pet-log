@@ -2,6 +2,13 @@ from __future__ import annotations
 
 import unittest
 
+from langchain.agents.middleware import (
+    HumanInTheLoopMiddleware,
+    ModelRetryMiddleware,
+    PIIMiddleware,
+    ToolCallLimitMiddleware,
+    ToolRetryMiddleware,
+)
 from langchain_core.messages import ToolMessage
 
 from agent_runtime.tool_registry import (
@@ -108,7 +115,32 @@ class TestAgentRuntimeWiring(unittest.TestCase):
         )
         self.assertEqual(["save_pet_record"], [tool.name for tool in wiring["save_records"].tools])
         self.assertEqual([], [tool.name for tool in wiring["structure_record"].tools])
-        self.assertEqual(["agent_debug_log"], [middleware.name for middleware in wiring["load_context"].middleware])
+        self.assertIn("agent_debug_log", [middleware.name for middleware in wiring["load_context"].middleware])
+        self.assertIn("agent_debug_log", [middleware.name for middleware in wiring["save_records"].middleware])
+
+    def test_node_wiring_connects_agent_middleware_by_risk_boundary(self):
+        dependencies = PetLogToolDependencies(
+            profile_repository=FakeProfileRepository(),
+            record_repository=FakeRecordRepository(),
+        )
+
+        wiring = build_pet_log_node_wiring(dependencies)
+
+        self.assertTrue(
+            any(isinstance(middleware, ModelRetryMiddleware) for middleware in wiring["structure_record"].middleware)
+        )
+        for node_name in ("load_context", "save_records"):
+            middleware = wiring[node_name].middleware
+            self.assertTrue(any(isinstance(item, ToolRetryMiddleware) for item in middleware), node_name)
+            self.assertTrue(any(isinstance(item, ToolCallLimitMiddleware) for item in middleware), node_name)
+            self.assertTrue(any(isinstance(item, PIIMiddleware) for item in middleware), node_name)
+
+        self.assertFalse(
+            any(isinstance(item, HumanInTheLoopMiddleware) for item in wiring["load_context"].middleware)
+        )
+        self.assertTrue(
+            any(isinstance(item, HumanInTheLoopMiddleware) for item in wiring["save_records"].middleware)
+        )
 
     def test_agent_debug_middleware_normalizes_tool_errors_without_raw_args(self):
         middleware = build_agent_debug_middleware("load_context")
