@@ -96,12 +96,6 @@ export type CareAnswerResponse = {
   safetyNotice: string;
 };
 
-export type PetChatResponse = {
-  answer: string;
-  routedToCareQuestion: boolean;
-  safetyNotice: string;
-};
-
 export type SpeechTranscriptionResponse = {
   text: string;
 };
@@ -275,10 +269,6 @@ export function sendChatbotMessage(question: string, contextRecordIds?: string[]
 
 export function askCareAnswer(question: string, petId?: string) {
   return requestData<CareAnswerResponse>(apiClient.post("/ai/care-answer", { question, pet_id: petId }));
-}
-
-export function askPetChat(message: string, petId?: string) {
-  return requestData<PetChatResponse>(apiClient.post("/ai/pet-chat", { message, pet_id: petId }));
 }
 
 export type HospitalRecommendationItem = {

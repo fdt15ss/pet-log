@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import MagicMock
 from fastapi.testclient import TestClient
-from application.dto import CareQuestionResult, PetChatResult
+from application.dto import CareQuestionResult
 from presentation.http.app import create_app
 from domain.models import SafetyNotice, CareSuggestion, InsightSeverity, PetProfile
 
@@ -16,7 +16,6 @@ class FakeAppContext:
         self.pet_log_agent_pipeline = MagicMock()
         self.speech_to_text = MagicMock()
         self.care_question_pipeline = None
-        self.pet_chat_pipeline = None
         self.hospital_recommendation_agent = MagicMock()
         self.closed = False
 
@@ -83,25 +82,6 @@ class TestAIEndpoints(unittest.TestCase):
         self.assertEqual(data["referencedRecordIds"], ["record-1"])
         context.pet_profile_reader.get_pet.assert_called_once_with("pet-1")
         context.care_question_pipeline.ask.assert_called_once_with("pet-1", "오늘 컨디션 어때?")
-
-    def test_post_pet_chat_returns_pipeline_answer(self):
-        context = FakeAppContext()
-        context.pet_profile_reader.get_pet.return_value = PetProfile(id="pet-1", name="초코")
-        context.pet_chat_pipeline = MagicMock()
-        context.pet_chat_pipeline.chat.return_value = PetChatResult(answer="나 오늘 산책해서 기분 좋아!")
-
-        with TestClient(create_app(app_context_factory=lambda: context)) as client:
-            response = client.post(
-                "/api/v1/ai/pet-chat",
-                json={"pet_id": "pet-1", "message": "오늘 기분 어때?"},
-            )
-
-        self.assertEqual(response.status_code, 200)
-        data = response.json()["data"]
-        self.assertEqual(data["answer"], "나 오늘 산책해서 기분 좋아!")
-        self.assertFalse(data["routedToCareQuestion"])
-        context.pet_profile_reader.get_pet.assert_called_once_with("pet-1")
-        context.pet_chat_pipeline.chat.assert_called_once_with("pet-1", "오늘 기분 어때?")
 
 if __name__ == "__main__":
     unittest.main()
