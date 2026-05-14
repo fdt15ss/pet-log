@@ -15,6 +15,7 @@ import {
   getMeasurementPreviewTileClassName,
   getMeasurementPreviewValueClassName,
   getRecordCategoryChoiceLabel,
+  getRecordPreviewSummaryText,
   getRecordTextAreaClassName,
   getVoiceRecordButtonClassName,
   isRecordTextCleaning,
@@ -110,6 +111,11 @@ export default function RecordPage() {
     }
     return trimmedDetail.length > 28 ? `${trimmedDetail.slice(0, 28)}...` : trimmedDetail;
   }, [trimmedDetail]);
+  const previewSummaryText = getRecordPreviewSummaryText(
+    displayPreview.normalizedSummary,
+    previewTitle,
+    displayPreview.suggestedCategory,
+  );
 
   useEffect(() => {
     if (
@@ -599,7 +605,9 @@ export default function RecordPage() {
                       {showPreviewLoading ? "AI 확인 중" : `신뢰도 ${confidencePercent}%`}
                     </span>
                   </div>
-                  <h3 className="mt-2 text-sm font-bold text-[#1f2922]">{displayPreview.normalizedSummary || previewTitle}</h3>
+                  {previewSummaryText ? (
+                    <h3 className="mt-2 text-sm font-bold text-[#1f2922]">{previewSummaryText}</h3>
+                  ) : null}
                   <p className="mt-1 text-xs leading-5 text-[#6c7667]">
                     {visiblePreviewError ||
                     (displayPreview.needsConfirmation

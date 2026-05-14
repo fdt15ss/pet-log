@@ -245,6 +245,14 @@ function withMeasurementCategoryLabel(measurement: ExtractedMeasurement, categor
   };
 }
 
+function behaviorMeasurementFallback(candidate: BackendPetLogCandidate): ExtractedMeasurement[] {
+  const detail = typeof candidate.detail === "string" ? candidate.detail.trim() : "";
+  const title = typeof candidate.title === "string" ? candidate.title.trim() : "";
+  const value = detail && detail !== categoryLabels.behavior ? detail : title;
+
+  return value && value !== categoryLabels.behavior ? [{ label: categoryLabels.behavior, value }] : [];
+}
+
 function groupMeasurementsByLabel(measurements: ExtractedMeasurement[]): ExtractedMeasurement[] {
   return measurements
     .reduce<Array<{ label: string; values: string[] }>>((groups, measurement) => {
@@ -317,8 +325,11 @@ function backendCandidates(result: BackendPetLogResult): BackendPetLogCandidate[
 function backendCandidateMeasurements(result: BackendPetLogResult): ExtractedMeasurement[] {
   const measurements = backendCandidates(result)
     .flatMap((candidate) => {
-      const measurements = mapBackendMeasurements(candidate.measurements);
       const category = candidate.category;
+      const measurements = mapBackendMeasurements(candidate.measurements);
+      if (category === "behavior" && measurements.length === 0) {
+        return behaviorMeasurementFallback(candidate);
+      }
       return isRecordCategory(category)
         ? measurements.map((measurement) => withMeasurementCategoryLabel(measurement, category))
         : measurements;

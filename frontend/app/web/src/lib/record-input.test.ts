@@ -9,6 +9,7 @@ import {
   getMeasurementPreviewGridClassName,
   getMeasurementPreviewTileClassName,
   getMeasurementPreviewValueClassName,
+  getRecordPreviewSummaryText,
   getRecordTextAreaClassName,
   getVoiceRecordButtonClassName,
   isRecordTextCleaning,
@@ -88,6 +89,8 @@ assert.ok(getMeasurementPreviewTileClassName().includes("min-w-0"));
 assert.ok(getMeasurementPreviewTileClassName().includes("rounded-xl"));
 assert.ok(getMeasurementPreviewValueClassName().includes("break-words"));
 assert.ok(getMeasurementPreviewValueClassName().includes("[overflow-wrap:anywhere]"));
+assert.equal(getRecordPreviewSummaryText("식사", "아침 사료", "meal"), "");
+assert.equal(getRecordPreviewSummaryText("아침 사료 45g", "아침 사료", "meal"), "아침 사료 45g");
 assert.ok(recordPageSource.includes("<CategoryBadge category={measurementCategory} />"));
 assert.ok(recordPageSource.includes("<dd className={getMeasurementPreviewValueClassName()}>{measurement.value}</dd>"));
 assert.ok(!recordPageSource.includes("<CategoryBadge category={displayPreview.suggestedCategory} />"));

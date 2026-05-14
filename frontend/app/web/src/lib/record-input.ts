@@ -150,6 +150,24 @@ export function getMeasurementPreviewValueClassName() {
   return "mt-2 break-words text-sm font-black leading-5 text-[#1f2922] [overflow-wrap:anywhere]";
 }
 
+export function getRecordPreviewSummaryText(
+  normalizedSummary: string,
+  fallbackTitle: string,
+  suggestedCategory: RecordCategory,
+) {
+  const categoryLabel = categoryLabels[suggestedCategory];
+  const summary = normalizedSummary.trim();
+  if (summary === categoryLabel) {
+    return "";
+  }
+  if (summary && summary !== categoryLabel) {
+    return summary;
+  }
+
+  const fallback = fallbackTitle.trim();
+  return fallback === categoryLabel ? "" : fallback;
+}
+
 export function shouldRequestRecordPreview(state: RecordPreviewRequestState) {
   return (
     !!state.trimmedDetail &&

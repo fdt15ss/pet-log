@@ -683,6 +683,10 @@ test("기록 미리보기 API는 FastAPI 복수 후보의 카테고리를 구조
     assert.equal(response.status, 200);
     assert.equal(json.data.structured.suggestedCategory, "meal");
     assert.deepEqual(json.data.structured.detectedCategories, ["meal", "walk", "medical", "stool", "behavior"]);
+    assert.deepEqual(
+      json.data.structured.measurements.find((measurement: { label: string }) => measurement.label === "행동"),
+      { label: "행동", value: "평소보다 조금 조용함" },
+    );
   } finally {
     axios.defaults.adapter = previousAdapter;
     restoreEnvValue("PET_LOG_BACKEND_API_BASE_URL", previousBaseUrl);
