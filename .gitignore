@@ -28,6 +28,10 @@ out/
 playwright-report/
 test-results/
 
+# Test artifacts
+playwright-report/
+test-results/
+
 # Production builds
 dist/
 build/
