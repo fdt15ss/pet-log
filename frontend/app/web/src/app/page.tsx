@@ -9,6 +9,7 @@ import { usePetLog } from "@/components/pet-log-provider";
 import { AiMascot, Card, CategoryBadge, SectionHeader } from "@/components/ui";
 import { getRecentChange, getRecordStatusLabel, getTodaySummary, type HomeSummaryTone } from "@/lib/home-summary";
 import { PetIcon } from "@/components/pet-icons";
+import { askPetChat, sendChatbotMessage } from "@/lib/api-client";
 import { sendChatbotMessage } from "@/lib/api-client";
 import { sortCareNotificationsByLatest } from "@/lib/notifications";
 import type { ChatbotThread } from "@/lib/types";
@@ -87,6 +88,7 @@ export default function Home() {
   const [chatbotQuestion, setChatbotQuestion] = useState("");
   const [chatbotNotice, setChatbotNotice] = useState("");
   const [isChatbotSending, setIsChatbotSending] = useState(false);
+  const [isPetChatSending, setIsPetChatSending] = useState(false);
   const [isChatbotHistoryLoading] = useState(false);
   const [isVoiceListening, setIsVoiceListening] = useState(false);
   const [closingPanel, setClosingPanel] = useState<"chatbot" | null>(null);
@@ -219,6 +221,80 @@ export default function Home() {
 
   function submitChatbotQuestion() {
     void askChatbot(chatbotQuestion);
+  }
+
+  function createPetReply(question: string) {
+    const latestRecord = latestRecords[0];
+    const lowerQuestion = question.toLowerCase();
+    const healthConcern = /아파|토|설사|혈변|기침|숨|호흡|통증|병원|약/.test(question);
+
+    if (healthConcern) {
+      return `나를 걱정해줘서 고마워. 아픈지 단정하긴 어려우니까 오늘 상태를 기록하고, 계속 반복되거나 심해지면 병원에 물어봐줘.`;
+    }
+
+    if (question.includes("밥") || question.includes("먹")) {
+      return latestRecord?.category === "meal"
+        ? `아까 ${latestRecord.title} 기록 봤지? 나는 규칙적으로 챙겨주면 마음이 편해.`
+        : `밥 얘기하니까 기대된다. 먹은 양도 짧게 기록해주면 내 컨디션을 더 잘 알 수 있어.`;
+    }
+
+    if (question.includes("산책") || lowerQuestion.includes("walk")) {
+      return latestRecord?.category === "walk"
+        ? `오늘 산책 기억나. 밖 냄새 맡는 시간이 참 좋아. 다음에도 천천히 같이 걸어줘.`
+        : `산책 얘기만 들어도 신나. 짧게라도 같이 나가면 기분이 좋아질 것 같아.`;
+    }
+
+    if (question.includes("기분") || question.includes("좋아")) {
+      return `지금은 네가 말을 걸어줘서 좋아. 오늘 있었던 일을 조금씩 남겨주면 내가 어떤 하루를 보냈는지 더 잘 전할 수 있어.`;
+    }
+
+    return latestRecord
+      ? `${latestRecord.title} 기록을 보니까 오늘도 네가 나를 잘 챙겨준 것 같아. 또 궁금한 거 있으면 나한테 말 걸어줘.`
+      : `아직 오늘 기록이 많지는 않지만, 네가 말 걸어줘서 좋아. 밥, 산책, 배변 같은 걸 남겨주면 더 내 얘기처럼 답할 수 있어.`;
+  }
+
+  async function sendPetChatMessage(question: string) {
+    const trimmedQuestion = question.trim();
+    if (!trimmedQuestion) {
+      setPetChatNotice(`${profile.name}에게 하고 싶은 말을 입력해주세요.`);
+      return;
+    }
+
+    petChatMessageIdRef.current += 1;
+    const messageId = petChatMessageIdRef.current;
+    const userMessage: PetChatMessage = {
+      id: `pet-user-${messageId}`,
+      role: "user",
+      content: trimmedQuestion,
+    };
+    setPetChatMessages((current) => [...current, userMessage].slice(-12));
+    setIsPetChatSending(true);
+
+    try {
+      const response = await askPetChat(trimmedQuestion, profile.id);
+      const petMessage: PetChatMessage = {
+        id: `pet-reply-${messageId}`,
+        role: "pet",
+        content: response.answer,
+      };
+
+      setPetChatMessages((current) => [...current, petMessage].slice(-12));
+      setPetChatInput("");
+      setPetChatNotice(response.safetyNotice || "");
+    } catch {
+      setPetChatNotice("대화 답변을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.");
+    } finally {
+      setIsPetChatSending(false);
+    }
+  }
+
+  function selectPetChatQuestion(question: string) {
+    setPetChatInput(question);
+    void sendPetChatMessage(question);
+  }
+
+  function submitPetChatQuestion() {
+    void sendPetChatMessage(petChatInput);
   }
 
   function startChatbotVoiceInput() {
@@ -492,12 +568,142 @@ export default function Home() {
         </section>
       </div>
 
-      <PetChatDialog
-        isOpen={isPetChatOpen}
-        onClose={() => setIsPetChatOpen(false)}
-        profile={profile}
-        records={records}
-      />
+      {isPetChatOpen ? (
+        <div
+          className={`absolute inset-0 z-40 overflow-hidden bg-[#1f2922]/45 backdrop-blur-[1px] ${
+            closingPanel === "pet" ? "pet-log-backdrop-out" : "pet-log-backdrop-in"
+          }`}
+          onClick={closePetChat}
+        >
+          <section
+            aria-label="펫과 대화"
+            aria-modal="true"
+            className={`absolute bottom-0 right-0 top-0 flex w-full flex-col border-l border-[#dce8d4] bg-[#fffdf7] px-5 pb-5 pt-5 shadow-[-18px_0_48px_rgba(31,41,34,0.2)] ${
+              closingPanel === "pet" ? "pet-log-panel-out-right" : "pet-log-panel-in-right"
+            }`}
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+          >
+            <div className="shrink-0 border-b border-[#e5eadf] bg-[#fffdf7] pb-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex min-w-0 items-start gap-3">
+                  <div className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-2xl bg-white text-lg font-black text-[#16804b] shadow-inner">
+                    {profile.photoDataUrl ? (
+                      <Image
+                        alt={`${profile.name} 프로필 사진`}
+                        className="h-full w-full object-cover"
+                        height={48}
+                        src={profile.photoDataUrl}
+                        unoptimized
+                        width={48}
+                      />
+                    ) : (
+                      profile.name.slice(0, 1)
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <h2 className="text-xl font-black text-[#1f2922]">{profile.name}와 대화</h2>
+                    <p className="mt-1 text-sm font-semibold leading-6 text-[#667262]">기록을 바탕으로 일상 대화를 나눠요</p>
+                  </div>
+                </div>
+                <button
+                  aria-label="펫 대화 닫기"
+                  className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#f0f3ed] text-[#5e6859]"
+                  onClick={closePetChat}
+                  type="button"
+                >
+                  <PetIcon className="h-4 w-4" name="close" />
+                </button>
+              </div>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto pb-3 pt-4" ref={petChatScrollRef}>
+              <div className="space-y-2">
+                {petChatQuestions.map((question) => (
+                  <button
+                    className="flex h-12 w-full items-center gap-3 rounded-full border border-[#dfe6d9] bg-white px-4 text-left text-sm font-bold text-[#40513f] shadow-[0_4px_14px_rgba(49,65,44,0.04)]"
+                    disabled={isPetChatSending}
+                    key={question}
+                    onClick={() => selectPetChatQuestion(question)}
+                    type="button"
+                  >
+                    <PetIcon className="h-5 w-5 shrink-0 text-[#16804b]" name="heart" />
+                    <span className="min-w-0 truncate">{question}</span>
+                  </button>
+                ))}
+              </div>
+
+              <div className="mt-4 space-y-2" aria-label="펫 대화 내용">
+                <div className="mr-auto max-w-[92%] rounded-2xl border border-[#dfe8d9] bg-white px-4 py-3 text-sm font-semibold leading-6 text-[#334032] shadow-sm">
+                  <p className="break-words">나한테 말 걸어줘서 좋아. 오늘 있었던 일도 같이 얘기해보자.</p>
+                </div>
+                {petChatMessages.map((message) => (
+                  <div
+                    className={`max-w-[92%] rounded-2xl px-4 py-3 text-sm font-semibold leading-6 shadow-sm ${
+                      message.role === "user"
+                        ? "ml-auto bg-[#1f2922] text-white"
+                        : "mr-auto border border-[#dfe8d9] bg-white text-[#334032]"
+                    }`}
+                    key={message.id}
+                  >
+                    <p className="whitespace-pre-line break-words">{message.content}</p>
+                  </div>
+                ))}
+                {isPetChatSending ? (
+                  <div className="mr-auto max-w-[92%] rounded-2xl border border-[#dfe8d9] bg-white px-4 py-3 text-sm font-semibold leading-6 text-[#667262] shadow-sm">
+                    <p>답변을 생각하는 중입니다.</p>
+                  </div>
+                ) : null}
+              </div>
+
+              {petChatNotice ? (
+                <p className="mt-4 rounded-2xl bg-[#edf8ed] px-4 py-3 text-xs font-bold leading-5 text-[#16804b]">{petChatNotice}</p>
+              ) : null}
+
+              <p className="mt-4 rounded-2xl bg-[#f4f7f0] px-4 py-3 text-[11px] font-bold leading-5 text-[#667262]">
+                {profile.name}처럼 말하지만 진단은 아니에요. 아픈 상태가 반복되면 AI 질문이나 병원 상담으로 확인해주세요.
+              </p>
+            </div>
+
+            <div className="flex shrink-0 items-center gap-2 rounded-full border border-[#dfe6d9] bg-white px-4 py-2 shadow-sm">
+              <input
+                className="h-10 min-w-0 flex-1 bg-transparent text-sm font-semibold text-[#263022] outline-none placeholder:text-[#9aa494]"
+                onChange={(event) => {
+                  setPetChatInput(event.target.value);
+                  if (petChatNotice) {
+                    setPetChatNotice("");
+                  }
+                }}
+                placeholder={`${profile.name}에게 말 걸기`}
+                value={petChatInput}
+              />
+              <button
+                aria-label={isPetVoiceListening ? "펫 대화 음성 입력 듣는 중" : "펫 대화 음성 입력 시작"}
+                className={`grid h-10 w-10 shrink-0 place-items-center rounded-full border ${
+                  isPetVoiceListening
+                    ? "border-[#16804b] bg-[#e7f4eb] text-[#16804b]"
+                    : "border-[#d8e2d2] bg-[#f6f8f3] text-[#667262] disabled:text-[#a9b2a5]"
+                }`}
+                disabled={isPetChatSending || isPetVoiceListening}
+                onClick={startPetChatVoiceInput}
+                title="음성 입력"
+                type="button"
+              >
+                <PetIcon className="h-5 w-5" name="mic" />
+              </button>
+              <button
+                aria-label="펫 대화 보내기"
+                className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#1f2922] text-white disabled:bg-[#7c847f]"
+                disabled={isPetChatSending}
+                onClick={submitPetChatQuestion}
+                type="button"
+              >
+                <PetIcon className="h-5 w-5" name="send" />
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
 
       {isChatbotOpen ? (
         <div

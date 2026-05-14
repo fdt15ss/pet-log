@@ -9,6 +9,7 @@ from composition import AppContext
 from domain.models import CareSchedule, PetProfile, PetRecord
 from presentation.http.schemas import (
     CareAnswerRequest,
+    PetChatRequest,
     PetCreateRequest,
     PetLogRecordRequest,
     ProfileUpdateRequest,
@@ -286,6 +287,26 @@ def build_pet_log_router() -> APIRouter:
             {
                 "answer": result.answer,
                 "referencedRecordIds": list(result.referenced_record_ids),
+                "safetyNotice": result.safety_notice.message if result.safety_notice else "",
+            }
+        )
+
+    @router.post("/api/v1/ai/pet-chat")
+    def chat_with_pet(http_request: Request, request: PetChatRequest) -> dict[str, object]:
+        app_context = _app_context(http_request)
+        if app_context.pet_chat_pipeline is None:
+            raise HTTPException(status_code=500, detail="Pet chat pipeline not configured")
+
+        try:
+            app_context.pet_profile_reader.get_pet(request.pet_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="Pet not found") from exc
+
+        result = app_context.pet_chat_pipeline.chat(request.pet_id, request.message)
+        return success_response(
+            {
+                "answer": result.answer,
+                "routedToCareQuestion": result.routed_to_care_question,
                 "safetyNotice": result.safety_notice.message if result.safety_notice else "",
             }
         )
