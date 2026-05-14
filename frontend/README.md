@@ -146,10 +146,13 @@ PET_LOG_BACKEND_PET_ID=pet_01JCM7V8H9Q2K4N6R8T0A1B2C3
 cd frontend/app/web
 npm run lint
 npm run typecheck
+npm run test
+npm run test:e2e
+npm run eval
 npm run build
 ```
 
-최근 검증 기준으로 `lint`, `typecheck`, `build` 모두 통과했습니다.
+`npm run test:e2e`는 주요 라우트 smoke와 기록 저장 흐름을 실행합니다. `npm run eval`은 모바일 UI overflow/client error 검사와 기록 저장 flow grader를 실행합니다. 수동 시각 검토용 스크린샷은 `npm run eval:visual`로 생성할 수 있습니다.
 
 ## Azure 배포 방법
 
