@@ -38,7 +38,7 @@ from infrastructure.repositories.schedule_repository import ScheduleRepository
 from infrastructure.shopping import NaverShoppingClient, ShoppingRecommendationProvider
 from infrastructure.speech import SpeechToTextProvider, TextToSpeechProvider
 from infrastructure.speech.speech_text_correction import SpeechTextCorrectionProvider
-from middleware import HospitalFallbackMiddleware, ShoppingFallbackMiddleware
+from middleware import HospitalCacheRateLimitMiddleware, HospitalFallbackMiddleware, ShoppingFallbackMiddleware
 
 
 @dataclass(frozen=True)
@@ -124,7 +124,9 @@ def build_app_context(database_path: str | None = None) -> AppContext:
         context_analysis_agent=context_analysis_agent,
         suggestion_agent=suggestion_agent,
         shopping_agent=shopping_agent,
-        hospital_recommendation_agent=HospitalRecommendationAgent(HospitalFallbackMiddleware(GooglePlacesClient())),
+        hospital_recommendation_agent=HospitalRecommendationAgent(
+            HospitalFallbackMiddleware(HospitalCacheRateLimitMiddleware(GooglePlacesClient()))
+        ),
         record_reader=record_repository,
         schedule_reader=schedule_repository,
         file_repository=file_repository,

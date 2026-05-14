@@ -5,6 +5,10 @@ from typing import Any
 
 
 _EXPORTS = {
+    "HospitalCacheRateLimitMiddleware": (
+        "middleware.hospital_cache_rate_limit",
+        "HospitalCacheRateLimitMiddleware",
+    ),
     "HospitalFallbackMiddleware": ("middleware.hospital_fallback", "HospitalFallbackMiddleware"),
     "ShoppingFallbackMiddleware": ("middleware.shopping_fallback", "ShoppingFallbackMiddleware"),
     "build_agent_debug_middleware": ("middleware.logging", "build_agent_debug_middleware"),
