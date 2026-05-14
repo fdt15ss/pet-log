@@ -8,7 +8,7 @@ from unittest.mock import patch
 from application.agents.hospital import KST, HospitalRecommendationAgent, HospitalRecommendationQuery
 from domain.models import VeterinaryHospitalRecommendation
 from infrastructure.maps import GooglePlacesClient, GooglePlacesConfig, GooglePlacesConfigurationError
-from middleware import HospitalFallbackMiddleware
+from middleware import HospitalCacheRateLimitMiddleware, HospitalFallbackMiddleware
 
 
 class FakeHospitalProvider:
@@ -139,6 +139,101 @@ class TestHospitalRecommendations(unittest.TestCase):
         self.assertEqual(recommendations[0].place_id, "fallback-google-maps-search")
         self.assertIn("google.com/maps/search", recommendations[0].google_maps_url)
         self.assertIsNone(recommendations[0].is_open_now)
+
+    def test_hospital_cache_reuses_identical_search_results(self) -> None:
+        hospital = VeterinaryHospitalRecommendation(
+            place_id="place-1",
+            name="Cached Vet",
+            address="Seoul",
+            phone_number="02-0000-0001",
+            google_maps_url="https://maps.example/cached",
+            latitude=37.5,
+            longitude=127.0,
+            rating=4.5,
+            user_rating_count=10,
+            is_open_now=True,
+            is_24_hours=False,
+            weekday_text=(),
+            distance_meters=150,
+            reason="nearby",
+        )
+        upstream = FakeHospitalProvider((hospital,))
+        provider = HospitalCacheRateLimitMiddleware(upstream, cache_ttl_seconds=60, clock=lambda: 1000.0)
+
+        first = provider.search(
+            latitude=37.500123,
+            longitude=127.000456,
+            radius_meters=3000,
+            max_results=5,
+            language_code="ko",
+            region_code="KR",
+            search_query="animal hospital",
+            require_24_hours=False,
+        )
+        second = provider.search(
+            latitude=37.500123,
+            longitude=127.000456,
+            radius_meters=3000,
+            max_results=5,
+            language_code="ko",
+            region_code="KR",
+            search_query="animal hospital",
+            require_24_hours=False,
+        )
+
+        self.assertEqual(first, second)
+        self.assertEqual(len(upstream.searches), 1)
+
+    def test_hospital_rate_limit_blocks_uncached_searches(self) -> None:
+        hospital = VeterinaryHospitalRecommendation(
+            place_id="place-1",
+            name="Limited Vet",
+            address="Seoul",
+            phone_number="02-0000-0001",
+            google_maps_url="https://maps.example/limited",
+            latitude=37.5,
+            longitude=127.0,
+            rating=4.5,
+            user_rating_count=10,
+            is_open_now=True,
+            is_24_hours=False,
+            weekday_text=(),
+            distance_meters=150,
+            reason="nearby",
+        )
+        upstream = FakeHospitalProvider((hospital,))
+        provider = HospitalCacheRateLimitMiddleware(
+            upstream,
+            max_requests=1,
+            window_seconds=60,
+            cache_ttl_seconds=60,
+            clock=lambda: 1000.0,
+        )
+
+        first = provider.search(
+            latitude=37.5,
+            longitude=127.0,
+            radius_meters=3000,
+            max_results=5,
+            language_code="ko",
+            region_code="KR",
+            search_query="animal hospital",
+            require_24_hours=False,
+        )
+        blocked = provider.search(
+            latitude=37.6,
+            longitude=127.1,
+            radius_meters=3000,
+            max_results=5,
+            language_code="ko",
+            region_code="KR",
+            search_query="animal hospital",
+            require_24_hours=False,
+        )
+
+        self.assertEqual(first, (hospital,))
+        self.assertEqual(blocked, ())
+        self.assertEqual(len(upstream.searches), 1)
 
     def test_google_places_client_maps_nearby_search_response(self) -> None:
         class FakeResponse:
