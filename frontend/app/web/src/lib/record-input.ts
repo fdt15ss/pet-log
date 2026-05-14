@@ -57,6 +57,20 @@ export const recordInputFlow = ["category", "mode", "entry", "ai-preview", "rece
 
 export const defaultRecordCategoryChoice: RecordCategoryChoice = "all";
 
+const defaultVoicePromptPetName = "꾸꾸";
+
+function resolveVoicePromptPetName(petName: string) {
+  return petName.trim() || defaultVoicePromptPetName;
+}
+
+export function getVoiceRecordStartPrompt(petName: string) {
+  return `${resolveVoicePromptPetName(petName)}의 오늘을 들려주세요`;
+}
+
+export function getVoiceRecordCompletePrompt(petName: string) {
+  return `${resolveVoicePromptPetName(petName)}의 하루를 정리하고 있어요`;
+}
+
 export const recordCategoryChoiceOptions = [
   { icon: "record", label: "AI 자동", value: "all", hint: "내용 기준" },
   { icon: "meal", label: "식사", value: "meal", hint: "먹은 양" },

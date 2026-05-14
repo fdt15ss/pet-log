@@ -12,6 +12,8 @@ import {
   getRecordPreviewSummaryText,
   getRecordTextAreaClassName,
   getVoiceRecordButtonClassName,
+  getVoiceRecordCompletePrompt,
+  getVoiceRecordStartPrompt,
   isRecordTextCleaning,
   recordCategoryChoiceOptions,
   recordInputFlow,
@@ -65,6 +67,11 @@ const voiceMode = getInputModeFeedback("voice");
 assert.equal(voiceMode.status, "available");
 assert.equal(voiceMode.label, "녹음");
 assert.ok(voiceMode.detail.includes("마이크"));
+assert.equal(getVoiceRecordStartPrompt("코코"), "코코의 오늘을 들려주세요");
+assert.equal(getVoiceRecordCompletePrompt("코코"), "코코의 하루를 정리하고 있어요");
+assert.equal(getVoiceRecordStartPrompt("  "), "꾸꾸의 오늘을 들려주세요");
+assert.ok(recordPageSource.includes("await speakVoicePrompt(getVoiceRecordStartPrompt(profile.name))"));
+assert.ok(recordPageSource.includes("void speakVoicePrompt(getVoiceRecordCompletePrompt(profile.name))"));
 
 const photoMode = getInputModeFeedback("photo");
 assert.equal(photoMode.status, "coming-soon");
