@@ -14,6 +14,7 @@ import {
   formatCommunityCreatedAt,
   getCommunityBoardCounts,
   getCommunityDefaultPosts,
+  getCommunityLocationGuide,
   getCommunityPostDetail,
   getCommunityPosts,
   getCommunitySummaryPostCount,
@@ -21,6 +22,7 @@ import {
   resolveCommunityDraftBoard,
   resolveCommunityFetchQuery,
   resolveCommunitySelectedPostId,
+  shouldShowCommunityLocationBox,
   submitCommunityComment,
   submitCommunityPost,
   submitCommunityReaction,
@@ -83,6 +85,7 @@ export default function CommunityPage() {
   const visiblePosts = useMemo(() => getCommunityPosts(posts, { feed: activeFeed, board: activeBoard }), [activeBoard, activeFeed, posts]);
   const boardCounts = useMemo(() => getCommunityBoardCounts(allPosts), [allPosts]);
   const summaryPostCount = useMemo(() => getCommunitySummaryPostCount(allPosts, activeBoard), [activeBoard, allPosts]);
+  const draftLocationGuide = getCommunityLocationGuide(draftBoard);
 
   useEffect(() => {
     let ignore = false;
@@ -374,9 +377,12 @@ export default function CommunityPage() {
             <input
               className="mt-3 h-11 w-full rounded-xl border border-[#dce7d7] bg-[#fbfdf8] px-3 text-sm font-bold text-[#1f2922] outline-none focus:border-[#16804b]"
               onChange={(event) => setDraftLocationLabel(event.target.value)}
-              placeholder="위치 라벨 (예: 마포구 보호소 근처)"
+              placeholder={draftLocationGuide.placeholder}
               value={draftLocationLabel}
             />
+            <p className="mt-2 rounded-xl bg-[#f6f9ff] px-3 py-2 text-xs font-semibold leading-5 text-[#667262]">
+              {draftLocationGuide.helpText}
+            </p>
             <button
               className="mt-3 h-11 w-full rounded-xl bg-[#16804b] text-sm font-black text-white disabled:bg-[#cfd8ca]"
               disabled={!draftTitle.trim() || !draftBody.trim() || isSubmittingPost}
@@ -532,6 +538,16 @@ export default function CommunityPage() {
                 <h2 className="text-lg font-black leading-6 text-[#1f2922]">{selectedDetail.title}</h2>
               </div>
               <p className="mt-4 text-sm font-semibold leading-7 text-[#4d594b]">{selectedDetail.body}</p>
+              {shouldShowCommunityLocationBox(selectedDetail) ? (
+                <div className="mt-4 rounded-xl border border-[#dce7d7] bg-[#fbfdf8] p-3">
+                  <p className="inline-flex items-center gap-1.5 text-xs font-black text-[#16804b]">
+                    <PetIcon className="h-3.5 w-3.5" name="hospital" />
+                    참고 위치
+                  </p>
+                  <p className="mt-2 text-sm font-black text-[#1f2922]">{selectedDetail.locationLabel}</p>
+                  <p className="mt-1 text-xs font-semibold leading-5 text-[#667262]">정확한 주소가 아닌 작성자 입력 위치입니다.</p>
+                </div>
+              ) : null}
               {selectedDetail.tags?.length ? (
                 <div className="mt-4 flex flex-wrap gap-2">
                   {selectedDetail.tags.map((tag) => (

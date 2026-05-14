@@ -108,3 +108,21 @@ test("community hero write button fills the card action area", () => {
   assert.ok(bottomActionRowIndex > -1);
   assert.ok(fullWidthButtonIndex > bottomActionRowIndex);
 });
+
+test("community composer shows board-specific location placeholder guidance", () => {
+  assert.ok(communityPageSource.includes("getCommunityLocationGuide"));
+  assert.ok(communityPageSource.includes("const draftLocationGuide = getCommunityLocationGuide(draftBoard)"));
+  assert.ok(communityPageSource.includes("placeholder={draftLocationGuide.placeholder}"));
+  assert.ok(communityPageSource.includes("{draftLocationGuide.helpText}"));
+});
+
+test("community detail renders the location box below the body only when allowed", () => {
+  const bodyIndex = communityPageSource.indexOf("{selectedDetail.body}");
+  const locationBoxIndex = communityPageSource.indexOf("참고 위치", bodyIndex);
+  const tagsIndex = communityPageSource.indexOf("selectedDetail.tags", bodyIndex);
+
+  assert.ok(communityPageSource.includes("shouldShowCommunityLocationBox(selectedDetail)"));
+  assert.ok(locationBoxIndex > bodyIndex);
+  assert.ok(tagsIndex > locationBoxIndex);
+  assert.ok(communityPageSource.includes("정확한 주소가 아닌 작성자 입력 위치입니다."));
+});

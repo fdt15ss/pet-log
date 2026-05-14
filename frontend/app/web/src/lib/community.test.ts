@@ -11,6 +11,7 @@ import {
   fetchCommunityPostDetail,
   fetchCommunityPosts,
   formatCommunityCreatedAt,
+  getCommunityLocationGuide,
   getCommunityDefaultPosts,
   getCommunityBoardCounts,
   getCommunityPostDetail,
@@ -20,6 +21,7 @@ import {
   resolveCommunityFetchQuery,
   resolveCommunitySelectedPostId,
   resolveCommunityDraftBoard,
+  shouldShowCommunityLocationBox,
   submitCommunityComment,
   submitCommunityPost,
   submitCommunityReaction,
@@ -157,6 +159,19 @@ test("getCommunityPostDetail uses manual location labels instead of distance lab
   );
 
   assert.equal(detail.meta, "유기동물 · 댓글 8 · 공감 26 · 위치 마포구 보호소 근처");
+});
+
+test("getCommunityLocationGuide gives location examples by board", () => {
+  assert.equal(getCommunityLocationGuide("유기동물").placeholder, "위치 라벨 (예: 동네 보호소 공지, 마포구 보호소 근처)");
+  assert.equal(getCommunityLocationGuide("용품 나눔").placeholder, "위치 라벨 (예: 동네 직거래 가능, 역삼역 근처)");
+  assert.equal(getCommunityLocationGuide("자유게시판").placeholder, "위치 라벨 (선택)");
+});
+
+test("shouldShowCommunityLocationBox limits the detail box to abandoned animal and sharing posts", () => {
+  assert.equal(shouldShowCommunityLocationBox({ ...communityPosts[0], board: "유기동물", locationLabel: "동네 보호소 공지" }), true);
+  assert.equal(shouldShowCommunityLocationBox({ ...communityPosts[0], board: "용품 나눔", locationLabel: "동네 직거래 가능" }), true);
+  assert.equal(shouldShowCommunityLocationBox({ ...communityPosts[0], board: "자유게시판", locationLabel: "동네 카페" }), false);
+  assert.equal(shouldShowCommunityLocationBox({ ...communityPosts[0], board: "유기동물", locationLabel: "" }), false);
 });
 
 test("fetchCommunityPosts calls community API with filters", async () => {

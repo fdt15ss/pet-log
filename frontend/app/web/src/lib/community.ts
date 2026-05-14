@@ -7,6 +7,34 @@ export const DEFAULT_COMMUNITY_FEED: CommunityFeed = "최신글";
 export const COMMUNITY_POPULAR_LIKE_THRESHOLD = 10;
 export const COMMUNITY_POST_PAGE_SIZE = 10;
 
+type CommunityLocationGuide = {
+  placeholder: string;
+  helpText: string;
+};
+
+const COMMUNITY_LOCATION_GUIDES: Record<CommunityBoard, CommunityLocationGuide> = {
+  유기동물: {
+    placeholder: "위치 라벨 (예: 동네 보호소 공지, 마포구 보호소 근처)",
+    helpText: "보호소명, 발견 장소, 임시보호 가능 동네처럼 찾는 사람이 바로 이해할 수 있는 위치를 적어주세요.",
+  },
+  "용품 나눔": {
+    placeholder: "위치 라벨 (예: 동네 직거래 가능, 역삼역 근처)",
+    helpText: "직거래 가능 동네나 역 근처처럼 약속 장소를 잡기 쉬운 위치를 적어주세요.",
+  },
+  자유게시판: {
+    placeholder: "위치 라벨 (선택)",
+    helpText: "동네 맥락이 필요한 글이라면 장소명이나 동 이름만 가볍게 남겨주세요.",
+  },
+  "행동 고민": {
+    placeholder: "위치 라벨 (예: 집 근처 산책로)",
+    helpText: "산책로, 집 주변, 병원 근처처럼 행동이 나타난 환경을 적으면 답변에 도움이 돼요.",
+  },
+  후기: {
+    placeholder: "위치 라벨 (예: 성산동 미용실)",
+    helpText: "방문한 동네나 장소명을 적으면 다른 보호자가 후기를 참고하기 쉬워요.",
+  },
+};
+
 type CommunityPostQuery = {
   feed?: CommunityFeed | null;
   board?: CommunityBoard | null;
@@ -131,6 +159,14 @@ export function resolveCommunitySelectedPostId(posts: CommunityPost[], currentPo
 
 export function resolveCommunityDraftBoard(activeBoard: CommunityBoard | null) {
   return activeBoard ?? "자유게시판";
+}
+
+export function getCommunityLocationGuide(board: CommunityBoard) {
+  return COMMUNITY_LOCATION_GUIDES[board];
+}
+
+export function shouldShowCommunityLocationBox(post: Pick<CommunityPost, "board" | "locationLabel">) {
+  return Boolean(post.locationLabel?.trim()) && (post.board === "유기동물" || post.board === "용품 나눔");
 }
 
 export function formatCommunityCreatedAt(createdAt: string, now = new Date()) {
