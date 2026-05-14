@@ -193,6 +193,8 @@ rg -n "fastapi|openai|sqlalchemy|sqlite|postgres|psycopg" src/application src/do
 
 ## 배포
 
+### 프론트엔드 (Next.js)
+
 웹 앱은 Next.js App Router와 API route를 사용하므로 정적 호스팅이 아니라 Node.js 런타임이 있는 Azure App Service 배포를 기준으로 합니다.
 
 Azure 패키지 생성:
@@ -207,6 +209,24 @@ Azure 배포:
 ```bash
 cd frontend/app/web
 npm run azure:deploy -- pet-log-rg pet-log-kp-20260504 "Azure for Students"
+```
+
+### 백엔드 (FastAPI)
+
+백엔드 배포용 스크립트는 `backend/scripts`에 위치하며, Azure App Service (Python 런타임) 배포를 지원합니다.
+
+Azure 패키지 생성:
+
+```bash
+cd backend
+bash scripts/azure-package.sh
+```
+
+Azure 배포:
+
+```bash
+cd backend
+bash scripts/azure-deploy.sh <resource-group> <app-name> [subscription]
 ```
 
 자세한 운영 절차는 `frontend/docs/operations/azure-app-service-runbook.md`를 참고합니다.

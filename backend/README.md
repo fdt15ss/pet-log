@@ -73,7 +73,8 @@ src/composition.py
 - `POST /api/v1/pet-log/records`: 기록 입력 pipeline을 실행한다. (자연어 → 구조화 → 분석 → DB 저장)
 - `POST /api/v1/files`: 이미지를 업로드하고 `file_id`를 반환한다. (프로필 사진 등)
 - `GET /api/v1/files/{file_id}`: 업로드된 이미지 파일을 다운로드한다.
-- `POST /api/v1/speech/transcriptions`: 음성 파일을 STT provider(Whisper)로 변환한다.
+- `POST /api/v1/speech/transcriptions`: 음성 파일을 STT provider(Whisper)로 변환하고, `text` 원문과 AI가 정리한 `corrected_text`를 함께 반환한다.
+- `POST /api/v1/speech/text-corrections`: 브라우저 STT처럼 이미 텍스트로 변환된 음성 입력 문장을 AI로 정리해 `corrected_text`를 반환한다.
 - `POST /api/v1/hospitals/recommendations`: 위치 기반 동물병원 추천 (Google Places API)
 - `GET /api/v1/community/boards`: 커뮤니티 게시판과 피드 필터 목록을 반환한다.
 - `GET /api/v1/community/posts?feed=...&board=...`: 커뮤니티 글 목록을 반환한다.
@@ -154,7 +155,31 @@ scripts\run-dev.bat
 curl http://127.0.0.1:27893/health
 ```
 
-기록 입력 API:
+## Azure 배포
+
+백엔드는 Azure App Service (Linux, Python 런타임) 배포를 지원합니다.
+
+Azure 패키지 생성:
+
+```bash
+bash scripts/azure-package.sh
+```
+
+Azure 배포 실행:
+
+```bash
+bash scripts/azure-deploy.sh <resource-group> <app-name> [subscription]
+```
+
+예시:
+
+```bash
+bash scripts/azure-deploy.sh pet-log-rg pet-log-backend-kp "Azure for Students"
+```
+
+배포 패키지는 `backend/.azure-deploy/pet-log-backend.zip`에 생성됩니다.
+
+## 기록 입력 API:
 
 ```text
 POST /api/v1/pet-log/records
