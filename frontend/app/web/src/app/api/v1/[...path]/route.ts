@@ -88,6 +88,50 @@ function fail(code: string, message: string, status = 400) {
   return NextResponse.json({ ok: false, error: { code, message } }, { status });
 }
 
+function hasNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function mockCurrentUser() {
+  return {
+    id: "local-user",
+    email: "local@example.com",
+    name: "로컬 사용자",
+  };
+}
+
+function mockPets() {
+  const { profile } = getMockPetLogState();
+  return {
+    pets: [
+      {
+        ...profile,
+        id: profile.id ?? backendPetId(),
+      },
+    ],
+  };
+}
+
+function currentMockProfile() {
+  return getMockPetLogState().profile;
+}
+
+function profileNameFallback() {
+  return currentMockProfile().name.trim() || "반려동물";
+}
+
+function profileBreedFallback() {
+  return currentMockProfile().breed.trim() || "미등록";
+}
+
+function resolveProfileName(value: unknown) {
+  return hasNonEmptyString(value) ? value.trim() : profileNameFallback();
+}
+
+function resolveProfileBreed(value: unknown) {
+  return hasNonEmptyString(value) ? value.trim() : profileBreedFallback();
+}
+
 function isRecordCategory(value: unknown): value is RecordCategory {
   return recordCategories.includes(value as RecordCategory);
 }
@@ -732,9 +776,12 @@ export async function GET(_request: NextRequest, context: RouteContext) {
   if (path[0] === "me" && path.length === 1) {
     try {
       const response = await axios.get(backendApiUrl("/api/v1/me"), { timeout: backendTimeoutMs(), validateStatus: () => true });
+      if (response.status < 200 || response.status >= 300 || response.data?.success !== true || !response.data.data) {
+        return ok(mockCurrentUser());
+      }
       return ok(response.data.data);
     } catch {
-      return fail("BACKEND_ME_FAILED", "내 정보를 불러오지 못했습니다.", 502);
+      return ok(mockCurrentUser());
     }
   }
 
@@ -745,9 +792,9 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       if (data && Array.isArray(data.pets)) {
         return ok(data);
       }
-      return fail("BACKEND_PETS_FAILED", "반려동물 목록 응답 형식이 올바르지 않습니다.", 502);
+      return ok(mockPets());
     } catch {
-      return fail("BACKEND_PETS_FAILED", "반려동물 목록을 불러오지 못했습니다.", 502);
+      return ok(mockPets());
     }
   }
 
@@ -1020,11 +1067,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 
   if (path[0] === "pets" && path.length === 1) {
-    if (!body || typeof body.name !== "string") {
-      return fail("VALIDATION_ERROR", "이름은 필수입니다.");
-    }
+    const petBody = body && typeof body === "object" ? { ...body, name: resolveProfileName(body.name) } : { name: profileNameFallback() };
     try {
-      const response = await axios.post(backendApiUrl("/api/v1/pets"), body, { timeout: backendTimeoutMs(), validateStatus: () => true });
+      const response = await axios.post(backendApiUrl("/api/v1/pets"), petBody, { timeout: backendTimeoutMs(), validateStatus: () => true });
       return ok(response.data.data, 201);
     } catch {
       return fail("BACKEND_PET_CREATE_FAILED", "반려동물을 추가하지 못했습니다.", 502);
@@ -1059,15 +1104,20 @@ export async function PUT(request: NextRequest, context: RouteContext) {
   const body = await readJson(request);
 
   if (path[0] === "profile" && path.length === 1) {
-    if (!body || typeof body.name !== "string" || typeof body.breed !== "string") {
-      return fail("VALIDATION_ERROR", "이름과 품종은 필수입니다.");
+    if (!body || typeof body !== "object") {
+      return fail("VALIDATION_ERROR", "프로필 형식이 올바르지 않습니다.");
     }
+    const profileBody = {
+      ...body,
+      name: resolveProfileName(body.name),
+      breed: resolveProfileBreed(body.breed),
+    };
     try {
       const response = await axios.put<{ success?: boolean; data?: unknown; detail?: unknown }>(
         backendApiUrl("/api/v1/pet-log/profile"),
         {
           pet_id: backendPetId(),
-          ...body,
+          ...profileBody,
         },
         { headers: { "Content-Type": "application/json" }, timeout: backendTimeoutMs(), validateStatus: () => true },
       );
