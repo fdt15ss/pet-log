@@ -106,3 +106,4 @@ class NotificationCandidate:
     source_record_ids: tuple[str, ...] = ()
     due_date: str | None = None
     safety_notice: SafetyNotice | None = None
+    action_href: str = "/record"

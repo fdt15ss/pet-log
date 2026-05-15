@@ -6,6 +6,7 @@ import { AppShell } from "@/components/app-shell";
 import { PetIcon } from "@/components/pet-icons";
 import { usePetLog } from "@/components/pet-log-provider";
 import { Card, Pill, SectionHeader } from "@/components/ui";
+import { getCareNotificationHref } from "@/lib/action-navigation";
 import { sortCareNotificationsByLatest } from "@/lib/notifications";
 import type { CareNotificationCategory, CareNotificationTone } from "@/lib/types";
 
@@ -148,7 +149,7 @@ export default function NotificationsPage() {
                     <p className="mt-2 text-sm leading-6 text-[#667262]">{notification.detail}</p>
                     <Link
                       className="mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-[#16804b] text-sm font-bold text-white"
-                      href={notification.actionHref}
+                      href={getCareNotificationHref(notification)}
                       onClick={() => markNotificationRead(notification.id)}
                     >
                       <PetIcon className="h-4 w-4" name={notificationCategoryIcons[notification.category]} />

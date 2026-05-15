@@ -71,6 +71,7 @@ class CareInsight:
     title: str
     reason: str
     source_record_ids: tuple[str, ...] = ()
+    action_href: str | None = None
 
 
 @dataclass(frozen=True)
@@ -86,6 +87,7 @@ class CareSuggestion:
     reason: str
     severity: InsightSeverity = "info"
     source_record_ids: tuple[str, ...] = ()
+    action_href: str = "/record"
 
 
 @dataclass(frozen=True)

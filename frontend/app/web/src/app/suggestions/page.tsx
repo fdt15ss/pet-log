@@ -6,6 +6,7 @@ import { AppShell } from "@/components/app-shell";
 import { PetIcon } from "@/components/pet-icons";
 import { usePetLog } from "@/components/pet-log-provider";
 import { Card, Pill, SectionHeader } from "@/components/ui";
+import { getCareSuggestionHref } from "@/lib/action-navigation";
 import type { AiSuggestion, SuggestionCategory, SuggestionTone } from "@/lib/types";
 
 type SuggestionFilter = "전체" | SuggestionCategory;
@@ -42,7 +43,7 @@ export default function SuggestionsPage() {
         title: s.title,
         detail: s.reason,
         action: s.action,
-        actionHref: s.action.includes("타임라인") ? "/timeline" : "/record",
+        actionHref: getCareSuggestionHref(s, "/record"),
         tone,
       };
     });

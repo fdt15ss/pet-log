@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 
+from infrastructure.llm.action_navigation import ActionNavigationProvider
 from infrastructure.llm.care_answer import CareAnswerProvider
 from infrastructure.llm.image_record_understanding import ImageRecordUnderstandingProvider
 from infrastructure.llm.local_runtime import ensure_local_gemma_runtime
@@ -25,3 +26,4 @@ def preload_configured_llm_providers() -> None:
     CareAnswerProvider()
     PetPersonaResponder()
     ImageRecordUnderstandingProvider()
+    ActionNavigationProvider()

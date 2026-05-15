@@ -16,8 +16,8 @@ from presentation.http.schemas import (
     RecordUpdateRequest,
     ScheduleCreateRequest,
     ScheduleUpdateRequest,
+    insight_to_dict,
     pet_log_agent_result_to_dict,
-    safety_notice_to_dict,
     suggestion_to_dict,
     success_response,
 )
@@ -248,17 +248,30 @@ def build_pet_log_router() -> APIRouter:
     @router.get("/api/v1/ai/insights")
     def get_ai_insights(http_request: Request, pet_id: str) -> dict[str, object]:
         app_context = _app_context(http_request)
-        if app_context.record_reader is None:
-            raise HTTPException(status_code=500, detail="Record reader not configured")
+        if app_context.record_reader is None or app_context.schedule_reader is None:
+            raise HTTPException(status_code=500, detail="Repository not configured")
+        if app_context.context_analysis_agent is None:
+            raise HTTPException(status_code=500, detail="Context analysis agent not configured")
+        try:
+            pet = app_context.pet_profile_reader.get_pet(pet_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="Pet not found") from exc
+
         recent_records = app_context.record_reader.list_recent(pet_id, lookback_days=30)
-        notices = app_context.risk_detection_agent.detect("", recent_records)
-        return success_response({"insights": [safety_notice_to_dict(n) for n in notices]})
+        due_items = app_context.schedule_reader.list_due_items(pet_id, days_ahead=14)
+        context = app_context.context_analysis_agent.analyze(pet, recent_records, due_items)
+        insights = context.insights + context.missing_record_insights
+        return success_response({"insights": [insight_to_dict(insight) for insight in insights]})
 
     @router.get("/api/v1/ai/suggestions")
     def get_ai_suggestions(http_request: Request, pet_id: str) -> dict[str, object]:
         app_context = _app_context(http_request)
         if app_context.record_reader is None or app_context.schedule_reader is None:
             raise HTTPException(status_code=500, detail="Repository not configured")
+        if app_context.context_analysis_agent is None:
+            raise HTTPException(status_code=500, detail="Context analysis agent not configured")
+        if app_context.suggestion_agent is None:
+            raise HTTPException(status_code=500, detail="Suggestion agent not configured")
         
         try:
             pet = app_context.pet_profile_reader.get_pet(pet_id)

@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import unittest
 
-from application.dto import NotificationCandidate
 from domain.models import CareInsight, ContextAnalysisResult, PetProfile, PlannedReminder, SafetyNotice
 from infrastructure.notifications.policy import NotificationPolicy
 
@@ -34,6 +33,7 @@ class TestNotificationPolicy(unittest.TestCase):
 
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0].kind, "missing_record")
+        self.assertEqual(result[0].action_href, "/record")
         self.assertIsInstance(result[0].dedupe_key, str)
         self.assertTrue(len(result[0].dedupe_key) > 0)
 
@@ -54,6 +54,7 @@ class TestNotificationPolicy(unittest.TestCase):
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0].kind, "risk")
         self.assertEqual(result[0].source_record_ids, ("record-1", "record-2"))
+        self.assertEqual(result[0].action_href, "/timeline")
 
     def test_generates_behavior_change_candidate_from_notice_insight(self) -> None:
         context = ContextAnalysisResult(
@@ -88,6 +89,42 @@ class TestNotificationPolicy(unittest.TestCase):
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0].kind, "schedule")
         self.assertEqual(result[0].due_date, "2026-05-15")
+        self.assertEqual(result[0].action_href, "/schedule")
+
+    def test_uses_agent_action_href_for_context_insight(self) -> None:
+        context = ContextAnalysisResult(
+            insights=(
+                CareInsight(
+                    severity="alert",
+                    title="병원 예약과 쇼핑이 모두 언급된 위험 신호",
+                    reason="문구가 여러 후보를 포함해도 에이전트가 병원을 선택했습니다.",
+                    action_href="/hospital",
+                ),
+            ),
+        )
+
+        result = self.policy.plan(self.pet, context, (), ())
+
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0].kind, "risk")
+        self.assertEqual(result[0].action_href, "/hospital")
+
+    def test_rejects_invalid_agent_action_href_for_context_insight(self) -> None:
+        context = ContextAnalysisResult(
+            insights=(
+                CareInsight(
+                    severity="alert",
+                    title="외부 경로",
+                    reason="에이전트가 외부 URL을 반환하면 기본 경로를 사용합니다.",
+                    action_href="https://example.com/hospital",
+                ),
+            ),
+        )
+
+        result = self.policy.plan(self.pet, context, (), ())
+
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0].action_href, "/timeline")
 
     def test_generates_multiple_candidates_from_mixed_inputs(self) -> None:
         context = ContextAnalysisResult(
