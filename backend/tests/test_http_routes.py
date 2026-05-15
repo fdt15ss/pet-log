@@ -8,6 +8,7 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from application.agents.hospital import KST, HospitalRecommendationResult
+from tools.speech_tools import SpeechTools
 from application.dto import PetLogAgentResult
 from composition import AppContext
 from domain.models import (
@@ -135,6 +136,7 @@ class FakeAppContext:
         self.suggestion_agent = FakeSuggestionAgent()
         self.speech_to_text = FakeSpeechToText()
         self.text_to_speech = FakeTextToSpeech()
+        self.speech_tools = SpeechTools(self.speech_to_text, self.text_to_speech)
         self.shopping_agent = FakeShoppingAgent()
         self.hospital_recommendation_agent = FakeHospitalRecommendationAgent()
         self.closed = False

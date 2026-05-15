@@ -13,11 +13,13 @@ from middleware import (
     build_tool_call_limit_middleware,
     build_tool_retry_middleware,
 )
+from tools.care_tools import build_care_context_tool
 from tools.profile_tools import build_get_pet_profile_tool
 from tools.record_tools import build_list_recent_records_tool, build_save_pet_record_tool
+from tools.schedule_tools import build_list_due_reminders_tool
 
 
-CONTEXT_TOOL_NAMES = ("get_pet_profile", "list_recent_records")
+CONTEXT_TOOL_NAMES = ("get_pet_profile", "list_recent_records", "build_care_context", "list_due_reminders")
 RECORD_WRITE_TOOL_NAMES = ("save_pet_record",)
 
 
@@ -44,6 +46,8 @@ class ToolRegistry:
 class PetLogToolDependencies:
     profile_repository: Any
     record_repository: Any
+    care_context_builder: Any
+    schedule_repository: Any
 
 
 @dataclass(frozen=True)
@@ -56,6 +60,8 @@ def build_context_tools(dependencies: PetLogToolDependencies) -> tuple[BaseTool,
     return (
         build_get_pet_profile_tool(dependencies.profile_repository),
         build_list_recent_records_tool(dependencies.record_repository),
+        build_care_context_tool(dependencies.care_context_builder),
+        build_list_due_reminders_tool(dependencies.schedule_repository),
     )
 
 

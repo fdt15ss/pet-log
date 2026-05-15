@@ -46,7 +46,8 @@ def build_speech_router() -> APIRouter:
             raise HTTPException(status_code=413, detail="Audio file is too large")
 
         context = _app_context(http_request)
-        text = context.speech_to_text.transcribe(audio_bytes, content_type)
+        speech = context.speech_tools or context.speech_to_text
+        text = speech.transcribe(audio_bytes, content_type)
         corrected_text = _correct_speech_text(context, text)
         return success_response({"text": text, "corrected_text": corrected_text})
 
@@ -76,12 +77,14 @@ def build_speech_router() -> APIRouter:
             raise HTTPException(status_code=413, detail="Text is too long")
 
         context = _app_context(http_request)
-        if context.text_to_speech is None:
+        speech = context.speech_tools
+        if speech is None and context.text_to_speech is None:
             raise HTTPException(status_code=503, detail="Text-to-speech provider is not configured")
 
         try:
+            synthesizer = speech or context.text_to_speech
             audio = await run_in_threadpool(
-                context.text_to_speech.synthesize,
+                synthesizer.synthesize,
                 text,
                 synthesis_request.voice,
             )

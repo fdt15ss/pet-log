@@ -42,6 +42,7 @@ from infrastructure.shopping import NaverShoppingClient, ShoppingRecommendationP
 from infrastructure.speech import SpeechToTextProvider, TextToSpeechProvider
 from infrastructure.speech.speech_text_correction import SpeechTextCorrectionProvider
 from middleware import HospitalCacheRateLimitMiddleware, HospitalFallbackMiddleware, ShoppingFallbackMiddleware
+from tools.speech_tools import SpeechTools
 
 
 @dataclass(frozen=True)
@@ -65,6 +66,7 @@ class AppContext:
     notification_repository: NotificationRepository | None = None
     notification_policy: NotificationPolicy | None = None
     community_repository: CommunityRepository | None = None
+    speech_tools: SpeechTools | None = None
     close: Callable[[], None] = field(default=lambda: None)
 
 
@@ -122,15 +124,20 @@ def build_app_context(database_path: str | None = None) -> AppContext:
             PetLogToolDependencies(
                 profile_repository=pet_profile_reader,
                 record_repository=record_repository,
+                care_context_builder=care_context_builder,
+                schedule_repository=schedule_repository,
             )
         ),
     )
+    speech_to_text_provider = SpeechToTextProvider()
+    text_to_speech_provider = TextToSpeechProvider()
     return AppContext(
         pet_log_agent_pipeline=pipeline,
         pet_profile_reader=pet_profile_reader,
-        speech_to_text=SpeechToTextProvider(),
+        speech_to_text=speech_to_text_provider,
         speech_text_corrector=SpeechTextCorrectionProvider(),
-        text_to_speech=TextToSpeechProvider(),
+        text_to_speech=text_to_speech_provider,
+        speech_tools=SpeechTools(speech_to_text_provider, text_to_speech_provider),
         care_question_pipeline=care_question_pipeline,
         pet_chat_pipeline=pet_chat_pipeline,
         risk_detection_agent=risk_detection_agent,
@@ -157,6 +164,12 @@ def build_pet_log_agent_pipeline(database_path: str | None = None) -> LangGraphP
     record_repository = RecordRepository(connection=database)
     schedule_repository = ScheduleRepository(connection=database)
     pet_profile_reader = PetProfileRepository(connection=database)
+    care_context_builder = CareContextBuilder(
+        pet_profile_reader=pet_profile_reader,
+        record_history_reader=record_repository,
+        schedule_context_reader=schedule_repository,
+        days_ahead=14,
+    )
     return LangGraphPetLogAgentPipeline(
         record_structuring_agent=RecordStructuringAgent(_record_structurer()),
         record_history_reader=record_repository,
@@ -178,6 +191,8 @@ def build_pet_log_agent_pipeline(database_path: str | None = None) -> LangGraphP
             PetLogToolDependencies(
                 profile_repository=pet_profile_reader,
                 record_repository=record_repository,
+                care_context_builder=care_context_builder,
+                schedule_repository=schedule_repository,
             )
         ),
     )

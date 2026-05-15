@@ -44,6 +44,16 @@ class FakeRecordRepository:
         return record
 
 
+class FakeCareContextBuilder:
+    def build(self, pet_id: str, lookback_days: int) -> dict[str, object]:
+        return {"pet_id": pet_id, "lookback_days": lookback_days, "records": []}
+
+
+class FakeScheduleRepository:
+    def list_due_items(self, pet_id: str, days_ahead: int) -> list[dict[str, str]]:
+        return [{"pet_id": pet_id, "title": "Checkup", "days_ahead": str(days_ahead)}]
+
+
 class FakeToolRequest:
     tool_call = {"id": "call-1", "name": "explode"}
 
@@ -53,12 +63,14 @@ class TestAgentRuntimeWiring(unittest.TestCase):
         dependencies = PetLogToolDependencies(
             profile_repository=FakeProfileRepository(),
             record_repository=FakeRecordRepository(),
+            care_context_builder=FakeCareContextBuilder(),
+            schedule_repository=FakeScheduleRepository(),
         )
 
         tools = build_context_tools(dependencies)
         tool_names = {tool.name for tool in tools}
 
-        self.assertEqual({"get_pet_profile", "list_recent_records"}, tool_names)
+        self.assertEqual({"get_pet_profile", "list_recent_records", "build_care_context", "list_due_reminders"}, tool_names)
         profile_tool = next(tool for tool in tools if tool.name == "get_pet_profile")
         records_tool = next(tool for tool in tools if tool.name == "list_recent_records")
 
@@ -72,6 +84,8 @@ class TestAgentRuntimeWiring(unittest.TestCase):
         dependencies = PetLogToolDependencies(
             profile_repository=FakeProfileRepository(),
             record_repository=FakeRecordRepository(),
+            care_context_builder=FakeCareContextBuilder(),
+            schedule_repository=FakeScheduleRepository(),
         )
 
         context_tool_names = {tool.name for tool in build_context_tools(dependencies)}
@@ -105,12 +119,14 @@ class TestAgentRuntimeWiring(unittest.TestCase):
         dependencies = PetLogToolDependencies(
             profile_repository=FakeProfileRepository(),
             record_repository=FakeRecordRepository(),
+            care_context_builder=FakeCareContextBuilder(),
+            schedule_repository=FakeScheduleRepository(),
         )
 
         wiring = build_pet_log_node_wiring(dependencies)
 
         self.assertEqual(
-            ["get_pet_profile", "list_recent_records"],
+            ["get_pet_profile", "list_recent_records", "build_care_context", "list_due_reminders"],
             [tool.name for tool in wiring["load_context"].tools],
         )
         self.assertEqual(["save_pet_record"], [tool.name for tool in wiring["save_records"].tools])
@@ -122,6 +138,8 @@ class TestAgentRuntimeWiring(unittest.TestCase):
         dependencies = PetLogToolDependencies(
             profile_repository=FakeProfileRepository(),
             record_repository=FakeRecordRepository(),
+            care_context_builder=FakeCareContextBuilder(),
+            schedule_repository=FakeScheduleRepository(),
         )
 
         wiring = build_pet_log_node_wiring(dependencies)
