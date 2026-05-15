@@ -4,10 +4,12 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from application.dto import PetLogAgentResult
+from application.action_navigation import normalize_action_href
 from application.agents.hospital import HospitalRecommendationResult
+from application.dto import PetLogAgentResult
 from domain.enums import RecordInputSource
 from domain.models import (
+    CareInsight,
     CareSuggestion,
     PetRecord,
     PlannedReminder,
@@ -224,6 +226,16 @@ def safety_notice_to_dict(notice: SafetyNotice) -> dict[str, Any]:
     }
 
 
+def insight_to_dict(insight: CareInsight) -> dict[str, Any]:
+    return {
+        "severity": insight.severity,
+        "title": insight.title,
+        "reason": insight.reason,
+        "sourceRecordIds": list(insight.source_record_ids),
+        "actionHref": normalize_action_href(insight.action_href, fallback=None),
+    }
+
+
 def suggestion_to_dict(suggestion: CareSuggestion) -> dict[str, Any]:
     return {
         "title": suggestion.title,
@@ -231,6 +243,7 @@ def suggestion_to_dict(suggestion: CareSuggestion) -> dict[str, Any]:
         "reason": suggestion.reason,
         "severity": suggestion.severity,
         "source_record_ids": list(suggestion.source_record_ids),
+        "actionHref": normalize_action_href(suggestion.action_href, fallback="/record") or "/record",
     }
 
 

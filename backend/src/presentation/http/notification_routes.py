@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
+from application.action_navigation import normalize_action_href
 from application.dto import NotificationCandidate
 from composition import AppContext
 from domain.models import Notification
@@ -35,7 +36,7 @@ _KIND_HREF = {
     "risk": "/timeline",
     "behavior_change": "/timeline",
     "missing_record": "/record",
-    "schedule": "/schedules",
+    "schedule": "/schedule",
 }
 
 
@@ -62,7 +63,7 @@ def build_notification_router() -> APIRouter:
                     candidate=c,
                     category=_KIND_CATEGORY[c.kind],
                     action=_KIND_ACTION[c.kind],
-                    action_href=_KIND_HREF[c.kind],
+                    action_href=_candidate_action_href(c),
                     tone=_KIND_TONE[c.kind],
                 )
 
@@ -131,7 +132,7 @@ def _candidate_to_frontend(c: NotificationCandidate, read_ids: set[str]) -> dict
         "title": c.title,
         "detail": c.message,
         "action": _KIND_ACTION[c.kind],
-        "actionHref": _KIND_HREF[c.kind],
+        "actionHref": _candidate_action_href(c),
         "dueLabel": c.due_date or "",
         "tone": _KIND_TONE[c.kind],
         "createdAt": c.due_date or "",
@@ -147,7 +148,10 @@ def _notification_to_frontend(notification: Notification, read_ids: set[str]) ->
         "title": notification.title,
         "detail": notification.detail,
         "action": notification.action,
-        "actionHref": notification.action_href,
+        "actionHref": normalize_action_href(
+            notification.action_href,
+            fallback=_notification_fallback_href(notification),
+        ),
         "dueLabel": notification.due_label,
         "tone": notification.tone,
         "createdAt": notification.created_at,
@@ -168,6 +172,19 @@ def _merge_notification_payloads(
         seen.add(notification_id)
         merged.append(notification)
     return sorted(merged, key=_notification_created_at_key, reverse=True)
+
+
+def _candidate_action_href(candidate: NotificationCandidate) -> str:
+    fallback_href = _KIND_HREF[candidate.kind]
+    return normalize_action_href(candidate.action_href, fallback=fallback_href) or fallback_href
+
+
+def _notification_fallback_href(notification: Notification) -> str:
+    if notification.category == "일정":
+        return "/schedule"
+    if notification.category == "기록":
+        return "/record"
+    return "/timeline"
 
 
 def _notification_created_at_key(notification: dict[str, object]) -> float:
