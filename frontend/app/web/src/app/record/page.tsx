@@ -16,6 +16,7 @@ import {
   getMeasurementPreviewValueClassName,
   getRecordCategoryChoiceLabel,
   getRecordPreviewSummaryText,
+  getRecordSaveProcessingPrompt,
   getRecordTextAreaClassName,
   getVoiceRecordButtonClassName,
   getVoiceRecordCompletePrompt,
@@ -214,6 +215,7 @@ export default function RecordPage() {
 
     preloadCachedSpeechAudio(getVoiceRecordStartPrompt(profile.name), synthesizeSpeech);
     preloadCachedSpeechAudio(getVoiceRecordCompletePrompt(profile.name), synthesizeSpeech);
+    preloadCachedSpeechAudio(getRecordSaveProcessingPrompt(profile.name), synthesizeSpeech);
   }, [hasActivePet, profile.name]);
 
   function stopMediaStream() {
@@ -247,6 +249,7 @@ export default function RecordPage() {
     }
 
     setIsSaving(true);
+    void speakVoicePrompt(getRecordSaveProcessingPrompt(profile.name));
     try {
       if (category === "all" && !activePreview) {
         try {
