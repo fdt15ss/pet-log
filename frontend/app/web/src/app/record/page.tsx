@@ -479,14 +479,16 @@ export default function RecordPage() {
     <AppShell
       bottomAction={
         <button
-          className={`pet-log-pressable h-12 w-full rounded-2xl text-base font-bold text-white shadow-[0_8px_22px_rgba(22,128,75,0.25)] disabled:bg-[#8ab99f] ${
+          className={`pet-log-pressable h-12 w-full rounded-2xl text-base font-bold text-white shadow-[0_8px_22px_rgba(22,128,75,0.25)] disabled:bg-[#8ab99f] disabled:text-white ${
             isInvalid ? "bg-[#8ab99f]" : "bg-[#16804b]"
-          }`}
+          } ${isSaving ? "pet-log-loading-border pet-log-record-save-button-border" : ""}`}
           disabled={isSaving || !hasActivePet}
           onClick={handleSave}
           type="button"
         >
-          {isSaving ? "저장 중" : "기록 저장하기"}
+          <span className="relative z-10 inline-flex items-center justify-center text-white">
+            {isSaving ? "저장 중" : "기록 저장하기"}
+          </span>
         </button>
       }
       subtitle="자연어로 쉽고 빠르게 기록"
