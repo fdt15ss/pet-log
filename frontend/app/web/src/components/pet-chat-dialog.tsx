@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
+import { ChatTypingIndicator } from "@/components/chat-typing-indicator";
 import { PetIcon } from "@/components/pet-icons";
 import { askPetChat } from "@/lib/api-client";
 import type { PetProfile, RecordEntry } from "@/lib/types";
@@ -82,7 +83,7 @@ export function PetChatDialog({
     });
 
     return () => cancelAnimationFrame(frameId);
-  }, [isOpen, messages.length, notice]);
+  }, [isOpen, messages.length, notice, isSending]);
 
   useEffect(() => {
     return () => {
@@ -262,11 +263,7 @@ export function PetChatDialog({
                 <p className="whitespace-pre-line break-words">{message.content}</p>
               </div>
             ))}
-            {isSending ? (
-              <div className="mr-auto max-w-[92%] rounded-2xl border border-[#dfe8d9] bg-white px-4 py-3 text-sm font-semibold leading-6 text-[#667262] shadow-sm">
-                <p>답변을 생각하는 중입니다.</p>
-              </div>
-            ) : null}
+            {isSending ? <ChatTypingIndicator label={`${profile.name} 답변 대기 중`} /> : null}
           </div>
 
           {notice ? (

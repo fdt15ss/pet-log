@@ -11,7 +11,7 @@ class FakeStructuredModel:
         self.response = response
         self.calls: list[list[tuple[str, str]]] = []
 
-    def invoke(self, messages: list[tuple[str, str]]) -> dict[str, object]:
+    def invoke(self, messages: list[tuple[str, str]], config: dict[str, object] | None = None) -> dict[str, object]:
         self.calls.append(messages)
         return self.response
 
