@@ -47,6 +47,12 @@ const inputPlaceholders: Record<RecordInputMode, string> = {
 
 const maxLength = 500;
 
+function logRecordPage(message: string, ...args: unknown[]) {
+  if (process.env.NODE_ENV !== "production") {
+    console.info(message, ...args);
+  }
+}
+
 type AiPreviewResult = {
   detail: string;
   category: RecordCategoryChoice;
@@ -87,7 +93,7 @@ async function speakVoicePrompt(prompt: string) {
     const audioBlob = await getCachedSpeechAudio(prompt, synthesizeSpeech);
     await playSpeechAudioBlob(audioBlob);
   } catch (err) {
-    console.log("[record/page] 녹음 안내 음성 재생 실패:", err instanceof Error ? err.message : err);
+    logRecordPage("[record/page] 녹음 안내 음성 재생 실패:", err instanceof Error ? err.message : err);
   }
 }
 
@@ -115,7 +121,7 @@ export default function RecordPage() {
   const detailRef = useRef("");
 
   useEffect(() => {
-    console.log("[record/page] records 업데이트:", records.length, "건", records.slice(0, 3).map((r) => r.id));
+    logRecordPage("[record/page] records 업데이트:", records.length, "건", records.slice(0, 3).map((r) => r.id));
   }, [records]);
 
   const preview = records.slice(0, 3);
@@ -165,14 +171,14 @@ export default function RecordPage() {
       structureRecordPreview({ detail: trimmedDetail, fallbackCategory: category })
         .then((response) => {
           if (!cancelled) {
-            console.log("[record/page] AI 미리보기 성공:", response.structured.suggestedCategory, Math.round(response.structured.confidence * 100) + "%");
+            logRecordPage("[record/page] AI 미리보기 성공:", response.structured.suggestedCategory, Math.round(response.structured.confidence * 100) + "%");
             setAiPreview({ category, detail: trimmedDetail, structured: response.structured });
             setPreviewError("");
           }
         })
         .catch((err: unknown) => {
           if (!cancelled) {
-            console.log("[record/page] AI 미리보기 실패:", err instanceof Error ? err.message : err);
+            logRecordPage("[record/page] AI 미리보기 실패:", err instanceof Error ? err.message : err);
             setAiPreview(null);
             setPreviewError("AI 미리보기를 불러오지 못해 기본 분류로 표시합니다.");
           }
@@ -245,23 +251,23 @@ export default function RecordPage() {
       if (category === "all" && !activePreview) {
         try {
           const response = await structureRecordPreview({ detail: trimmedDetail, fallbackCategory: category });
-          console.log("[record/page] structureRecordPreview 성공:", response.structured.suggestedCategory);
+          logRecordPage("[record/page] structureRecordPreview 성공:", response.structured.suggestedCategory);
           setAiPreview({ category, detail: trimmedDetail, structured: response.structured });
           setPreviewError("");
         } catch (err) {
-          console.log("[record/page] structureRecordPreview 실패:", err instanceof Error ? err.message : err);
+          logRecordPage("[record/page] structureRecordPreview 실패:", err instanceof Error ? err.message : err);
           setPreviewError("AI 미리보기를 불러오지 못했습니다. 저장 시 서버에서 다시 처리합니다.");
         }
       }
 
-      console.log("[record/page] addRecord 호출:", category, trimmedDetail.slice(0, 30));
+      logRecordPage("[record/page] addRecord 호출:", category, trimmedDetail.slice(0, 30));
       const record = await addRecord({ category, detail: trimmedDetail });
-      console.log("[record/page] addRecord 성공:", record.id);
+      logRecordPage("[record/page] addRecord 성공:", record.id);
       setSavedId(record.id);
       setError("");
       setDetail("");
     } catch (err) {
-      console.log("[record/page] addRecord 실패:", err instanceof Error ? err.message : err);
+      logRecordPage("[record/page] addRecord 실패:", err instanceof Error ? err.message : err);
       setSavedId(null);
       setError("기록 저장에 실패했습니다. 서버 연결을 확인해주세요.");
     } finally {
@@ -281,9 +287,9 @@ export default function RecordPage() {
     try {
       const fileType = audio.type || "audio/webm";
       const file = new File([audio], "recording.webm", { type: fileType });
-      console.log("[record/page] transcribeSpeechAudio 호출:", fileType, audio.size, "bytes");
+      logRecordPage("[record/page] transcribeSpeechAudio 호출:", fileType, audio.size, "bytes");
       const transcription = await transcribeSpeechAudio(file);
-      console.log("[record/page] transcribeSpeechAudio 성공:", transcription.correctedText.slice(0, 50));
+      logRecordPage("[record/page] transcribeSpeechAudio 성공:", transcription.correctedText.slice(0, 50));
       detailRef.current = transcription.correctedText;
       setDetail(transcription.correctedText);
       setTranscriptionNotice(
@@ -292,7 +298,7 @@ export default function RecordPage() {
           : "음성 문장을 입력했습니다. 필요하면 저장 전 수정해주세요.",
       );
     } catch (err) {
-      console.log("[record/page] transcribeSpeechAudio 실패:", err instanceof Error ? err.message : err);
+      logRecordPage("[record/page] transcribeSpeechAudio 실패:", err instanceof Error ? err.message : err);
       setError("음성 인식에 실패했습니다. 텍스트로 직접 입력해주세요.");
     } finally {
       setIsTranscribing(false);
@@ -316,7 +322,7 @@ export default function RecordPage() {
           : "음성 문장을 입력했습니다. 필요하면 저장 전 수정해주세요.",
       );
     } catch (err) {
-      console.log("[record/page] correctSpeechText 실패:", err instanceof Error ? err.message : err);
+      logRecordPage("[record/page] correctSpeechText 실패:", err instanceof Error ? err.message : err);
       setTranscriptionNotice("음성 문장을 입력했습니다. 필요하면 저장 전 수정해주세요.");
     } finally {
       setIsCorrectingTranscription(false);
