@@ -11,6 +11,11 @@
     "lint": "eslint",
     "lint:fix": "eslint --fix",
     "test": "tsx --test \"src/**/*.test.ts\"",
+    "test:e2e": "playwright test tests/e2e",
+    "eval": "npm run eval:ui && npm run eval:flow",
+    "eval:ui": "playwright test tests/eval/mobile-ui.spec.ts",
+    "eval:flow": "playwright test tests/e2e/record-flow.spec.ts",
+    "eval:visual": "playwright test tests/eval/visual-screenshots.spec.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
