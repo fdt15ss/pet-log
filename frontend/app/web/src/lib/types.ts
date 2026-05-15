@@ -37,12 +37,14 @@ export type AiInsight = {
   title: string;
   reason: string;
   sourceRecordIds?: string[];
+  actionHref?: string | null;
 };
 
 export type AiSuggestion = {
   title: string;
   action: string;
   reason: string;
+  actionHref?: string | null;
   severity?: InsightSeverity;
   sourceRecordIds?: string[];
 };

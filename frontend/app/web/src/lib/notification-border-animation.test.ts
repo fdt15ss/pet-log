@@ -19,6 +19,11 @@ test("알림 카드의 주황/빨간 톤은 각 색상 테두리 애니메이션
   assert.ok(notificationsPage.includes("pet-log-notification-alert-border-orange"));
   assert.ok(notificationsPage.includes("pet-log-notification-alert-border-red"));
   assert.ok(homePage.includes("homeNotificationBorderClasses"));
+  assert.ok(homePage.includes("recentChangeLinksToHospital"));
+  assert.ok(homePage.includes("homeRecentChangeHospitalBorderClass"));
+  assert.ok(homePage.includes('getCareActionHref(topInsight.actionHref, "/timeline")'));
+  assert.ok(homePage.includes('=== "/hospital"'));
+  assert.ok(homePage.includes("href={recentChangeActionHref}"));
   assert.ok(homePage.includes("pet-log-notification-alert-border-orange"));
   assert.ok(homePage.includes("pet-log-notification-alert-border-red"));
   assert.ok(borderRule.includes("conic-gradient"));

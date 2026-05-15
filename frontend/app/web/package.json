@@ -16,7 +16,8 @@
     "eval:ui": "playwright test tests/eval/mobile-ui.spec.ts",
     "eval:flow": "playwright test tests/e2e/record-flow.spec.ts",
     "eval:visual": "playwright test tests/eval/visual-screenshots.spec.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "verify:care-navigation": "tsx --test src/lib/action-navigation.test.ts src/lib/analysis-navigation.test.ts src/lib/notification-border-animation.test.ts src/lib/timeline-navigation.test.ts && tsc --noEmit && eslint src/app/page.tsx src/app/analysis/page.tsx src/app/notifications/page.tsx src/app/timeline/page.tsx src/app/timeline/timeline-client.tsx src/lib/action-navigation.ts src/lib/action-navigation.test.ts src/lib/analysis-navigation.ts src/lib/analysis-navigation.test.ts src/lib/notification-border-animation.test.ts src/lib/timeline-navigation.ts src/lib/timeline-navigation.test.ts"
   },
   "dependencies": {
     "axios": "^1.15.2",

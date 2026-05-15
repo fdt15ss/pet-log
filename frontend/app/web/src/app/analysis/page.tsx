@@ -1,10 +1,13 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import { PetIcon } from "@/components/pet-icons";
 import { usePetLog } from "@/components/pet-log-provider";
 import { Card, MetricSparkline, Pill, SectionHeader } from "@/components/ui";
+import { getCareNotificationHref, getCareSuggestionHref } from "@/lib/action-navigation";
+import { buildActionableAnalysisInsights } from "@/lib/analysis-navigation";
 import {
   getAnalysisHighlights,
   getAnalysisMetrics,
@@ -16,6 +19,8 @@ import {
   type AnalysisRange,
   type AnalysisTone,
 } from "@/lib/analysis-summary";
+import { sortCareNotificationsByLatest } from "@/lib/notifications";
+import { getTimelineFilterHref, getTimelineRecordHref } from "@/lib/timeline-navigation";
 
 const reportRanges: { label: string; value: AnalysisRange }[] = [
   { label: "주간 리포트", value: "weekly" },
@@ -49,24 +54,38 @@ const highlightIcon = {
   behavior: "behavior",
 } as const;
 
+const notificationIcon = {
+  기록: "record",
+  주의: "alert",
+  "행동 변화": "behavior",
+  일정: "schedule",
+} as const;
+
 export default function AnalysisPage() {
-  const { records, settings, insights, isAnalysisLoading } = usePetLog();
+  const { records, settings, insights, isAnalysisLoading, notifications, suggestions } = usePetLog();
   const [activeRange, setActiveRange] = useState<AnalysisRange>("weekly");
   const [activeMetric, setActiveMetric] = useState<AnalysisMetricFilter>("all");
 
   const summary = useMemo(() => getAnalysisReport(records, activeRange), [activeRange, records]);
   const highlights = useMemo(() => getAnalysisHighlights(records, activeRange), [activeRange, records]);
   const riskRecords = useMemo(() => getRiskRecords(records, activeRange), [activeRange, records]);
+  const analysisNotifications = useMemo(() => sortCareNotificationsByLatest(notifications).slice(0, 2), [notifications]);
   
   const aiInsights = useMemo(() => {
     if (!settings.aiInsightEnabled) return [];
-    return insights.map((insight, idx) => ({
-      id: `insight-${idx}`,
-      title: insight.title,
-      detail: insight.reason,
-      tone: (insight.severity === "alert" ? "red" : insight.severity === "notice" ? "orange" : "green") as "red" | "orange" | "green"
-    }));
+    return buildActionableAnalysisInsights(insights);
   }, [insights, settings.aiInsightEnabled]);
+  const analysisSuggestions = useMemo(() => {
+    if (!settings.aiInsightEnabled) return [];
+    return suggestions.slice(0, 2).map((suggestion, idx) => ({
+      id: `analysis-suggestion-${idx}`,
+      title: suggestion.title,
+      detail: suggestion.reason,
+      action: suggestion.action,
+      actionHref: getCareSuggestionHref(suggestion, "/record"),
+      tone: (suggestion.severity === "alert" ? "red" : suggestion.severity === "notice" ? "orange" : "green") as AnalysisTone,
+    }));
+  }, [settings.aiInsightEnabled, suggestions]);
 
   const metrics = useMemo(() => getAnalysisMetrics(records, activeRange), [records, activeRange]);
   const vetBrief = useMemo(() => getVetBrief(records), [records]);
@@ -123,22 +142,78 @@ export default function AnalysisPage() {
           <p className="mt-4 text-sm leading-6 text-[#596554]">{summary.insight}</p>
         </Card>
 
+        {analysisNotifications.length > 0 || analysisSuggestions.length > 0 ? (
+          <section>
+            <SectionHeader title="케어 알림" />
+            <div className="space-y-3">
+              {analysisNotifications.map((notification) => (
+                <Link
+                  aria-label={`${notification.title} ${notification.action}`}
+                  className="block"
+                  href={getCareNotificationHref(notification)}
+                  key={notification.id}
+                >
+                  <Card className={`p-4 ${toneCard[notification.tone]}`} interactive motion="rise">
+                    <div className="flex items-start gap-3">
+                      <div className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white ${toneText[notification.tone]}`}>
+                        <PetIcon className="h-5 w-5" name={notificationIcon[notification.category]} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className={`text-xs font-bold ${toneText[notification.tone]}`}>
+                          {notification.category} · {notification.dueLabel}
+                        </p>
+                        <h3 className="mt-1 text-sm font-black text-[#1f2922]">{notification.title}</h3>
+                        <p className="mt-1 text-xs font-semibold leading-5 text-[#667262]">{notification.detail}</p>
+                        <p className={`mt-2 text-[11px] font-black ${toneText[notification.tone]}`}>{notification.action}</p>
+                      </div>
+                    </div>
+                  </Card>
+                </Link>
+              ))}
+              {analysisSuggestions.map((suggestion) => (
+                <Link
+                  aria-label={`${suggestion.title} ${suggestion.action}`}
+                  className="block"
+                  href={suggestion.actionHref}
+                  key={suggestion.id}
+                >
+                  <Card className={`p-4 ${toneCard[suggestion.tone]}`} interactive motion="rise">
+                    <div className="flex items-start gap-3">
+                      <div className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white ${toneText[suggestion.tone]}`}>
+                        <PetIcon className="h-5 w-5" name="sparkle" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className={`text-xs font-bold ${toneText[suggestion.tone]}`}>AI 제안</p>
+                        <h3 className="mt-1 text-sm font-black text-[#1f2922]">{suggestion.title}</h3>
+                        <p className="mt-1 text-xs font-semibold leading-5 text-[#667262]">{suggestion.detail}</p>
+                        <p className={`mt-2 text-[11px] font-black ${toneText[suggestion.tone]}`}>{suggestion.action}</p>
+                      </div>
+                    </div>
+                  </Card>
+                </Link>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
         <section>
           <SectionHeader title="핵심 패턴" />
           <div className="grid grid-cols-1 gap-3">
             {highlights.map((highlight) => (
-              <Card className={`p-3 ${toneCard[highlight.tone]}`} key={highlight.id} motion="rise">
-                <div className="flex items-start gap-3">
-                  <div className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white ${toneText[highlight.tone]}`}>
-                    <PetIcon className="h-5 w-5" name={highlightIcon[highlight.id]} />
+              <Link aria-label={`${highlight.label} 기록 보기`} className="block" href={getTimelineFilterHref(highlight.id)} key={highlight.id}>
+                <Card className={`p-3 ${toneCard[highlight.tone]}`} interactive motion="rise">
+                  <div className="flex items-start gap-3">
+                    <div className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white ${toneText[highlight.tone]}`}>
+                      <PetIcon className="h-5 w-5" name={highlightIcon[highlight.id]} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-[#7b8576]">{highlight.label}</p>
+                      <h3 className="mt-1 text-sm font-black text-[#1f2922]">{highlight.title}</h3>
+                      <p className="mt-1 text-xs font-semibold leading-5 text-[#667262]">{highlight.detail}</p>
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-xs font-bold text-[#7b8576]">{highlight.label}</p>
-                    <h3 className="mt-1 text-sm font-black text-[#1f2922]">{highlight.title}</h3>
-                    <p className="mt-1 text-xs font-semibold leading-5 text-[#667262]">{highlight.detail}</p>
-                  </div>
-                </div>
-              </Card>
+                </Card>
+              </Link>
             ))}
           </div>
         </section>
@@ -147,16 +222,18 @@ export default function AnalysisPage() {
           <SectionHeader title="이상 징후 기록" />
           <div className="space-y-3">
             {riskRecords.map((record) => (
-              <Card className={`p-3 ${toneCard[record.tone]}`} key={record.id} motion="rise">
-                <div className="flex items-start gap-3">
-                  <PetIcon className={`mt-0.5 h-5 w-5 shrink-0 ${toneText[record.tone]}`} name={toneIcon[record.tone]} />
-                  <div className="min-w-0">
-                    <p className={`text-xs font-bold ${toneText[record.tone]}`}>{record.meta}</p>
-                    <h3 className="mt-1 text-sm font-black text-[#1f2922]">{record.title}</h3>
-                    <p className="mt-1 text-xs font-semibold leading-5 text-[#667262]">{record.detail}</p>
+              <Link aria-label={`${record.title} 기록 보기`} className="block" href={getTimelineRecordHref(record.id)} key={record.id}>
+                <Card className={`p-3 ${toneCard[record.tone]}`} interactive motion="rise">
+                  <div className="flex items-start gap-3">
+                    <PetIcon className={`mt-0.5 h-5 w-5 shrink-0 ${toneText[record.tone]}`} name={toneIcon[record.tone]} />
+                    <div className="min-w-0">
+                      <p className={`text-xs font-bold ${toneText[record.tone]}`}>{record.meta}</p>
+                      <h3 className="mt-1 text-sm font-black text-[#1f2922]">{record.title}</h3>
+                      <p className="mt-1 text-xs font-semibold leading-5 text-[#667262]">{record.detail}</p>
+                    </div>
                   </div>
-                </div>
-              </Card>
+                </Card>
+              </Link>
             ))}
           </div>
         </section>
@@ -207,18 +284,20 @@ export default function AnalysisPage() {
             )}
             {settings.aiInsightEnabled ? (
               aiInsights.map((insight) => (
-                <Card key={insight.id} motion="rise">
-                  <p
-                    className={`inline-flex items-center gap-1.5 text-sm font-bold ${
-                      insight.tone === "red" ? "text-[#be4c3c]" : insight.tone === "orange" ? "text-[#bb721e]" : "text-[#16804b]"
-                    }`}
-                  >
-                    <PetIcon className="h-4 w-4" name={insight.tone === "red" || insight.tone === "orange" ? "alert" : "check"} />
-                    {insight.tone === "red" ? "주의" : insight.tone === "orange" ? "확인 필요" : "안정"}
-                  </p>
-                  <h2 className="mt-2 text-base font-black text-[#1f2922]">{insight.title}</h2>
-                  <p className="mt-2 text-sm leading-6 text-[#667262]">{insight.detail}</p>
-                </Card>
+                <Link aria-label={`${insight.title} 관련 페이지 보기`} className="block" href={insight.actionHref} key={insight.id}>
+                  <Card interactive motion="rise">
+                    <p
+                      className={`inline-flex items-center gap-1.5 text-sm font-bold ${
+                        insight.tone === "red" ? "text-[#be4c3c]" : insight.tone === "orange" ? "text-[#bb721e]" : "text-[#16804b]"
+                      }`}
+                    >
+                      <PetIcon className="h-4 w-4" name={insight.tone === "red" || insight.tone === "orange" ? "alert" : "check"} />
+                      {insight.tone === "red" ? "주의" : insight.tone === "orange" ? "확인 필요" : "안정"}
+                    </p>
+                    <h2 className="mt-2 text-base font-black text-[#1f2922]">{insight.title}</h2>
+                    <p className="mt-2 text-sm leading-6 text-[#667262]">{insight.detail}</p>
+                  </Card>
+                </Link>
               ))
             ) : (
               <Card className="p-5 text-center" motion="rise">
@@ -231,20 +310,22 @@ export default function AnalysisPage() {
 
         <section>
           <SectionHeader title="병원 제출용 요약" />
-          <Card motion="rise">
-            <p className="inline-flex items-center gap-1.5 text-sm font-bold text-[#16804b]">
-              <PetIcon className="h-4 w-4" name="medical" />
-              {vetBrief.title}
-            </p>
-            <p className="mt-2 text-sm leading-6 text-[#667262]">{vetBrief.detail}</p>
-            <ul className="mt-4 space-y-2">
-              {vetBrief.items.map((item) => (
-                <li className="rounded-xl bg-[#f4f7f0] px-3 py-2 text-xs font-semibold leading-5 text-[#3d4639]" key={item}>
-                  {item}
-                </li>
-              ))}
-            </ul>
-          </Card>
+          <Link aria-label={`${vetBrief.title} 병원 추천 보기`} className="block" href="/hospital">
+            <Card interactive motion="rise">
+              <p className="inline-flex items-center gap-1.5 text-sm font-bold text-[#16804b]">
+                <PetIcon className="h-4 w-4" name="medical" />
+                {vetBrief.title}
+              </p>
+              <p className="mt-2 text-sm leading-6 text-[#667262]">{vetBrief.detail}</p>
+              <ul className="mt-4 space-y-2">
+                {vetBrief.items.map((item) => (
+                  <li className="rounded-xl bg-[#f4f7f0] px-3 py-2 text-xs font-semibold leading-5 text-[#3d4639]" key={item}>
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          </Link>
         </section>
 
         <Card className="bg-[#fffaf0]" motion="rise">

@@ -11,7 +11,9 @@ import { AiMascot, Card, CategoryBadge, SectionHeader } from "@/components/ui";
 import { getRecentChange, getRecordStatusLabel, getTodaySummary, type HomeSummaryTone } from "@/lib/home-summary";
 import { PetIcon } from "@/components/pet-icons";
 import { sendChatbotMessage } from "@/lib/api-client";
+import { getCareActionHref, getCareNotificationHref, getCareSuggestionHref } from "@/lib/action-navigation";
 import { sortCareNotificationsByLatest } from "@/lib/notifications";
+import { getTimelineFilterHref, getTimelineRecordHref } from "@/lib/timeline-navigation";
 import type { ChatbotThread } from "@/lib/types";
 
 type SpeechRecognitionEventLike = {
@@ -73,6 +75,14 @@ const homeNotificationBorderClasses: Partial<Record<HomeSummaryTone, string>> = 
   red: "pet-log-notification-alert-border pet-log-notification-alert-border-red",
 };
 
+const homeRecentChangeHospitalBorderClass = "pet-log-notification-alert-border pet-log-notification-alert-border-orange";
+
+const severityToTone: Record<string, HomeSummaryTone> = {
+  alert: "red",
+  notice: "orange",
+  info: "green",
+};
+
 const chatbotQuestions: Array<{ icon: "heart" | "bell" | "syringe"; text: string }> = [
   { icon: "heart", text: "오늘 상태 괜찮아?" },
   { icon: "bell", text: "주의 알림은 왜 떴어?" },
@@ -100,11 +110,6 @@ export default function Home() {
   
   // AI Insights mapping (Replacing legacy recentChange)
   const topInsight = insights[0];
-  const severityToTone: Record<string, HomeSummaryTone> = {
-    alert: "red",
-    notice: "orange",
-    info: "green"
-  };
   
   const recentChange = useMemo(() => {
     if (topInsight) {
@@ -127,13 +132,37 @@ export default function Home() {
       title: s.title,
       detail: s.reason,
       action: s.action,
-      actionHref: s.action.includes("타임라인") ? "/timeline" : "/record",
+      actionHref: getCareSuggestionHref(s, "/record"),
       tone: "green" as const
     }));
   }, [suggestions, settings.aiInsightEnabled]);
 
   const pendingSchedules = schedules.filter((schedule) => !schedule.isDone).length;
   const chatbotMessageCount = chatbotThread?.messages.length ?? 0;
+  const recentChangeActionHref = topInsight ? getCareActionHref(topInsight.actionHref, "/timeline") : null;
+  const recentChangeLinksToHospital = recentChangeActionHref?.split(/[?#]/)[0] === "/hospital";
+  const recentChangeActionLabel = recentChangeLinksToHospital ? "병원 추천 보기" : "자세히 보기";
+  const recentChangeBorderClass = recentChangeLinksToHospital
+    ? (homeNotificationBorderClasses[recentChange.tone] ?? homeRecentChangeHospitalBorderClass)
+    : `border-l-4 ${toneCard[recentChange.tone]}`;
+  const recentChangeCard = (
+    <Card className={`p-4 ${recentChangeBorderClass}`} interactive={Boolean(recentChangeActionHref)} motion="rise">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className={`text-xs font-bold ${toneText[recentChange.tone]} flex items-center gap-1.5`}>
+            {recentChange.label}
+            {isAnalysisLoading && <span className="pet-log-pulse-dot h-1.5 w-1.5 bg-current opacity-60" />}
+          </p>
+          <h3 className="mt-1 text-sm font-black text-[#1f2922]">{recentChange.title}</h3>
+          <p className="mt-2 text-sm leading-6 text-[#62705f]">{recentChange.detail}</p>
+          {recentChangeActionHref ? (
+            <p className={`mt-3 text-xs font-black ${toneText[recentChange.tone]}`}>{recentChangeActionLabel}</p>
+          ) : null}
+        </div>
+        <span className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${toneDot[recentChange.tone]} ${recentChange.tone === "red" || recentChange.tone === "orange" ? "pet-log-pulse-dot" : ""}`} />
+      </div>
+    </Card>
+  );
 
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
@@ -311,21 +340,21 @@ export default function Home() {
             </Link>
           </div>
           <div className="relative mt-4 grid grid-cols-3 gap-2">
-            <div className="rounded-2xl bg-[#f4f7f0] px-3 py-3 text-center">
+            <Link aria-label="최근 기록 보기" className="pet-log-pressable rounded-2xl bg-[#f4f7f0] px-3 py-3 text-center" href="/timeline">
               <PetIcon className="mx-auto h-4 w-4 text-[#16804b]" name="record" />
               <p className="text-[11px] font-bold text-[#778174]">최근 기록</p>
               <p className="mt-1 text-base font-black text-[#1f2922]">{latestRecords.length}</p>
-            </div>
-            <div className="rounded-2xl bg-[#fffaf0] px-3 py-3 text-center">
+            </Link>
+            <Link aria-label="오늘 알림 보기" className="pet-log-pressable rounded-2xl bg-[#fffaf0] px-3 py-3 text-center" href="/notifications">
               <PetIcon className="mx-auto h-4 w-4 text-[#a4651a]" name="bell" />
               <p className="text-[11px] font-bold text-[#778174]">오늘 알림</p>
               <p className="mt-1 text-base font-black text-[#1f2922]">{notifications.length}</p>
-            </div>
-            <div className="rounded-2xl bg-[#f6f9ff] px-3 py-3 text-center">
+            </Link>
+            <Link aria-label="일정 보기" className="pet-log-pressable rounded-2xl bg-[#f6f9ff] px-3 py-3 text-center" href="/schedule">
               <PetIcon className="mx-auto h-4 w-4 text-[#356aa8]" name="schedule" />
               <p className="text-[11px] font-bold text-[#778174]">일정</p>
               <p className="mt-1 text-base font-black text-[#1f2922]">{pendingSchedules}</p>
-            </div>
+            </Link>
           </div>
         </Card>
 
@@ -362,22 +391,30 @@ export default function Home() {
           />
           <div className="space-y-3">
             {homeNotifications.map((notification) => (
-              <Card
-                className={`p-4 ${homeNotificationBorderClasses[notification.tone] ?? `border-l-4 ${toneCard[notification.tone]}`}`}
+              <Link
+                aria-label={`${notification.title} ${notification.action}`}
+                className="block"
+                href={getCareNotificationHref(notification)}
                 key={notification.id}
-                motion="rise"
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className={`text-xs font-bold ${toneText[notification.tone]}`}>
-                      {notification.category} · {notification.dueLabel}
-                    </p>
-                    <h3 className="mt-1 text-sm font-bold text-[#1f2922]">{notification.title}</h3>
-                    <p className="mt-1 text-xs leading-5 text-[#667262]">{notification.detail}</p>
+                <Card
+                  className={`p-4 ${homeNotificationBorderClasses[notification.tone] ?? `border-l-4 ${toneCard[notification.tone]}`}`}
+                  interactive
+                  motion="rise"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className={`text-xs font-bold ${toneText[notification.tone]}`}>
+                        {notification.category} · {notification.dueLabel}
+                      </p>
+                      <h3 className="mt-1 text-sm font-bold text-[#1f2922]">{notification.title}</h3>
+                      <p className="mt-1 text-xs leading-5 text-[#667262]">{notification.detail}</p>
+                      <p className="mt-2 text-[11px] font-black text-[#16804b]">{notification.action}</p>
+                    </div>
+                    <span className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${toneDot[notification.tone]} ${notification.tone === "red" || notification.tone === "orange" ? "pet-log-pulse-dot" : ""}`} />
                   </div>
-                  <span className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${toneDot[notification.tone]} ${notification.tone === "red" || notification.tone === "orange" ? "pet-log-pulse-dot" : ""}`} />
-                </div>
-              </Card>
+                </Card>
+              </Link>
             ))}
           </div>
         </section>
@@ -386,31 +423,27 @@ export default function Home() {
           <SectionHeader title="오늘 요약" />
           <div className="grid grid-cols-3 gap-2">
             {todaySummary.map((item) => (
-              <Card className={`p-3 text-center ${toneCard[item.tone]}`} key={item.category} motion="rise">
-                <PetIcon className={`mx-auto mb-1 h-4 w-4 ${toneText[item.tone]}`} name={item.category} />
-                <p className="text-xs font-bold text-[#788276]">{item.label}</p>
-                <p className="mt-2 truncate text-sm font-black text-[#1f2922]">{item.value}</p>
-                <p className={`mt-1 text-[11px] font-semibold ${toneText[item.tone]}`}>{item.state}</p>
-              </Card>
+              <Link aria-label={`${item.label} 기록 보기`} className="block" href={getTimelineFilterHref(item.category)} key={item.category}>
+                <Card className={`p-3 text-center ${toneCard[item.tone]}`} interactive motion="rise">
+                  <PetIcon className={`mx-auto mb-1 h-4 w-4 ${toneText[item.tone]}`} name={item.category} />
+                  <p className="text-xs font-bold text-[#788276]">{item.label}</p>
+                  <p className="mt-2 truncate text-sm font-black text-[#1f2922]">{item.value}</p>
+                  <p className={`mt-1 text-[11px] font-semibold ${toneText[item.tone]}`}>{item.state}</p>
+                </Card>
+              </Link>
             ))}
           </div>
         </section>
 
         <section>
           <SectionHeader title="최근 변화" />
-          <Card className={`border-l-4 p-4 ${toneCard[recentChange.tone]}`} motion="rise">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className={`text-xs font-bold ${toneText[recentChange.tone]} flex items-center gap-1.5`}>
-                  {recentChange.label}
-                  {isAnalysisLoading && <span className="pet-log-pulse-dot h-1.5 w-1.5 bg-current opacity-60" />}
-                </p>
-                <h3 className="mt-1 text-sm font-black text-[#1f2922]">{recentChange.title}</h3>
-                <p className="mt-2 text-sm leading-6 text-[#62705f]">{recentChange.detail}</p>
-              </div>
-              <span className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${toneDot[recentChange.tone]} ${recentChange.tone === "red" || recentChange.tone === "orange" ? "pet-log-pulse-dot" : ""}`} />
-            </div>
-          </Card>
+          {recentChangeActionHref ? (
+            <Link aria-label={`${recentChange.title} ${recentChangeActionLabel}`} className="block" href={recentChangeActionHref}>
+              {recentChangeCard}
+            </Link>
+          ) : (
+            recentChangeCard
+          )}
         </section>
 
         {settings.aiInsightEnabled ? (
@@ -433,16 +466,24 @@ export default function Home() {
                 </Card>
               )}
               {homeSuggestions.map((suggestion) => (
-                <Card className="p-4" key={suggestion.id} motion="rise">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-xs font-bold text-[#16804b]">{suggestion.category}</p>
-                      <h3 className="mt-1 font-bold text-[#1f2922]">{suggestion.title}</h3>
-                      <p className="mt-2 text-sm leading-6 text-[#62705f]">{suggestion.detail}</p>
+                <Link
+                  aria-label={`${suggestion.title} ${suggestion.action}`}
+                  className="block"
+                  href={suggestion.actionHref}
+                  key={suggestion.id}
+                >
+                  <Card className="p-4" interactive motion="rise">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-[#16804b]">{suggestion.category}</p>
+                        <h3 className="mt-1 font-bold text-[#1f2922]">{suggestion.title}</h3>
+                        <p className="mt-2 text-sm leading-6 text-[#62705f]">{suggestion.detail}</p>
+                        <p className="mt-3 text-xs font-black text-[#16804b]">{suggestion.action}</p>
+                      </div>
+                      <PetIcon className="mt-0.5 h-5 w-5 shrink-0 text-[#16804b]" name="sparkle" />
                     </div>
-                    <PetIcon className="mt-0.5 h-5 w-5 shrink-0 text-[#16804b]" name="sparkle" />
-                  </div>
-                </Card>
+                  </Card>
+                </Link>
               ))}
             </div>
           </section>
@@ -467,21 +508,23 @@ export default function Home() {
           <div className="space-y-3">
             {latestRecords.length > 0 ? (
               latestRecords.map((record) => (
-                <Card className="p-4" key={record.id} motion="rise">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <CategoryBadge category={record.category} />
-                        <span className="text-xs font-semibold text-[#8a9286]">{record.time}</span>
+                <Link aria-label={`${record.title} 기록 보기`} className="block" href={getTimelineRecordHref(record.id)} key={record.id}>
+                  <Card className="p-4" interactive motion="rise">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <CategoryBadge category={record.category} />
+                          <span className="text-xs font-semibold text-[#8a9286]">{record.time}</span>
+                        </div>
+                        <p className="mt-2 truncate text-sm font-bold text-[#1f2922]">{record.title}</p>
+                        <p className={`mt-1 text-xs font-bold ${toneText[getRecordStatusLabel(record).tone]}`}>
+                          {getRecordStatusLabel(record).label}
+                        </p>
                       </div>
-                      <p className="mt-2 truncate text-sm font-bold text-[#1f2922]">{record.title}</p>
-                      <p className={`mt-1 text-xs font-bold ${toneText[getRecordStatusLabel(record).tone]}`}>
-                        {getRecordStatusLabel(record).label}
-                      </p>
+                      <span className="text-[#9ba597]">›</span>
                     </div>
-                    <span className="text-[#9ba597]">›</span>
-                  </div>
-                </Card>
+                  </Card>
+                </Link>
               ))
             ) : (
                 <Card className="p-4" motion="rise">
