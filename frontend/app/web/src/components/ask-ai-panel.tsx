@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { askCareAnswer } from "@/lib/api-client";
 import type { ChatbotMessage, ChatbotThread } from "@/lib/types";
+import { ChatTypingIndicator } from "./chat-typing-indicator";
 import { usePetLog } from "./pet-log-provider";
 import { PetIcon } from "./pet-icons";
 
@@ -74,7 +75,7 @@ export function AskAiPanel({ hasBottomAction = false }: { hasBottomAction?: bool
     });
 
     return () => cancelAnimationFrame(frameId);
-  }, [messageCount, notice, isOpen]);
+  }, [messageCount, notice, isOpen, isSending]);
 
   function clearCloseTimer() {
     if (closeTimerRef.current) {
@@ -293,6 +294,8 @@ export function AskAiPanel({ hasBottomAction = false }: { hasBottomAction?: bool
                   ))}
                 </div>
               ) : null}
+
+              {isSending ? <ChatTypingIndicator label="AI 답변 대기 중" /> : null}
 
               {notice ? (
                 <p className="mt-4 rounded-2xl bg-[#edf8ed] px-4 py-3 text-xs font-bold leading-5 text-[#16804b]">{notice}</p>

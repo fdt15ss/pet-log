@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AppShell } from "@/components/app-shell";
+import { ChatTypingIndicator } from "@/components/chat-typing-indicator";
 import { PetChatDialog } from "@/components/pet-chat-dialog";
 import { usePetLog } from "@/components/pet-log-provider";
 import { AiMascot, Card, CategoryBadge, SectionHeader } from "@/components/ui";
@@ -166,7 +167,7 @@ export default function Home() {
     });
 
     return () => cancelAnimationFrame(frameId);
-  }, [chatbotMessageCount, chatbotNotice, isChatbotHistoryLoading, isChatbotOpen]);
+  }, [chatbotMessageCount, chatbotNotice, isChatbotHistoryLoading, isChatbotOpen, isChatbotSending]);
 
   function clearPanelCloseTimer() {
     if (panelCloseTimerRef.current) {
@@ -573,6 +574,8 @@ export default function Home() {
                   ))}
                 </div>
               ) : null}
+
+              {isChatbotSending ? <ChatTypingIndicator label="AI 답변 대기 중" /> : null}
 
               {chatbotNotice ? (
                 <p className="mt-4 rounded-2xl bg-[#edf8ed] px-4 py-3 text-xs font-bold leading-5 text-[#16804b]">{chatbotNotice}</p>
