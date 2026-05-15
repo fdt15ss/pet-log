@@ -303,6 +303,7 @@ GEMMA_PRELOAD=1
 GEMMA_BASE_URL=
 GEMMA_MODEL=gemma4:e4b
 GEMMA_API_KEY=local-gemma
+GEMMA_MAX_RETRIES=0
 OPENAI_API_KEY=sk-...
 ```
 
@@ -370,6 +371,7 @@ OPENAI_CARE_ANSWER_MODEL=gpt-4-turbo
 | `GEMMA_BASE_URL` | (empty) | Ollama endpoint (설정 시 자동 기동 무시) |
 | `GEMMA_MODEL` | `gemma4:e4b` | Ollama 모델명 또는 HuggingFace ID |
 | `GEMMA_API_KEY` | `local-gemma` | Ollama API key |
+| `GEMMA_MAX_RETRIES` | `0` | 로컬 Gemma OpenAI-compatible 호출의 SDK 내부 재시도 횟수 |
 | `OPENAI_API_KEY` | (empty) | GPT fallback 사용 시 필수 |
 | `OPENAI_*_MODEL` | (empty) | Task별 GPT primary 모델 |
 | `OPENAI_*_FALLBACK_MODEL` | (empty) | Task별 추가 fallback 모델 |

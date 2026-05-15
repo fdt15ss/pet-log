@@ -3,6 +3,7 @@ from __future__ import annotations
 import unittest
 from unittest.mock import patch
 
+from infrastructure.llm import local_runtime
 from infrastructure.llm.local_runtime import (
     ensure_local_gemma_runtime,
     local_gemma_base_url,
@@ -23,6 +24,7 @@ class FakeChatOpenAI:
 class TestLLMLocalRuntime(unittest.TestCase):
     def setUp(self) -> None:
         FakeChatOpenAI.calls = []
+        local_runtime._downloaded_model_keys.clear()
 
     def test_ollama_autostart_uses_default_openai_compatible_base_url(self):
         with patch.dict("os.environ", {"LOCAL_LLM_AUTOSTART": "1"}, clear=True):
@@ -63,6 +65,7 @@ class TestLLMLocalRuntime(unittest.TestCase):
                     "api_key": "local-gemma",
                     "timeout": 5.0,
                     "base_url": "http://127.0.0.1:11434/v1",
+                    "max_retries": 0,
                     "use_responses_api": False,
                 }
             ],
@@ -171,6 +174,30 @@ class TestLLMLocalRuntime(unittest.TestCase):
 
         self.assertEqual(run_commands, [["ollama", "pull", "gemma4:e4b"]])
         self.assertEqual(warmed_urls, ["http://127.0.0.1:11434/v1"])
+
+    def test_ensure_ollama_runtime_pulls_model_once_per_process(self):
+        run_commands: list[list[str]] = []
+
+        def fake_run(command, **kwargs):
+            run_commands.append(command)
+
+        env = {
+            "LOCAL_LLM_AUTOSTART": "1",
+            "LOCAL_LLM_RUNTIME": "ollama",
+            "GEMMA_AUTO_PULL": "1",
+            "GEMMA_MODEL": "gemma4:e4b",
+        }
+        with patch.dict("os.environ", env, clear=True), patch(
+            "infrastructure.llm.local_runtime._is_openai_compatible_server_ready",
+            return_value=True,
+        ), patch(
+            "infrastructure.llm.local_runtime.subprocess.run",
+            fake_run,
+        ):
+            ensure_local_gemma_runtime()
+            ensure_local_gemma_runtime()
+
+        self.assertEqual(run_commands, [["ollama", "pull", "gemma4:e4b"]])
 
 
 if __name__ == "__main__":

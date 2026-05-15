@@ -13,6 +13,12 @@ OLLAMA_GEMMA_MODEL_ALIASES = {
     "google/gemma-4-26B-A4B-it": "gemma4:26b",
     "google/gemma-4-31B-it": "gemma4:31b",
 }
+LOCAL_GEMMA_MODEL_NAMES = frozenset(
+    {
+        DEFAULT_LOCAL_GEMMA_MODEL,
+        *OLLAMA_GEMMA_MODEL_ALIASES.values(),
+    }
+)
 
 
 def local_gemma_model(default: str = DEFAULT_LOCAL_GEMMA_MODEL) -> str:
@@ -21,6 +27,15 @@ def local_gemma_model(default: str = DEFAULT_LOCAL_GEMMA_MODEL) -> str:
 
 def normalize_local_gemma_model(model: str) -> str:
     return OLLAMA_GEMMA_MODEL_ALIASES.get(model, model)
+
+
+def is_local_gemma_model_name(model: str, *, configured_model: str | None = None) -> bool:
+    normalized_model = normalize_local_gemma_model(model)
+    if normalized_model in LOCAL_GEMMA_MODEL_NAMES:
+        return True
+    if configured_model is None:
+        return False
+    return normalized_model == normalize_local_gemma_model(configured_model)
 
 
 def local_gemma_api_key() -> str:
