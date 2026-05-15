@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -17,6 +18,8 @@ DEFAULT_GEMMA_STARTUP_TIMEOUT_SECONDS = 15.0
 
 _started_process: subprocess.Popen[bytes] | None = None
 _started_command: list[str] | None = None
+_downloaded_model_keys: set[tuple[str, str]] = set()
+_download_lock = threading.Lock()
 
 
 def should_autostart_local_gemma() -> bool:
@@ -66,7 +69,19 @@ def _download_model_if_enabled() -> None:
     if not should_autopull_local_gemma_model():
         return
 
-    commands = _download_commands()
+    runtime = local_llm_runtime()
+    model = local_gemma_model()
+    cache_key = (runtime, model)
+    with _download_lock:
+        if cache_key in _downloaded_model_keys:
+            return
+
+        _download_model(runtime, model)
+        _downloaded_model_keys.add(cache_key)
+
+
+def _download_model(runtime: str, model: str) -> None:
+    commands = _download_commands(model)
     missing_commands: list[str] = []
     try:
         for command in commands:
@@ -76,14 +91,14 @@ def _download_model_if_enabled() -> None:
             except FileNotFoundError:
                 missing_commands.append(command[0])
     except subprocess.CalledProcessError as error:
-        raise RuntimeError(f"Failed to download local Gemma model for {local_llm_runtime()}.") from error
+        raise RuntimeError(f"Failed to download local Gemma model for {runtime}.") from error
 
     required_commands = " or ".join(f"`{command}`" for command in missing_commands)
-    raise RuntimeError(f"GEMMA_AUTO_PULL=1 requires {required_commands} to be installed for {local_llm_runtime()}.")
+    raise RuntimeError(f"GEMMA_AUTO_PULL=1 requires {required_commands} to be installed for {runtime}.")
 
 
-def _download_commands() -> list[list[str]]:
-    return [["ollama", "pull", local_gemma_model()]]
+def _download_commands(model: str) -> list[list[str]]:
+    return [["ollama", "pull", model]]
 
 
 def _preload_model_if_enabled(base_url: str) -> None:

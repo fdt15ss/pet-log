@@ -97,10 +97,65 @@ class TestLocalGemmaFallback(unittest.TestCase):
                     "api_key": "local-key",
                     "timeout": 9.0,
                     "base_url": "http://127.0.0.1:1234/v1",
+                    "max_retries": 0,
                     "use_responses_api": False,
                 }
             ],
         )
+
+    def test_chat_model_builder_allows_local_gemma_retry_override(self):
+        env = {
+            "GEMMA_BASE_URL": "http://127.0.0.1:1234/v1",
+            "GEMMA_MAX_RETRIES": "2",
+            "GEMMA_MODEL": "gemma4:e4b",
+        }
+
+        with patch.dict("os.environ", env, clear=True), patch(
+            "infrastructure.llm.model_factory.ChatOpenAI",
+            FakeChatOpenAI,
+        ):
+            build_chat_openai_model("gemma4:e4b", "local-key", 9.0)
+
+        self.assertEqual(FakeChatOpenAI.calls[0]["max_retries"], 2)
+
+    def test_chat_model_builder_rejects_local_gemma_when_local_runtime_disabled(self):
+        env = {
+            "GEMMA_MODEL": "google/gemma-4-E4B-it",
+        }
+
+        with patch.dict("os.environ", env, clear=True), patch(
+            "infrastructure.llm.model_factory.ChatOpenAI",
+            FakeChatOpenAI,
+        ):
+            with self.assertRaisesRegex(RuntimeError, "local Gemma is disabled"):
+                build_chat_openai_model("google/gemma-4-E4B-it", "gpt-key", 9.0)
+
+        self.assertEqual(FakeChatOpenAI.calls, [])
+
+    def test_chat_model_builder_rejects_any_known_gemma_alias_when_local_runtime_disabled(self):
+        with patch.dict("os.environ", {}, clear=True), patch(
+            "infrastructure.llm.model_factory.ChatOpenAI",
+            FakeChatOpenAI,
+        ):
+            with self.assertRaisesRegex(RuntimeError, "gemma4:e2b"):
+                build_chat_openai_model("google/gemma-4-E2B-it", "gpt-key", 9.0)
+
+        self.assertEqual(FakeChatOpenAI.calls, [])
+
+    def test_chat_model_builder_treats_autostart_false_as_local_runtime_disabled(self):
+        env = {
+            "LOCAL_LLM_AUTOSTART": "false",
+            "GEMMA_MODEL": "gemma4:e4b",
+        }
+
+        with patch.dict("os.environ", env, clear=True), patch(
+            "infrastructure.llm.model_factory.ChatOpenAI",
+            FakeChatOpenAI,
+        ):
+            with self.assertRaisesRegex(RuntimeError, "local Gemma is disabled"):
+                build_chat_openai_model("gemma4:e4b", "local-key", 9.0)
+
+        self.assertEqual(FakeChatOpenAI.calls, [])
 
     def test_chat_model_builder_keeps_gpt_on_openai_responses_api(self):
         with patch.dict("os.environ", {}, clear=True), patch(
@@ -120,6 +175,40 @@ class TestLocalGemmaFallback(unittest.TestCase):
                     "use_responses_api": True,
                 }
             ],
+        )
+
+    def test_record_summary_allows_local_gemma_primary_without_openai_key(self):
+        created: list[dict[str, object]] = []
+        local_primary = FakeFallbackCapableModel(
+            {
+                "summary": "Local Gemma primary 요약입니다.",
+                "record_ids": [],
+                "highlights": [],
+                "behavior_patterns": [],
+                "missing_record_notes": [],
+                "safety_notice": None,
+            }
+        )
+
+        def fake_model_factory(model: str, api_key: str, timeout: float):
+            created.append({"model": model, "api_key": api_key, "timeout": timeout})
+            if model == "gemma4:e4b":
+                return local_primary
+            raise AssertionError(f"Unexpected model: {model}")
+
+        env = {
+            "GEMMA_BASE_URL": "http://127.0.0.1:1234/v1",
+            "GEMMA_API_KEY": "local-key",
+            "OPENAI_RECORD_SUMMARY_MODEL": "gemma4:e4b",
+        }
+        with patch.dict("os.environ", env, clear=True):
+            provider = RecordSummaryProvider(timeout=11.0, model_factory=fake_model_factory)
+            result = provider.summarize(PetProfile(id="pet-1", name="초코"), (), ContextAnalysisResult(), ())
+
+        self.assertEqual(result.summary, "Local Gemma primary 요약입니다.")
+        self.assertEqual(
+            created,
+            [{"model": "gemma4:e4b", "api_key": "local-key", "timeout": 11.0}],
         )
 
     def test_record_summary_uses_gpt_primary_and_gemma_fallback(self):
@@ -289,6 +378,167 @@ class TestLocalGemmaFallback(unittest.TestCase):
                 {"model": "gpt-5-mini", "api_key": "gpt-key", "timeout": 11.0},
                 {"model": "gemma4:e4b", "api_key": "local-key", "timeout": 11.0},
             ],
+        )
+
+    def test_explicit_huggingface_gemma_fallback_alias_is_deduplicated(self):
+        created: list[dict[str, object]] = []
+        gpt_primary = FakeFallbackCapableModel(
+            {
+                "summary": "GPT primary 요약입니다.",
+                "record_ids": [],
+                "highlights": [],
+                "behavior_patterns": [],
+                "missing_record_notes": [],
+                "safety_notice": None,
+            }
+        )
+        gemma_fallback = FakeFallbackModel(
+            None,
+            (),
+            (),
+            response={
+                "summary": "Gemma fallback 요약입니다.",
+                "record_ids": [],
+                "highlights": [],
+                "behavior_patterns": [],
+                "missing_record_notes": [],
+                "safety_notice": None,
+            },
+        )
+
+        def fake_model_factory(model: str, api_key: str, timeout: float):
+            created.append({"model": model, "api_key": api_key, "timeout": timeout})
+            if model == "gpt-5-mini":
+                return gpt_primary
+            if model == "gemma4:e4b":
+                return gemma_fallback
+            raise AssertionError(f"Unexpected model: {model}")
+
+        env = {
+            "LOCAL_LLM_AUTOSTART": "1",
+            "GEMMA_MODEL": "google/gemma-4-E4B-it",
+            "GEMMA_API_KEY": "local-key",
+            "OPENAI_API_KEY": "gpt-key",
+            "OPENAI_RECORD_SUMMARY_MODEL": "gpt-5-mini",
+            "OPENAI_RECORD_SUMMARY_FALLBACK_MODEL": "google/gemma-4-E4B-it",
+        }
+        with patch.dict("os.environ", env, clear=True):
+            provider = RecordSummaryProvider(timeout=11.0, model_factory=fake_model_factory)
+            result = provider.summarize(PetProfile(id="pet-1", name="초코"), (), ContextAnalysisResult(), ())
+
+        self.assertEqual(result.summary, "GPT primary 요약입니다.")
+        self.assertEqual(
+            created,
+            [
+                {"model": "gpt-5-mini", "api_key": "gpt-key", "timeout": 11.0},
+                {"model": "gemma4:e4b", "api_key": "local-key", "timeout": 11.0},
+            ],
+        )
+
+    def test_explicit_huggingface_gemma_fallback_uses_local_api_key(self):
+        created: list[dict[str, object]] = []
+        gpt_primary = FakeFallbackCapableModel(
+            {
+                "summary": "GPT primary 요약입니다.",
+                "record_ids": [],
+                "highlights": [],
+                "behavior_patterns": [],
+                "missing_record_notes": [],
+                "safety_notice": None,
+            }
+        )
+        gemma_e2b_fallback = FakeFallbackModel(
+            None,
+            (),
+            (),
+            response={
+                "summary": "Gemma E2B fallback 요약입니다.",
+                "record_ids": [],
+                "highlights": [],
+                "behavior_patterns": [],
+                "missing_record_notes": [],
+                "safety_notice": None,
+            },
+        )
+        gemma_e4b_fallback = FakeFallbackModel(
+            None,
+            (),
+            (),
+            response={
+                "summary": "Gemma E4B fallback 요약입니다.",
+                "record_ids": [],
+                "highlights": [],
+                "behavior_patterns": [],
+                "missing_record_notes": [],
+                "safety_notice": None,
+            },
+        )
+
+        def fake_model_factory(model: str, api_key: str, timeout: float):
+            created.append({"model": model, "api_key": api_key, "timeout": timeout})
+            if model == "gpt-5-mini":
+                return gpt_primary
+            if model == "gemma4:e2b":
+                return gemma_e2b_fallback
+            if model == "gemma4:e4b":
+                return gemma_e4b_fallback
+            raise AssertionError(f"Unexpected model: {model}")
+
+        env = {
+            "LOCAL_LLM_AUTOSTART": "1",
+            "GEMMA_MODEL": "gemma4:e4b",
+            "GEMMA_API_KEY": "local-key",
+            "OPENAI_API_KEY": "gpt-key",
+            "OPENAI_RECORD_SUMMARY_MODEL": "gpt-5-mini",
+            "OPENAI_RECORD_SUMMARY_FALLBACK_MODEL": "google/gemma-4-E2B-it",
+        }
+        with patch.dict("os.environ", env, clear=True):
+            provider = RecordSummaryProvider(timeout=11.0, model_factory=fake_model_factory)
+            result = provider.summarize(PetProfile(id="pet-1", name="초코"), (), ContextAnalysisResult(), ())
+
+        self.assertEqual(result.summary, "GPT primary 요약입니다.")
+        self.assertEqual(
+            created,
+            [
+                {"model": "gpt-5-mini", "api_key": "gpt-key", "timeout": 11.0},
+                {"model": "gemma4:e2b", "api_key": "local-key", "timeout": 11.0},
+                {"model": "gemma4:e4b", "api_key": "local-key", "timeout": 11.0},
+            ],
+        )
+
+    def test_explicit_huggingface_gemma_fallback_alias_requires_local_runtime(self):
+        created: list[dict[str, object]] = []
+        gpt_primary = FakeFallbackCapableModel(
+            {
+                "summary": "GPT primary 요약입니다.",
+                "record_ids": [],
+                "highlights": [],
+                "behavior_patterns": [],
+                "missing_record_notes": [],
+                "safety_notice": None,
+            }
+        )
+
+        def fake_model_factory(model: str, api_key: str, timeout: float):
+            created.append({"model": model, "api_key": api_key, "timeout": timeout})
+            if model == "gpt-5-mini":
+                return gpt_primary
+            raise AssertionError(f"Unexpected model: {model}")
+
+        env = {
+            "GEMMA_MODEL": "google/gemma-4-E4B-it",
+            "OPENAI_API_KEY": "gpt-key",
+            "OPENAI_RECORD_SUMMARY_MODEL": "gpt-5-mini",
+            "OPENAI_RECORD_SUMMARY_FALLBACK_MODEL": "google/gemma-4-E4B-it",
+        }
+        with patch.dict("os.environ", env, clear=True):
+            provider = RecordSummaryProvider(timeout=11.0, model_factory=fake_model_factory)
+            with self.assertRaisesRegex(RuntimeError, "local Gemma is disabled"):
+                provider.summarize(PetProfile(id="pet-1", name="초코"), (), ContextAnalysisResult(), ())
+
+        self.assertEqual(
+            created,
+            [],
         )
 
     def test_three_tier_fallback_gpt_and_gemini_fail_gemma_responds(self):

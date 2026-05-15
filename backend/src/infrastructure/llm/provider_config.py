@@ -41,7 +41,7 @@ class LLMProviderConfig:
         )
 
     def require_credentials(self) -> None:
-        require_local_or_gpt_api_key(self.provider_name, self.api_key)
+        require_local_or_gpt_api_key(self.provider_name, self.api_key, self.model)
 
     def build_model(self, model_factory: Callable[[str, str, float], ModelT]) -> ModelT:
         return build_primary_with_gpt_fallback(
