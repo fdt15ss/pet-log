@@ -62,6 +62,12 @@ backend/.python-version
 backend/.chroma_db/
 backend/__pycache__/
 
+# Local databases
+*.sqlite
+*.sqlite3
+*.db
+*.sqlite-journal
+
 # Editors
 .idea/
 .vscode/
