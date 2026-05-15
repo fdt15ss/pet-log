@@ -190,7 +190,7 @@ function backendShoppingTimeoutMs() {
 
 function backendAiTimeoutMs() {
   const configured = Number(process.env.PET_LOG_AI_TIMEOUT_MS);
-  return Number.isFinite(configured) && configured > 0 ? configured : 120000;
+  return Number.isFinite(configured) && configured > 0 ? configured : 180000;
 }
 
 function formatBackendDateLabel(recordedAt: string) {

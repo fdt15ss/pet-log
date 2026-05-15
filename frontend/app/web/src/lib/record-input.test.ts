@@ -10,6 +10,7 @@ import {
   getMeasurementPreviewTileClassName,
   getMeasurementPreviewValueClassName,
   getRecordPreviewSummaryText,
+  getRecordSaveProcessingPrompt,
   getRecordTextAreaClassName,
   getVoiceRecordButtonClassName,
   getVoiceRecordCompletePrompt,
@@ -69,9 +70,12 @@ assert.equal(voiceMode.label, "녹음");
 assert.ok(voiceMode.detail.includes("마이크"));
 assert.equal(getVoiceRecordStartPrompt("코코"), "코코의 오늘을 들려주세요");
 assert.equal(getVoiceRecordCompletePrompt("코코"), "코코의 하루를 정리하고 있어요");
+assert.equal(getRecordSaveProcessingPrompt("코코"), "코코의 기록을 정리하고 있어요");
 assert.equal(getVoiceRecordStartPrompt("  "), "꾸꾸의 오늘을 들려주세요");
 assert.ok(recordPageSource.includes("await speakVoicePrompt(getVoiceRecordStartPrompt(profile.name))"));
 assert.ok(recordPageSource.includes("void speakVoicePrompt(getVoiceRecordCompletePrompt(profile.name))"));
+assert.ok(recordPageSource.includes("preloadCachedSpeechAudio(getRecordSaveProcessingPrompt(profile.name), synthesizeSpeech)"));
+assert.ok(recordPageSource.includes("void speakVoicePrompt(getRecordSaveProcessingPrompt(profile.name))"));
 
 const photoMode = getInputModeFeedback("photo");
 assert.equal(photoMode.status, "coming-soon");

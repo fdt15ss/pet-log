@@ -71,6 +71,10 @@ export function getVoiceRecordCompletePrompt(petName: string) {
   return `${resolveVoicePromptPetName(petName)}의 하루를 정리하고 있어요`;
 }
 
+export function getRecordSaveProcessingPrompt(petName: string) {
+  return `${resolveVoicePromptPetName(petName)}의 기록을 정리하고 있어요`;
+}
+
 export const recordCategoryChoiceOptions = [
   { icon: "record", label: "AI 자동", value: "all", hint: "내용 기준" },
   { icon: "meal", label: "식사", value: "meal", hint: "먹은 양" },
