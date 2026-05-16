@@ -12,6 +12,12 @@ Before implementing:
 - If a simpler approach exists, say so. Push back when warranted.
 - If something is unclear, stop. Name what's confusing. Ask.
 
+## 세션 이어받기
+
+- 새 세션에서 이전 작업 맥락이 필요하면 루트의 `session-summary.md`를 먼저 읽고, 거기에 적힌 확인된 사실과 다음 단계를 기준으로 이어간다.
+- 사용자가 세션 요약, handoff, 새 세션용 정리를 요청하면 `session-summary.md`를 전체 세션 로그처럼 이어 붙이지 말고, 현재 이어받기에 필요한 최신 상태 스냅샷으로 덮어쓴다.
+- 사용자가 명시적으로 로그 누적이나 append를 요청한 경우에만 기존 요약 아래에 이어 붙인다.
+
 ## 2. Simplicity First
 
 **Minimum code that solves the problem. Nothing speculative.**
