@@ -27,10 +27,9 @@ mkdir -p "${PACKAGE_DIR}"
 
 # 3. 필수 파일 복사
 echo "Copying source files..."
-# src/ 폴더와 주요 .py 파일들 복사
+# src/ 폴더와 주요 .py 파일들 복사 (composition.py는 src/ 안에 있음)
 cp -R src "${PACKAGE_DIR}/"
 cp main.py "${PACKAGE_DIR}/"
-cp composition.py "${PACKAGE_DIR}/"
 cp db_schema.py "${PACKAGE_DIR}/"
 cp requirements.txt "${PACKAGE_DIR}/"
 
