@@ -68,3 +68,6 @@ backend/requirements.txt
 .vscode/
 .worktrees/
 .worktrees/
+
+# Claude Code local settings (personal allowlists, not project config)
+.claude/settings.local.json
