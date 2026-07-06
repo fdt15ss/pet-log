@@ -128,7 +128,7 @@ Pet Log는 기록 앱이 아니라 **기록을 해석하고 다음 행동으로 
 | Language | Python `>=3.12` | AI Agent 백엔드 구현 |
 | API | FastAPI `>=0.136.1` | HTTP API, health check, 기록 입력, STT, 추천 API |
 | Server | Uvicorn | ASGI 서버 실행 |
-| Agent Graph | LangGraph `>=1.1,<2.0` | 상태 기반 agent pipeline orchestration |
+| Agent Graph | LangGraph `>=1.1,<2.0` | Pet Log agent pipeline과 쇼핑 추천 workflow orchestration |
 | LLM Adapter | LangChain `>=1.0,<2.0` | 모델, tool, middleware adapter |
 | Storage | SQLite | 로컬 영구 저장소 |
 | Speech | OpenAI Whisper, edge-tts | STT/TTS provider |
@@ -170,6 +170,8 @@ presentation
 - `tools`: agent가 호출할 수 있는 record, profile, schedule, care, speech tool을 제공합니다.
 - `presentation`: FastAPI HTTP와 CLI 같은 외부 진입점을 담당합니다.
 
+LangGraph는 모든 에이전트에 무조건 적용하지 않고, 상태 전이가 분명한 흐름에 선택적으로 사용했습니다. 자연어 기록 입력 파이프라인은 `structure_record -> load_context -> analyze_context -> detect_risk -> save_records -> suggest_care -> recommend_shopping -> plan_reminders` 순서의 `StateGraph`로 구성했고, 쇼핑 추천 에이전트는 내부적으로 `prepare_categories -> search_products -> select_recommendations -> build_result` 노드로 나누어 실행합니다. 반면 병원 추천은 응급 여부 판단, 반경 조정, Google Places 검색, 정렬/필터링 흐름이 비교적 짧기 때문에 LangGraph보다 일반 application agent와 provider/middleware 조합으로 단순하게 유지했습니다.
+
 ## 8. AI Agent 설계
 
 ### 8.1 기록 분석 Agent Track
@@ -189,9 +191,11 @@ presentation
 | --- | --- |
 | PetPersonaAgent | 반려동물 프로필과 최근 기록을 반영한 대화 응답 |
 | CareAnswerProvider | 케어 질문에 반려동물 맥락과 케어 지식 검색 결과를 결합 |
-| ShoppingAgent | Naver Shopping 상품 후보 검색 및 추천 이유 생성 |
-| HospitalRecommendationAgent | Google Places 기반 위치별 동물병원 추천 |
+| ShoppingAgent | LangGraph 기반으로 쇼핑 카테고리 생성, Naver Shopping 후보 검색, LLM 상품 선택, 추천 이유 생성을 오케스트레이션 |
+| HospitalRecommendationAgent | 응급/야간 문맥을 반영해 Google Places 기반 위치별 동물병원 추천 |
 | PhotoRecordUnderstandingAgent | 이미지 기반 기록 이해 확장 지점 |
+
+쇼핑 추천은 LLM 판단과 외부 검색 API가 여러 단계로 이어지기 때문에 LangGraph로 각 단계를 노드화했습니다. 카테고리 생성에 실패하면 빈 추천으로 종료하고, 상품 선택 LLM이 실패하면 첫 번째 후보를 유지하는 식으로 fallback 경계를 명확히 했습니다. 병원 추천은 같은 외부 연동 기능이지만 의료 안전 문맥이 더 중요하므로, 검색 반경 확대와 24시간 병원 우선 정렬은 명시적 규칙으로 두고 provider 실패 시 Google Maps 검색 링크 fallback을 제공했습니다.
 
 ## 9. 주요 API 구현
 
@@ -269,7 +273,7 @@ bash scripts/azure-deploy.sh <resource-group> <app-name> [subscription]
 - 자연어 기록 입력을 구조화하고, 분석 후 DB에 저장하는 backend pipeline을 연결했습니다.
 - FastAPI와 SQLite 기반으로 기록, 일정, 알림, 파일, 음성, 병원 추천, 커뮤니티, 쇼핑 추천 API를 구현했습니다.
 - 알림 후보 생성, 중복 제거, 읽음 처리까지 포함한 알림 파이프라인을 구현했습니다.
-- Naver Shopping API와 LLM을 결합한 쇼핑 추천 이유 생성 흐름을 구현했습니다.
+- Naver Shopping API와 LLM을 결합한 쇼핑 추천 흐름을 LangGraph 기반 에이전트로 구현했습니다.
 - Google Places API 기반 동물병원 추천과 fallback 처리를 구현했습니다.
 - 프론트엔드 단위 테스트, Playwright QA, 백엔드 unittest 검증 체계를 정리했습니다.
 - Azure App Service 배포 스크립트와 운영 문서를 마련했습니다.
@@ -278,6 +282,7 @@ bash scripts/azure-deploy.sh <resource-group> <app-name> [subscription]
 
 - 단순 기록 앱이 아니라 기록, 분석, 제안, 알림, 대화로 이어지는 agent 제품 흐름을 설계했습니다.
 - `presentation -> application -> infrastructure` 계층 구조로 HTTP, DB, LLM SDK 의존성을 분리했습니다.
+- LangGraph를 기록 분석 파이프라인과 쇼핑 추천 에이전트에 적용해 단계별 상태 업데이트를 테스트하고 관찰할 수 있게 했습니다.
 - LLM provider를 기능별로 분리해 기록 구조화, 기록 요약, 케어 답변, 펫 페르소나, 이미지 기록 이해로 확장할 수 있게 했습니다.
 - Gemma(Ollama)와 GPT를 primary/fallback으로 전환할 수 있는 하이브리드 LLM 구조를 지원했습니다.
 - RAG, 이미지 기록 이해, 병원 제출용 리포트, 커머스 개인화로 확장 가능한 경계를 마련했습니다.
@@ -295,6 +300,16 @@ bash scripts/azure-deploy.sh <resource-group> <app-name> [subscription]
 ### 누적 맥락이 제품 차별점이 되었다
 
 단발성 질문에 답하는 AI보다 최근 기록, 일정, 프로필, 반복 패턴을 함께 보는 AI가 보호자에게 더 실질적인 도움을 줄 수 있었습니다. Pet Log의 핵심 차별점은 데이터를 저장하는 것이 아니라 누적 맥락을 해석해 다음 행동으로 연결하는 데 있습니다.
+
+### LangGraph는 복잡한 흐름에 선택적으로 적용해야 했다
+
+처음에는 병원 추천과 쇼핑 추천을 모두 같은 방식의 에이전트로 설명하고 싶었지만, 실제 구현을 진행하면서 두 기능의 복잡도가 다르다는 점이 드러났습니다. 쇼핑 추천은 LLM으로 검색 카테고리를 만들고, 외부 API 결과를 받은 뒤, 다시 LLM으로 Top 3 후보 중 하나를 고르고 추천 이유를 붙이는 다단계 흐름이었습니다. 그래서 LangGraph로 노드를 나누는 편이 테스트와 설명 모두에 유리했습니다.
+
+반대로 병원 추천은 응급 키워드, 야간 시간대, 검색 반경, 24시간 운영 여부처럼 규칙 기반 판단이 핵심이었습니다. 이 흐름까지 그래프로 감싸면 포트폴리오상 기술 사용은 더 화려해 보일 수 있지만, 실제 코드에서는 provider와 middleware 조합이 더 단순하고 명확했습니다. 이 시행착오를 통해 기술을 많이 쓰는 것보다, 문제의 단계 수와 실패 지점에 맞게 적용 범위를 정하는 것이 더 중요하다는 점을 확인했습니다.
+
+### 외부 API 에이전트는 실패 경로 설계가 핵심이었다
+
+쇼핑 추천에서는 Naver API 결과가 비어 있거나 LLM 선택이 실패하는 경우를 고려해야 했고, 병원 추천에서는 Google Places API key 누락, rate limit, 검색 실패 상황에서도 보호자에게 최소한의 다음 행동을 안내해야 했습니다. 그래서 두 에이전트 모두 성공 흐름보다 fallback 흐름을 먼저 안정화하는 데 시간이 들었습니다. 결과적으로 쇼핑은 규칙 기반 네이버 검색 fallback, 병원은 Google Maps 검색 링크 fallback과 캐시/rate limit middleware를 두어 외부 API 의존으로 서비스 경험이 끊기지 않도록 설계했습니다.
 
 ### 확장 가능한 계층 구조가 후속 기능의 여지를 만들었다
 
