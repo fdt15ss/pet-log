@@ -149,6 +149,29 @@ class TestShoppingAgent(unittest.TestCase):
         self.assertEqual(recommendations[0].product_url, "https://shopping.example/products/food-2")
         self.assertIn("급여 관리", recommendations[0].reason)
 
+    def test_streams_langgraph_node_updates(self) -> None:
+        recommendation_provider = FakeRecommendationProvider()
+        recommendation_agent_provider = FakeShoppingRecommendationProvider()
+        recommendation_agent = ShoppingRecommendationAgent(recommendation_agent_provider)
+        agent = ShoppingAgent(recommendation_provider, recommendation_agent=recommendation_agent)
+
+        updates = tuple(
+            agent.stream_updates(
+                PetProfile(id="pet-1", name="Buddy", breed="Maltese", species="dog", weight_label="3.4kg"),
+                "meal log",
+                (_meal_record(),),
+            )
+        )
+
+        self.assertEqual(
+            [next(iter(update)) for update in updates],
+            ["prepare_categories", "search_products", "select_recommendations", "build_result"],
+        )
+        self.assertEqual(
+            updates[-1]["build_result"]["result"][0].product_url,
+            "https://shopping.example/products/food-2",
+        )
+
     def test_keeps_first_candidate_when_selection_agent_fails(self) -> None:
         recommendation_agent = ShoppingRecommendationAgent(FailingSelectionProvider())
         agent = ShoppingAgent(FakeRecommendationProvider(), recommendation_agent=recommendation_agent)
@@ -232,7 +255,7 @@ class TestShoppingAgent(unittest.TestCase):
 
 
 class FakeChatModel:
-    def invoke(self, messages):
+    def invoke(self, messages, **_kwargs):
         return '{"queries":[]}'
 
 
